@@ -47,4 +47,28 @@ describe("dynamic routes", () => {
 
     expect(route?.meta?.loadError).toContain("missing/index");
   });
+
+  it("recognizes the immersive MarketLayout component", () => {
+    const routes = buildDynamicRoutes([
+      {
+        routeName: "Market",
+        path: "/market",
+        hidden: false,
+        component: "MarketLayout",
+        meta: { menuName: "行情大屏" },
+        children: [
+          {
+            routeName: "MarketOverview",
+            path: "/market/overview",
+            hidden: false,
+            component: "market/overview/index",
+            meta: { menuName: "大盘与板块总览" },
+          },
+        ],
+      },
+    ]);
+
+    expect(routes[0]?.meta?.loadError).toBeUndefined();
+    expect(firstVisiblePath(routes)).toBe("/market/overview");
+  });
 });

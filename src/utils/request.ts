@@ -13,6 +13,16 @@ import {
   getCredential,
 } from "@/utils/storage";
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    silentError?: boolean;
+  }
+
+  export interface InternalAxiosRequestConfig {
+    silentError?: boolean;
+  }
+}
+
 export const AUTH_EXPIRED_EVENT = "vita-stock-admin:auth-expired";
 
 export type ApiMethod = "GET" | "POST";
@@ -52,6 +62,10 @@ function showError(message: string): void {
   }
 }
 
+function shouldShowError(config?: AxiosRequestConfig): boolean {
+  return config?.silentError !== true;
+}
+
 httpClient.interceptors.request.use((config) => {
   const credential = getCredential();
   if (credential) {
@@ -77,7 +91,9 @@ httpClient.interceptors.response.use(
       expireSession();
     }
     const message = result.msg || "请求失败，请稍后重试";
-    showError(message);
+    if (shouldShowError(response.config)) {
+      showError(message);
+    }
     throw new ApiError(message, result.code);
   },
   (error: AxiosError<CommonResult<unknown>>) => {
@@ -91,7 +107,9 @@ httpClient.interceptors.response.use(
     if (code === 401) {
       expireSession();
     }
-    showError(message);
+    if (shouldShowError(error.config)) {
+      showError(message);
+    }
     throw new ApiError(message, code);
   },
 );

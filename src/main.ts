@@ -5,6 +5,7 @@ import { permissionDirective } from "@/directives/permission";
 import router from "@/router";
 import { pinia } from "@/stores";
 import "@/styles/index.css";
+import "@/styles/market.css";
 
 const app = createApp(App);
 

@@ -7,6 +7,7 @@ import type { BackendRoute } from "@/types/api";
 
 const viewModules = import.meta.glob<RouteComponent>("../views/**/*.vue");
 const AdminLayout = () => import("@/layout/index.vue");
+const MarketLayout = () => import("@/layout/MarketLayout.vue");
 const RouteLoadError = () => import("@/views/error/RouteLoadError.vue");
 
 function resolveComponent(componentPath: string): {
@@ -15,6 +16,9 @@ function resolveComponent(componentPath: string): {
 } {
   if (componentPath === "Layout") {
     return { component: AdminLayout };
+  }
+  if (componentPath === "MarketLayout") {
+    return { component: MarketLayout };
   }
 
   const normalized = componentPath
@@ -72,7 +76,11 @@ export function firstVisiblePath(routes: RouteRecordRaw[]): string {
         return childPath;
       }
     }
-    if (route.path && route.component !== AdminLayout) {
+    if (
+      route.path &&
+      route.component !== AdminLayout &&
+      route.component !== MarketLayout
+    ) {
       return route.path;
     }
   }
