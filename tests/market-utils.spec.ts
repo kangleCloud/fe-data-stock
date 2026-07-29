@@ -70,7 +70,7 @@ describe("market chart adapters", () => {
       {
         code: "BK001",
         name: "测试板块",
-        type: "INDUSTRY",
+        type: "industry",
         changePercent: 2.3,
         turnover: 10,
         marketCap: 100,
@@ -81,7 +81,7 @@ describe("market chart adapters", () => {
         mainNetInflow: 3,
       },
     ];
-    const option = buildTreemapOption(sectors, "TURNOVER") as {
+    const option = buildTreemapOption(sectors, "turnover") as {
       series: Array<{ data: Array<{ value: number[] }> }>;
     };
     expect(option.series[0]?.data[0]?.value).toEqual([10, 2.3]);

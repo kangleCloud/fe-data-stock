@@ -94,7 +94,7 @@ export function buildTreemapOption(
         data: sectors.map((sector) => ({
           ...sector,
           value: [
-            metric === "TURNOVER" ? sector.turnover ?? 0 : sector.marketCap ?? 0,
+            metric === "turnover" ? sector.turnover ?? 0 : sector.marketCap ?? 0,
             sector.changePercent ?? 0,
           ],
         })),

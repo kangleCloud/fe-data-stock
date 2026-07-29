@@ -66,11 +66,14 @@ export interface MarketSummary {
   updateTime: string | null;
 }
 
-export type SectorType = "INDUSTRY" | "CONCEPT";
-export type SectorAreaMetric = "TURNOVER" | "MARKET_CAP";
-export type SectorDirection = "ALL" | "RISE" | "FALL";
-export type SectorTopMetric = "CHANGE_PERCENT" | "MAIN_NET_INFLOW" | "TURNOVER";
-export type RankingPeriod = "TODAY" | "5D" | "10D";
+export type SectorType = "industry" | "concept";
+export type SectorAreaMetric = "turnover" | "marketcap";
+export type SectorDirection = "all" | "up" | "down";
+export type SectorTopMetric =
+  | "changepercent"
+  | "mainnetinflow"
+  | "turnover";
+export type RankingPeriod = "today" | "5d" | "10d";
 
 export interface SectorSnapshot {
   code: string;
@@ -85,6 +88,11 @@ export interface SectorSnapshot {
   leadingStockName: string | null;
   mainNetInflow: number | null;
   updateTime?: string | null;
+}
+
+export interface SectorHeatmapData {
+  availableAreaMetrics: SectorAreaMetric[];
+  list: SectorSnapshot[];
 }
 
 export interface SectorTopStock {

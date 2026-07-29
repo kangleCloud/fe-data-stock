@@ -74,14 +74,14 @@ const moduleStates = ref<Record<string, ModuleState>>({
   mutations: defaultModule(),
 });
 
-const sectorType = ref<SectorType>("INDUSTRY");
-const areaMetric = ref<SectorAreaMetric>("TURNOVER");
-const sectorDirection = ref<SectorDirection>("ALL");
+const sectorType = ref<SectorType>("industry");
+const areaMetric = ref<SectorAreaMetric>("turnover");
+const sectorDirection = ref<SectorDirection>("all");
 const sectorKeyword = ref("");
 const sectorView = ref<"HEATMAP" | "LIST">("HEATMAP");
 const selectedSectorCode = ref("");
-const topMetric = ref<SectorTopMetric>("CHANGE_PERCENT");
-const rankingPeriod = ref<RankingPeriod>("TODAY");
+const topMetric = ref<SectorTopMetric>("changepercent");
+const rankingPeriod = ref<RankingPeriod>("today");
 const fundDays = ref<5 | 10 | 20>(20);
 const visibleFundTypes = ref<FundType[]>(["MAIN"]);
 
@@ -98,8 +98,8 @@ const filteredSectors = computed(() => {
   const keyword = sectorKeyword.value.trim().toLowerCase();
   return sectors.value.filter((sector) => {
     if (keyword && !sector.name.toLowerCase().includes(keyword)) return false;
-    if (sectorDirection.value === "RISE") return (sector.changePercent ?? 0) > 0;
-    if (sectorDirection.value === "FALL") return (sector.changePercent ?? 0) < 0;
+    if (sectorDirection.value === "up") return (sector.changePercent ?? 0) > 0;
+    if (sectorDirection.value === "down") return (sector.changePercent ?? 0) < 0;
     return true;
   });
 });
@@ -166,7 +166,7 @@ async function loadHeatmap(): Promise<void> {
     const response = await marketApi.getSectorHeatmap({
       sectorType: sectorType.value,
     });
-    sectors.value = response.data || [];
+    sectors.value = response.data.list;
     if (
       sectors.value.length &&
       !sectors.value.some((item) => item.code === selectedSectorCode.value)
@@ -191,6 +191,7 @@ async function loadTopStocks(): Promise<void> {
   setModuleLoading("topStocks");
   try {
     const response = await marketApi.getSectorTopStocks({
+      sectorType: sectorType.value,
       sectorCode: selectedSectorCode.value,
       metric: topMetric.value,
     });
@@ -207,6 +208,7 @@ async function loadRankings(): Promise<void> {
   try {
     const response = await marketApi.getSectorRankings({
       period: rankingPeriod.value,
+      sectorType: sectorType.value,
     });
     rankings.value = response.data;
     marketStore.markModule("rankings", response);
@@ -274,9 +276,12 @@ function goToStock(stockCode: string): void {
 }
 
 watch(() => marketStore.refreshSignal, loadAll, { immediate: true });
-watch(sectorType, loadHeatmap);
+watch(sectorType, (value) => {
+  if (value === "concept") areaMetric.value = "marketcap";
+  void loadHeatmap();
+});
 watch([selectedSectorCode, topMetric], loadTopStocks);
-watch(rankingPeriod, loadRankings);
+watch([rankingPeriod, sectorType], loadRankings);
 watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
 </script>
 
@@ -369,11 +374,11 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
         </template>
         <div class="heatmap-toolbar">
           <div class="market-controls">
-            <button :class="{ 'is-active': sectorType === 'INDUSTRY' }" @click="sectorType = 'INDUSTRY'">行业</button>
-            <button :class="{ 'is-active': sectorType === 'CONCEPT' }" @click="sectorType = 'CONCEPT'">概念</button>
-            <button :class="{ 'is-active': areaMetric === 'TURNOVER' }" @click="areaMetric = 'TURNOVER'">面积：成交额</button>
-            <button :class="{ 'is-active': areaMetric === 'MARKET_CAP' }" @click="areaMetric = 'MARKET_CAP'">面积：总市值</button>
-            <button v-for="item in ([['ALL','全部'],['RISE','仅上涨'],['FALL','仅下跌']] as const)" :key="item[0]" :class="{ 'is-active': sectorDirection === item[0] }" @click="sectorDirection = item[0]">{{ item[1] }}</button>
+            <button :class="{ 'is-active': sectorType === 'industry' }" @click="sectorType = 'industry'">行业</button>
+            <button :class="{ 'is-active': sectorType === 'concept' }" @click="sectorType = 'concept'">概念</button>
+            <button :class="{ 'is-active': areaMetric === 'turnover' }" :disabled="sectorType === 'concept'" @click="areaMetric = 'turnover'">面积：成交额</button>
+            <button :class="{ 'is-active': areaMetric === 'marketcap' }" @click="areaMetric = 'marketcap'">面积：总市值</button>
+            <button v-for="item in ([['all','全部'],['up','仅上涨'],['down','仅下跌']] as const)" :key="item[0]" :class="{ 'is-active': sectorDirection === item[0] }" @click="sectorDirection = item[0]">{{ item[1] }}</button>
           </div>
           <el-input v-model="sectorKeyword" clearable placeholder="搜索板块名称" :prefix-icon="Search" class="sector-search" />
         </div>
@@ -394,7 +399,7 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
           >
             <span><strong>{{ sector.name }}</strong><small>{{ sector.code }}</small></span>
             <span :class="`tone-${valueTone(sector.changePercent)}`">{{ formatPercent(sector.changePercent) }}</span>
-            <span>{{ formatAmount(areaMetric === 'TURNOVER' ? sector.turnover : sector.marketCap) }}</span>
+            <span>{{ formatAmount(areaMetric === 'turnover' ? sector.turnover : sector.marketCap) }}</span>
           </button>
         </div>
         <p class="chart-summary">{{ heatmapSummary }}</p>
@@ -409,7 +414,7 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
       >
         <template #actions>
           <div class="market-controls">
-            <button v-for="item in ([['CHANGE_PERCENT','涨幅'],['MAIN_NET_INFLOW','主力净流入'],['TURNOVER','成交额']] as const)" :key="item[0]" :class="{ 'is-active': topMetric === item[0] }" @click="topMetric = item[0]">{{ item[1] }}</button>
+            <button v-for="item in ([['changepercent','涨幅'],['mainnetinflow','主力净流入'],['turnover','成交额']] as const)" :key="item[0]" :class="{ 'is-active': topMetric === item[0] }" @click="topMetric = item[0]">{{ item[1] }}</button>
           </div>
         </template>
         <div class="top-stock-list">
@@ -437,23 +442,23 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
       >
         <template #actions>
           <div class="market-controls">
-            <button v-for="item in ([['TODAY','今日'],['5D','近5日'],['10D','近10日']] as const)" :key="item[0]" :class="{ 'is-active': rankingPeriod === item[0] }" @click="rankingPeriod = item[0]">{{ item[1] }}</button>
+            <button v-for="item in ([['today','今日'],['5d','近5日'],['10d','近10日']] as const)" :key="item[0]" :class="{ 'is-active': rankingPeriod === item[0] }" @click="rankingPeriod = item[0]">{{ item[1] }}</button>
           </div>
         </template>
         <div class="ranking-grid">
           <div
             v-for="group in [
-              { title: '涨幅 TOP5', data: rankings.topRise, tone: 'rise' },
-              { title: '跌幅 TOP5', data: rankings.topFall, tone: 'fall' },
-              { title: '净流入 TOP5', data: rankings.topInflow, tone: 'rise' },
-              { title: '净流出 TOP5', data: rankings.topOutflow, tone: 'fall' },
+              { title: '涨幅 TOP5', data: rankings.topRise, tone: 'rise', unit: 'percent' },
+              { title: '跌幅 TOP5', data: rankings.topFall, tone: 'fall', unit: 'percent' },
+              { title: '净流入 TOP5', data: rankings.topInflow, tone: 'rise', unit: 'amount' },
+              { title: '净流出 TOP5', data: rankings.topOutflow, tone: 'fall', unit: 'amount' },
             ]"
             :key="group.title"
           >
             <h3>{{ group.title }}</h3>
             <button v-for="(item, index) in group.data" :key="item.sectorCode" type="button" @click="selectSector(item.sectorCode, item.sectorType)">
               <span><i>{{ index + 1 }}</i>{{ item.sectorName }}</span>
-              <b :class="`tone-${group.tone}`">{{ formatAmount(item.value) }}</b>
+              <b :class="`tone-${group.tone}`">{{ group.unit === 'percent' ? formatPercent(item.value) : formatAmount(item.value) }}</b>
             </button>
           </div>
         </div>
