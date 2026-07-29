@@ -91,13 +91,23 @@ export function buildTreemapOption(
         },
         upperLabel: { show: false },
         itemStyle: { borderColor: "#07111F", borderWidth: 2, gapWidth: 2 },
-        data: sectors.map((sector) => ({
-          ...sector,
-          value: [
-            metric === "turnover" ? sector.turnover ?? 0 : sector.marketCap ?? 0,
-            sector.changePercent ?? 0,
-          ],
-        })),
+        data: sectors.flatMap((sector) => {
+          const areaValue =
+            metric === "turnover" ? sector.turnover : sector.marketCap;
+          if (
+            areaValue == null ||
+            areaValue <= 0 ||
+            sector.changePercent == null
+          ) {
+            return [];
+          }
+          return [
+            {
+              ...sector,
+              value: [areaValue, sector.changePercent],
+            },
+          ];
+        }),
       },
     ],
   };

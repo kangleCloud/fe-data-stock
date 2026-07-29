@@ -179,6 +179,7 @@ async function toggleStock(item: StockDictionaryItem): Promise<void> {
       confirmButtonText: action,
       cancelButtonText: "取消",
       type: item.enabled ? "warning" : "info",
+      customClass: "market-dark-dialog",
     },
   );
   dictionarySubmitting.value = item.stockCode;
@@ -254,10 +255,11 @@ onMounted(() => {
       <div>
         <p>STOCK FUND MONITOR</p>
         <h1>个股资金监控</h1>
+        <span>每只启用股票独立成图，流入、流出与净额均按40秒节奏更新</span>
       </div>
       <div class="monitor-heading__tools">
-        <span>第 {{ pageNum }} / {{ pageCount }} 页</span>
-        <span>已启用 {{ monitorPage.enabledTotal }} / {{ ENABLE_LIMIT }} 只</span>
+        <span class="monitor-count">第 {{ pageNum }} / {{ pageCount }} 页</span>
+        <span class="monitor-count">已启用 {{ monitorPage.enabledTotal }} / {{ ENABLE_LIMIT }} 只</span>
         <div class="quick-search">
           <el-input
             v-model="quickKeyword"
@@ -310,6 +312,7 @@ onMounted(() => {
         :status="stock.dataStatus"
         :message="stock.message"
         :has-data="stock.points.length > 0"
+        :loading="monitorLoading"
         class="stock-card"
         :class="{ 'is-highlighted': highlightCode === stock.stockCode }"
       >
@@ -318,6 +321,11 @@ onMounted(() => {
             {{ dataStatusLabels[stock.dataStatus] }} ·
             {{ formatDateTime(stock.updateTime) }}
           </span>
+        </template>
+        <template #retry>
+          <button class="market-retry-button" type="button" @click="loadMonitor()">
+            重新加载
+          </button>
         </template>
         <div class="stock-card__metrics">
           <div class="stock-price">
@@ -337,12 +345,19 @@ onMounted(() => {
           v-if="stock.points.length"
           :option="buildStockFundOption(stock.points)"
           :accessible-label="cardSummary(stock)"
-          height="270px"
+          height="clamp(200px, 22vh, 270px)"
         />
         <div v-else class="stock-chart-empty">
           <strong>{{ dataStatusLabels[stock.dataStatus] }}</strong>
           <span>{{ stock.message || "尚无有效资金数据点" }}</span>
         </div>
+        <p
+          v-if="(stock.dataStatus === 'STALE' || stock.dataStatus === 'ERROR') && stock.points.length"
+          class="stock-card__alert"
+          aria-live="polite"
+        >
+          {{ stock.message || "本次刷新失败，当前保留上次成功曲线。" }}
+        </p>
         <details class="stock-accessible-table">
           <summary>查看可访问数据表</summary>
           <div class="stock-table-scroll">
@@ -388,6 +403,7 @@ onMounted(() => {
       title="A股股票字典"
       size="min(760px, 100vw)"
       class="stock-dictionary-drawer"
+      modal-class="market-drawer-overlay"
     >
       <div class="dictionary-intro">
         <div>
@@ -438,7 +454,6 @@ onMounted(() => {
             <template v-if="canManage && item.enabled">
               <el-button
                 circle
-                size="small"
                 :icon="ArrowUp"
                 aria-label="上移"
                 :disabled="Boolean(dictionarySubmitting)"
@@ -446,7 +461,6 @@ onMounted(() => {
               />
               <el-button
                 circle
-                size="small"
                 :icon="ArrowDown"
                 aria-label="下移"
                 :disabled="Boolean(dictionarySubmitting)"
@@ -455,7 +469,6 @@ onMounted(() => {
             </template>
             <el-button
               v-if="canManage"
-              size="small"
               :type="item.enabled ? 'danger' : 'primary'"
               plain
               :icon="Setting"
@@ -556,5 +569,287 @@ onMounted(() => {
   .dictionary-filters .el-input, .dictionary-filters .el-select { width: 100%; }
   .dictionary-list article { grid-template-columns: 1fr 1fr; }
   .dictionary-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+</style>
+
+<style scoped>
+.stock-monitor-page {
+  gap: 12px;
+}
+
+.monitor-heading {
+  min-height: 52px;
+  align-items: center;
+}
+
+.monitor-heading > div:first-child {
+  min-width: 230px;
+}
+
+.monitor-heading p {
+  margin-bottom: 2px;
+  color: var(--market-primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+
+.monitor-heading h1 {
+  display: inline;
+  color: var(--market-text);
+  font-size: clamp(20px, 1.4vw, 24px);
+  line-height: 1.2;
+}
+
+.monitor-heading > div:first-child > span {
+  margin-left: 12px;
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.monitor-heading__tools {
+  min-width: 0;
+  gap: 8px;
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.monitor-count {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--market-text-secondary);
+  white-space: nowrap;
+  border: 1px solid var(--market-border);
+  border-radius: 8px;
+  background: var(--market-panel);
+}
+
+.quick-search {
+  width: min(310px, 28vw);
+  gap: 6px;
+}
+
+.quick-search button,
+.dictionary-button {
+  min-height: 44px;
+  padding: 0 13px;
+  color: #dbeafe;
+  border-color: #3b82f6;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, .14);
+  transition: border-color .18s ease, background-color .18s ease;
+}
+
+.quick-search button:hover,
+.dictionary-button:hover {
+  border-color: #60a5fa;
+  background: rgba(59, 130, 246, .24);
+}
+
+.monitor-disclaimer {
+  margin-top: -4px;
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.stock-card-grid,
+.monitor-skeleton-grid {
+  gap: 12px;
+}
+
+.stock-card {
+  min-height: clamp(380px, 40vh, 440px);
+}
+
+.stock-card.is-highlighted {
+  border-color: #60a5fa;
+  box-shadow: inset 4px 0 0 #3b82f6, 0 0 0 2px rgba(59, 130, 246, .2);
+}
+
+.stock-data-time {
+  color: var(--market-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-card__metrics {
+  grid-template-columns: 1.25fr repeat(5, minmax(0, 1fr));
+  margin-bottom: 8px;
+  border-color: var(--market-border);
+  border-radius: 9px;
+  background: var(--market-border);
+}
+
+.stock-card__metrics > div {
+  min-height: 62px;
+  padding: 8px 10px;
+  background: #091423;
+}
+
+.stock-card__metrics small {
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.stock-card__metrics strong {
+  color: var(--market-text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-price strong {
+  font-size: 22px;
+}
+
+.stock-price span {
+  right: 9px;
+  bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stock-card__alert {
+  margin: 7px 0 0;
+  padding: 7px 10px;
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, .28);
+  border-radius: 7px;
+  background: rgba(127, 29, 29, .16);
+  font-size: 12px;
+}
+
+.stock-accessible-table {
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.stock-accessible-table summary {
+  min-height: 36px;
+}
+
+.stock-accessible-table table {
+  color: var(--market-text-secondary);
+}
+
+.stock-accessible-table th,
+.stock-accessible-table td {
+  padding: 7px;
+  border-bottom-color: var(--market-border);
+}
+
+.stock-chart-empty {
+  height: clamp(200px, 22vh, 270px);
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.stock-chart-empty strong {
+  color: var(--market-text-secondary);
+  font-size: 14px;
+}
+
+.monitor-pagination {
+  min-height: 44px;
+  align-items: center;
+}
+
+.monitor-error {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, .3);
+  background: rgba(127, 29, 29, .16);
+  font-size: 12px;
+}
+
+.monitor-skeleton {
+  min-height: clamp(380px, 40vh, 440px);
+  border-color: var(--market-border);
+  background:
+    linear-gradient(var(--market-surface), var(--market-surface)) 16px 18px / 38% 18px no-repeat,
+    linear-gradient(var(--market-surface), var(--market-surface)) 16px 58px / calc(100% - 32px) 64px no-repeat,
+    linear-gradient(var(--market-surface), var(--market-surface)) 16px 142px / calc(100% - 32px) 220px no-repeat,
+    linear-gradient(100deg, var(--market-panel) 30%, var(--market-surface) 50%, var(--market-panel) 70%);
+  background-size: 38% 18px, calc(100% - 32px) 64px, calc(100% - 32px) 220px, 240% 100%;
+}
+
+.dictionary-intro strong {
+  color: var(--market-text);
+  font-size: 15px;
+}
+
+.dictionary-intro span {
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.dictionary-list {
+  align-content: start;
+}
+
+.dictionary-list article {
+  min-height: 70px;
+  border-color: var(--market-border);
+  background: #091423;
+}
+
+.dictionary-list small {
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.dictionary-list strong {
+  color: var(--market-text-secondary);
+  font-size: 13px;
+}
+
+.stock-market {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  color: #bfdbfe;
+  border: 1px solid rgba(96, 165, 250, .35);
+  border-radius: 8px;
+  background: rgba(37, 99, 235, .16);
+  font-size: 11px;
+}
+
+.dictionary-actions :deep(.el-button) {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.dictionary-empty {
+  color: var(--market-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 1023px) {
+  .quick-search {
+    width: min(360px, 45vw);
+  }
+}
+
+@media (max-width: 767px) {
+  .monitor-heading > div:first-child > span {
+    display: block;
+    margin: 5px 0 0;
+  }
+
+  .monitor-heading__tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quick-search,
+  .dictionary-button {
+    width: 100%;
+    grid-column: 1 / -1;
+  }
+
+  .dictionary-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

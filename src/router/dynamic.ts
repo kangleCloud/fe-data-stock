@@ -10,10 +10,19 @@ const AdminLayout = () => import("@/layout/index.vue");
 const MarketLayout = () => import("@/layout/MarketLayout.vue");
 const RouteLoadError = () => import("@/views/error/RouteLoadError.vue");
 
-function resolveComponent(componentPath: string): {
+function resolveComponent(componentPath: string, routePath: string): {
   component: RouteComponent;
   loadError?: string;
 } {
+  if (routePath === "/market" && componentPath !== "MarketLayout") {
+    const loadError =
+      `行情父路由必须使用 MarketLayout，当前配置为：${componentPath || "空"}`;
+    console.error(loadError);
+    return {
+      component: RouteLoadError,
+      loadError,
+    };
+  }
   if (componentPath === "Layout") {
     return { component: AdminLayout };
   }
@@ -39,10 +48,11 @@ function resolveComponent(componentPath: string): {
 }
 
 function transformRoute(route: BackendRoute): RouteRecordRaw {
-  const resolved = resolveComponent(route.component);
+  const routePath = route.path || route.routeLink || "/";
+  const resolved = resolveComponent(route.component, routePath);
   const children = (route.children ?? []).map(transformRoute);
   const routeRecord: RouteRecordRaw = {
-    path: route.path || route.routeLink || "/",
+    path: routePath,
     name: route.routeName,
     component: resolved.component,
     meta: {

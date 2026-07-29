@@ -43,6 +43,18 @@ interface ModuleState {
   loading: boolean;
 }
 
+const INDEX_NAME_BY_CODE: Record<string, string> = {
+  "000001": "上证指数",
+  "399001": "深证成指",
+  "399006": "创业板指",
+  "000688": "科创50",
+  "000680": "科创综指",
+  "000510": "中证A500",
+  "000300": "沪深300",
+  "000016": "上证50",
+  "399330": "深证100",
+};
+
 const router = useRouter();
 const marketStore = useMarketStore();
 const defaultModule = (): ModuleState => ({
@@ -110,6 +122,10 @@ const heatmapSummary = computed(() => {
   ).length;
   return `当前展示 ${filteredSectors.value.length} 个板块，其中上涨 ${rise} 个、下跌 ${filteredSectors.value.length - rise} 个。`;
 });
+
+function indexDisplayName(item: MarketIndex): string {
+  return item.name?.trim() || INDEX_NAME_BY_CODE[item.code] || "未知指数";
+}
 
 function setModuleLoading(key: string): void {
   moduleStates.value[key] = { ...moduleStates.value[key]!, loading: true };
@@ -289,8 +305,8 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
   <div class="overview-page">
     <section class="overview-heading">
       <div>
-        <p>MARKET OVERVIEW</p>
         <h1>大盘与板块总览</h1>
+        <span>指数、市场情绪、板块和资金趋势</span>
       </div>
       <p class="overview-heading__note">
         行情仅供数据观察，不构成投资建议
@@ -303,7 +319,16 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
       :message="moduleStates.indices?.message"
       :loading="moduleStates.indices?.loading"
       :has-data="indices.length > 0"
+      class="indices-panel"
     >
+      <template #skeleton>
+        <div class="index-skeleton-grid">
+          <span v-for="item in 9" :key="item" />
+        </div>
+      </template>
+      <template #retry>
+        <button class="market-retry" type="button" @click="loadIndices">重新加载</button>
+      </template>
       <div class="index-grid">
         <button
           v-for="item in indices"
@@ -315,7 +340,8 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
           @click="marketStore.selectIndex(item.code)"
         >
           <span class="index-card__title">
-            <strong>{{ item.name }}</strong><small>{{ item.code }}</small>
+            <strong>{{ indexDisplayName(item) }}</strong>
+            <small>{{ item.code }}</small>
           </span>
           <span class="index-card__value">{{ formatPlainNumber(item.currentPoint) }}</span>
           <span :class="`tone-${valueTone(item.changePercent)}`">
@@ -324,7 +350,7 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
           </span>
           <BaseChart
             :option="buildSparklineOption(item.points || [], item.changePercent)"
-            :accessible-label="`${item.name}当日迷你走势`"
+            :accessible-label="`${indexDisplayName(item)}当日迷你走势`"
             height="42px"
           />
           <span class="index-card__footer">
@@ -341,7 +367,11 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
       :message="moduleStates.summary?.message"
       :loading="moduleStates.summary?.loading"
       :has-data="Boolean(summary)"
+      class="summary-panel"
     >
+      <template #retry>
+        <button class="market-retry" type="button" @click="loadSummary">重新加载</button>
+      </template>
       <div v-if="summary" class="summary-grid">
         <div class="summary-primary">
           <small>沪深京总成交额</small>
@@ -367,26 +397,29 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
         class="heatmap-panel"
       >
         <template #actions>
-          <div class="market-controls">
-            <button :class="{ 'is-active': sectorView === 'HEATMAP' }" @click="sectorView = 'HEATMAP'">热力图</button>
-            <button :class="{ 'is-active': sectorView === 'LIST' }" @click="sectorView = 'LIST'">列表</button>
+          <div class="heatmap-actions">
+            <div class="market-controls">
+              <button :class="{ 'is-active': sectorType === 'industry' }" @click="sectorType = 'industry'">行业</button>
+              <button :class="{ 'is-active': sectorType === 'concept' }" @click="sectorType = 'concept'">概念</button>
+              <button :class="{ 'is-active': areaMetric === 'turnover' }" :disabled="sectorType === 'concept'" @click="areaMetric = 'turnover'">成交额面积</button>
+              <button :class="{ 'is-active': areaMetric === 'marketcap' }" @click="areaMetric = 'marketcap'">市值面积</button>
+              <button v-for="item in ([['all','全部'],['up','上涨'],['down','下跌']] as const)" :key="item[0]" :class="{ 'is-active': sectorDirection === item[0] }" @click="sectorDirection = item[0]">{{ item[1] }}</button>
+            </div>
+            <el-input v-model="sectorKeyword" clearable placeholder="搜索板块" :prefix-icon="Search" class="sector-search" />
+            <div class="market-controls view-controls">
+              <button :class="{ 'is-active': sectorView === 'HEATMAP' }" @click="sectorView = 'HEATMAP'">热力图</button>
+              <button :class="{ 'is-active': sectorView === 'LIST' }" @click="sectorView = 'LIST'">列表</button>
+            </div>
           </div>
         </template>
-        <div class="heatmap-toolbar">
-          <div class="market-controls">
-            <button :class="{ 'is-active': sectorType === 'industry' }" @click="sectorType = 'industry'">行业</button>
-            <button :class="{ 'is-active': sectorType === 'concept' }" @click="sectorType = 'concept'">概念</button>
-            <button :class="{ 'is-active': areaMetric === 'turnover' }" :disabled="sectorType === 'concept'" @click="areaMetric = 'turnover'">面积：成交额</button>
-            <button :class="{ 'is-active': areaMetric === 'marketcap' }" @click="areaMetric = 'marketcap'">面积：总市值</button>
-            <button v-for="item in ([['all','全部'],['up','仅上涨'],['down','仅下跌']] as const)" :key="item[0]" :class="{ 'is-active': sectorDirection === item[0] }" @click="sectorDirection = item[0]">{{ item[1] }}</button>
-          </div>
-          <el-input v-model="sectorKeyword" clearable placeholder="搜索板块名称" :prefix-icon="Search" class="sector-search" />
-        </div>
+        <template #retry>
+          <button class="market-retry" type="button" @click="loadHeatmap">重新加载</button>
+        </template>
         <BaseChart
           v-if="sectorView === 'HEATMAP'"
           :option="buildTreemapOption(filteredSectors, areaMetric)"
           :accessible-label="heatmapSummary"
-          height="420px"
+          height="350px"
           @chart-click="handleTreemapClick"
         />
         <div v-else class="sector-list" role="list" :aria-label="heatmapSummary">
@@ -402,7 +435,12 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
             <span>{{ formatAmount(areaMetric === 'turnover' ? sector.turnover : sector.marketCap) }}</span>
           </button>
         </div>
-        <p class="chart-summary">{{ heatmapSummary }}</p>
+        <div class="heatmap-footer">
+          <div class="heatmap-legend" aria-label="板块涨跌颜色图例">
+            <span>跌幅较大</span><i /><i /><i /><i /><i /><span>涨幅较大</span>
+          </div>
+          <p class="chart-summary">{{ heatmapSummary }}</p>
+        </div>
       </MarketPanel>
 
       <MarketPanel
@@ -411,23 +449,32 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
         :message="moduleStates.topStocks?.message"
         :loading="moduleStates.topStocks?.loading"
         :has-data="topStocks.length > 0"
+        class="top-stocks-panel"
       >
         <template #actions>
           <div class="market-controls">
             <button v-for="item in ([['changepercent','涨幅'],['mainnetinflow','主力净流入'],['turnover','成交额']] as const)" :key="item[0]" :class="{ 'is-active': topMetric === item[0] }" @click="topMetric = item[0]">{{ item[1] }}</button>
           </div>
         </template>
-        <div class="top-stock-list">
-          <article v-for="stock in topStocks" :key="stock.stockCode">
-            <span class="rank">{{ stock.rank ?? "—" }}</span>
-            <div class="stock-name"><strong>{{ stock.stockName }}</strong><small>{{ stock.stockCode }}</small></div>
-            <div><small>最新价</small><b>{{ formatPlainNumber(stock.latestPrice) }}</b></div>
-            <div><small>涨跌幅</small><b :class="`tone-${valueTone(stock.changePercent)}`">{{ formatPercent(stock.changePercent) }}</b></div>
-            <div><small>成交额 / 换手率</small><b>{{ formatAmount(stock.turnover) }} / {{ formatPercent(stock.turnoverRate) }}</b></div>
-            <div><small>主力净流入 / 净占比</small><b :class="`tone-${valueTone(stock.mainNetInflow)}`">{{ formatAmount(stock.mainNetInflow) }} / {{ formatPercent(stock.mainNetInflowRatio) }}</b></div>
+        <template #retry>
+          <button class="market-retry" type="button" @click="loadTopStocks">重新加载</button>
+        </template>
+        <div class="top-stock-table" role="table" aria-label="所选板块TOP5股票">
+          <div class="top-stock-table__head" role="row">
+            <span>排名 / 股票</span><span>最新价 / 涨跌幅</span>
+            <span>成交额 / 换手率</span><span>主力净流入 / 占比</span><span>监控</span>
+          </div>
+          <div v-for="stock in topStocks" :key="stock.stockCode" class="top-stock-row" role="row">
+            <div class="stock-identity">
+              <span class="rank">{{ stock.rank ?? "—" }}</span>
+              <span><strong>{{ stock.stockName }}</strong><small>{{ stock.stockCode }}</small></span>
+            </div>
+            <div><strong>{{ formatPlainNumber(stock.latestPrice) }}</strong><small :class="`tone-${valueTone(stock.changePercent)}`">{{ formatPercent(stock.changePercent) }}</small></div>
+            <div><strong>{{ formatAmount(stock.turnover) }}</strong><small>{{ formatPercent(stock.turnoverRate) }}</small></div>
+            <div><strong :class="`tone-${valueTone(stock.mainNetInflow)}`">{{ formatAmount(stock.mainNetInflow) }}</strong><small>{{ formatPercent(stock.mainNetInflowRatio) }}</small></div>
             <button v-if="stock.monitorEnabled" class="monitor-link" type="button" @click="goToStock(stock.stockCode)">查看资金</button>
-            <span v-else class="not-enabled">未启用监控</span>
-          </article>
+            <span v-else class="not-enabled">未启用</span>
+          </div>
         </div>
       </MarketPanel>
     </div>
@@ -444,6 +491,9 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
           <div class="market-controls">
             <button v-for="item in ([['today','今日'],['5d','近5日'],['10d','近10日']] as const)" :key="item[0]" :class="{ 'is-active': rankingPeriod === item[0] }" @click="rankingPeriod = item[0]">{{ item[1] }}</button>
           </div>
+        </template>
+        <template #retry>
+          <button class="market-retry" type="button" @click="loadRankings">重新加载</button>
         </template>
         <div class="ranking-grid">
           <div
@@ -477,6 +527,9 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
             <button v-for="days in ([5,10,20] as const)" :key="days" :class="{ 'is-active': fundDays === days }" @click="fundDays = days">近{{ days }}日</button>
           </div>
         </template>
+        <template #retry>
+          <button class="market-retry" type="button" @click="loadFundTrend">重新加载</button>
+        </template>
         <el-checkbox-group v-model="visibleFundTypes" class="fund-types">
           <el-checkbox-button v-for="item in ([['MAIN','主力'],['SUPER_LARGE','超大单'],['LARGE','大单'],['MEDIUM','中单'],['SMALL','小单']] as const)" :key="item[0]" :value="item[0]">{{ item[1] }}</el-checkbox-button>
         </el-checkbox-group>
@@ -495,6 +548,9 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
       :loading="moduleStates.mutations?.loading"
       :has-data="mutations.length > 0"
     >
+      <template #retry>
+        <button class="market-retry" type="button" @click="loadMutations">重新加载</button>
+      </template>
       <div class="mutation-list">
         <button v-for="item in mutations" :key="item.id" type="button" @click="selectSector(item.sectorCode, item.sectorType)">
           <span class="mutation-time">{{ formatDateTime(item.mutationTime) }}</span>
@@ -510,97 +566,622 @@ watch([fundDays, () => marketStore.selectedIndexCode], loadFundTrend);
 </template>
 
 <style scoped>
-.overview-page { display: grid; gap: 14px; }
-.overview-heading { display: flex; align-items: flex-end; justify-content: space-between; padding: 2px 2px 0; }
-.overview-heading p { margin: 0 0 4px; color: #3b82f6; font-size: 9px; letter-spacing: .18em; }
-.overview-heading h1 { margin: 0; font-size: 20px; }
-.overview-heading .overview-heading__note { color: #5f718a; letter-spacing: 0; font-size: 11px; }
-.index-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.overview-page {
+  display: grid;
+  gap: 12px;
+}
+
+.overview-heading {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 2px;
+}
+
+.overview-heading > div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.overview-heading h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.overview-heading span,
+.overview-heading__note {
+  margin: 0;
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.overview-heading__note {
+  color: var(--market-subtle);
+}
+
+.index-grid,
+.index-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.index-skeleton-grid {
+  width: 100%;
+}
+
+.index-skeleton-grid > span {
+  height: 124px;
+  border: 1px solid var(--market-border-soft);
+  border-radius: 8px;
+  background: linear-gradient(
+    100deg,
+    var(--market-panel) 28%,
+    var(--market-surface) 48%,
+    var(--market-panel) 68%
+  );
+  background-size: 240% 100%;
+  animation: index-skeleton 1.4s linear infinite;
+}
+
 .index-card {
-  min-width: 0; padding: 10px; text-align: left; color: #f3f7fc; border: 1px solid #1a2b42;
-  border-radius: 9px; background: rgba(7, 17, 31, .6); cursor: pointer;
+  position: relative;
+  height: 124px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 2px 8px;
+  padding: 10px 10px 9px 13px;
+  overflow: hidden;
+  color: var(--market-text);
+  text-align: left;
+  border: 1px solid var(--market-border-soft);
+  border-radius: 8px;
+  background: #081321;
+  cursor: pointer;
+  transition:
+    border-color var(--market-transition),
+    background var(--market-transition);
 }
-.index-card:hover, .index-card.is-selected { border-color: #3b82f6; background: rgba(59, 130, 246, .09); }
-.index-card.is-selected { box-shadow: inset 3px 0 #3b82f6; }
-.index-card__title, .index-card__footer { display: flex; justify-content: space-between; gap: 6px; }
-.index-card__title strong { font-size: 12px; }
-.index-card small { color: #718096; font-size: 9px; }
-.index-card__value { display: block; margin: 7px 0 2px; font-size: 19px; font-weight: 700; }
-.index-card > span:nth-child(3) { font-size: 11px; }
-.index-card > span:nth-child(3) b { margin-left: 5px; }
-.summary-grid { display: grid; grid-template-columns: 1.35fr repeat(4, 1fr); gap: 1px; overflow: hidden; border: 1px solid #1a2b42; border-radius: 9px; background: #1a2b42; }
-.summary-grid > div { min-height: 74px; display: flex; flex-direction: column; justify-content: center; gap: 7px; padding: 11px 14px; background: #091525; }
-.summary-grid small { color: #718096; font-size: 10px; }
-.summary-grid strong { font-size: 14px; font-style: normal; }
-.summary-grid i { font-style: normal; }
-.summary-primary strong { font-size: 22px; }
-.summary-primary span { font-size: 10px; }
-.overview-main-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(420px, 1fr); gap: 14px; }
-.heatmap-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.sector-search { max-width: 190px; }
-.chart-summary { margin: 8px 0 0; color: #718096; font-size: 10px; }
-.sector-list { max-height: 420px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; overflow: auto; }
+
+.index-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: transparent;
+  content: "";
+}
+
+.index-card:hover {
+  border-color: #3d587a;
+  background: var(--market-surface);
+}
+
+.index-card.is-selected {
+  border-color: #345f94;
+  background: rgb(59 130 246 / 9%);
+}
+
+.index-card.is-selected::before {
+  background: var(--market-primary);
+}
+
+.index-card__title,
+.index-card__footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.index-card__title strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.index-card small {
+  color: var(--market-subtle);
+  font-size: 11px;
+}
+
+.index-card__value {
+  grid-column: 1;
+  grid-row: 2;
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.index-card > span:nth-child(3) {
+  grid-column: 1;
+  grid-row: 3;
+  font-size: 12px;
+}
+
+.index-card > span:nth-child(3) b {
+  margin-left: 5px;
+}
+
+.index-card :deep(.base-chart) {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  min-height: 42px;
+  align-self: center;
+}
+
+.index-card__footer {
+  grid-row: 4;
+  align-items: center;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(4, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--market-border-soft);
+  border-radius: 8px;
+  background: var(--market-border-soft);
+}
+
+.summary-panel :deep(.market-empty) {
+  min-height: 64px;
+  flex-direction: row;
+  padding: 6px 12px;
+}
+
+.summary-grid > div {
+  min-height: 66px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 13px;
+  background: #081321;
+}
+
+.summary-grid small {
+  color: var(--market-subtle);
+  font-size: 12px;
+}
+
+.summary-grid strong {
+  color: var(--market-text);
+  font-size: 15px;
+  font-style: normal;
+}
+
+.summary-grid i {
+  font-style: normal;
+}
+
+.summary-primary strong {
+  font-size: 23px;
+}
+
+.summary-primary span {
+  font-size: 12px;
+}
+
+.overview-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(420px, 1fr);
+  gap: 12px;
+}
+
+.heatmap-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sector-search {
+  width: 150px;
+}
+
+.sector-list {
+  height: 350px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-content: start;
+  gap: 6px;
+  overflow: auto;
+}
+
 .sector-list button {
-  min-height: 52px; display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; align-items: center;
-  padding: 8px; color: #f3f7fc; text-align: left; border: 1px solid #20334d; border-radius: 7px; background: #091525;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
+  align-items: center;
+  padding: 8px 10px;
+  color: var(--market-text);
+  text-align: left;
+  border: 1px solid var(--market-border-soft);
+  border-radius: 7px;
+  background: #081321;
+  cursor: pointer;
 }
-.sector-list button.is-selected { border-color: #3b82f6; }
-.sector-list button > span:first-child { display: flex; flex-direction: column; }
-.sector-list small { color: #718096; font-size: 9px; }
-.sector-list button > span:last-child { grid-column: 1 / -1; color: #94a3b8; font-size: 10px; }
-.top-stock-list { display: grid; gap: 7px; }
-.top-stock-list article {
-  display: grid; grid-template-columns: 28px minmax(90px, 1fr) .8fr .8fr 1.3fr 1.5fr auto;
-  align-items: center; gap: 8px; padding: 9px; border: 1px solid #1a2b42; border-radius: 8px; background: #091525;
+
+.sector-list button.is-selected {
+  border-color: var(--market-primary);
+  background: var(--market-primary-soft);
 }
-.top-stock-list .rank { width: 24px; height: 24px; display: grid; place-items: center; color: #60a5fa; border-radius: 6px; background: rgba(59,130,246,.12); font-size: 10px; }
-.stock-name, .top-stock-list article > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.top-stock-list small { color: #718096; font-size: 9px; }
-.top-stock-list b { overflow: hidden; text-overflow: ellipsis; font-size: 10px; white-space: nowrap; }
-.monitor-link, .not-enabled { min-height: 30px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 6px; font-size: 9px; white-space: nowrap; }
-.monitor-link { color: #bfdbfe; border: 1px solid #2563eb; background: rgba(37,99,235,.16); cursor: pointer; }
-.not-enabled { color: #718096; border: 1px solid #20334d; }
-.overview-bottom-grid { display: grid; grid-template-columns: minmax(480px, .85fr) minmax(0, 1.15fr); gap: 14px; }
-.ranking-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.ranking-grid h3 { margin: 0 0 6px; color: #94a3b8; font-size: 10px; font-weight: 500; }
+
+.sector-list button > span:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.sector-list small,
+.sector-list button > span:last-child {
+  color: var(--market-muted);
+  font-size: 12px;
+}
+
+.sector-list button > span:last-child {
+  grid-column: 1 / -1;
+}
+
+.heatmap-footer {
+  min-height: 30px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--market-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.heatmap-legend i {
+  width: 20px;
+  height: 7px;
+}
+
+.heatmap-legend i:nth-of-type(1) { background: #167451; }
+.heatmap-legend i:nth-of-type(2) { background: #28594d; }
+.heatmap-legend i:nth-of-type(3) { background: #334155; }
+.heatmap-legend i:nth-of-type(4) { background: #8e3843; }
+.heatmap-legend i:nth-of-type(5) { background: #e65360; }
+
+.chart-summary {
+  margin: 0;
+  color: var(--market-muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.top-stock-table {
+  display: grid;
+  border: 1px solid var(--market-border-soft);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.top-stock-table__head,
+.top-stock-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 1.05fr 1.15fr 74px;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-stock-table__head {
+  min-height: 36px;
+  padding: 0 9px;
+  color: var(--market-subtle);
+  background: #08111e;
+  font-size: 11px;
+}
+
+.top-stock-table__head span:not(:first-child) {
+  text-align: right;
+}
+
+.top-stock-row {
+  min-height: 61px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--market-border-soft);
+  background: #0a1524;
+  transition: background var(--market-transition);
+}
+
+.top-stock-row:hover {
+  background: var(--market-surface);
+}
+
+.top-stock-row > div {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 3px;
+  text-align: right;
+}
+
+.top-stock-row strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--market-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-stock-row small {
+  color: var(--market-muted);
+  font-size: 11px;
+}
+
+.stock-identity {
+  align-items: center !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  text-align: left !important;
+}
+
+.stock-identity > span:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rank {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  display: grid;
+  place-items: center;
+  color: #93c5fd;
+  border-radius: 6px;
+  background: rgb(59 130 246 / 14%);
+  font-size: 12px;
+}
+
+.monitor-link,
+.not-enabled,
+.market-retry {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.monitor-link,
+.market-retry {
+  color: #dbeafe;
+  border: 1px solid #326bb4;
+  background: rgb(37 99 235 / 16%);
+  cursor: pointer;
+}
+
+.not-enabled {
+  color: var(--market-subtle);
+  border: 1px solid var(--market-border);
+}
+
+.overview-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(520px, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+}
+
+.ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.ranking-grid h3 {
+  margin: 0 0 6px;
+  color: var(--market-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .ranking-grid button {
-  width: 100%; min-height: 27px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 5px; color: #cbd5e1; border: 0; border-bottom: 1px solid rgba(32,51,77,.6); background: transparent; cursor: pointer; font-size: 10px;
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 6px;
+  color: #d5dce7;
+  border: 0;
+  border-bottom: 1px solid var(--market-border-soft);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
 }
-.ranking-grid button:hover { background: #102039; }
-.ranking-grid button span { display: flex; gap: 5px; }
-.ranking-grid i { color: #5f718a; font-style: normal; }
-.fund-types { margin-bottom: 3px; }
-.mutation-list { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+
+.ranking-grid button:hover {
+  background: var(--market-surface);
+}
+
+.ranking-grid button span {
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-grid i {
+  color: var(--market-subtle);
+  font-style: normal;
+}
+
+.fund-types {
+  margin-bottom: 4px;
+}
+
+.mutation-list {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+}
+
 .mutation-list button {
-  min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
-  padding: 10px; color: #94a3b8; text-align: left; border: 1px solid #1a2b42; border-radius: 8px; background: #091525; cursor: pointer; font-size: 10px;
+  min-width: 0;
+  min-height: 88px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: center;
+  gap: 5px 10px;
+  padding: 9px 10px;
+  color: var(--market-muted);
+  text-align: left;
+  border: 1px solid var(--market-border-soft);
+  border-radius: 7px;
+  background: #081321;
+  cursor: pointer;
+  font-size: 12px;
 }
-.mutation-list button:hover { border-color: #3b82f6; }
-.mutation-list strong { color: #f3f7fc; font-size: 12px; }
-.mutation-time { color: #5f718a; }
-@media (max-width: 1199px) {
-  .overview-main-grid, .overview-bottom-grid { grid-template-columns: 1fr; }
-  .top-stock-list article { grid-template-columns: 28px 1fr repeat(2, .8fr) 1.3fr 1.4fr auto; }
+
+.mutation-list button:hover {
+  border-color: #3d587a;
+  background: var(--market-surface);
 }
+
+.mutation-list strong {
+  color: var(--market-text);
+  font-size: 13px;
+}
+
+.mutation-time {
+  grid-column: 1 / -1;
+  color: var(--market-subtle);
+}
+
+@keyframes index-skeleton {
+  to { background-position: -240% 0; }
+}
+
+@media (max-width: 1439px) {
+  .overview-main-grid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(390px, 1fr);
+  }
+
+  .overview-bottom-grid {
+    grid-template-columns: minmax(460px, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .heatmap-actions {
+    max-width: 760px;
+  }
+}
+
 @media (max-width: 1023px) {
-  .index-grid { grid-template-columns: repeat(5, minmax(130px, 1fr)); overflow-x: auto; }
-  .summary-grid { grid-template-columns: repeat(2, 1fr); }
-  .summary-primary { grid-column: 1 / -1; }
-  .ranking-grid { grid-template-columns: repeat(2, 1fr); }
-  .mutation-list { grid-template-columns: repeat(2, 1fr); }
+  .index-grid,
+  .index-skeleton-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .summary-primary {
+    grid-column: 1 / -1;
+  }
+
+  .overview-main-grid,
+  .overview-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ranking-grid,
+  .mutation-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
+
 @media (max-width: 767px) {
-  .overview-heading__note { display: none; }
-  .index-grid { grid-template-columns: repeat(2, 1fr); overflow: visible; }
-  .heatmap-toolbar { align-items: stretch; flex-direction: column; }
-  .sector-search { max-width: none; }
-  .sector-list { grid-template-columns: 1fr; }
-  .top-stock-list article { grid-template-columns: 28px 1fr 1fr; }
-  .top-stock-list article > div:nth-of-type(n+3) { display: none; }
-  .ranking-grid, .mutation-list { grid-template-columns: 1fr; }
-}
-@media (max-width: 479px) {
-  .index-grid, .summary-grid { grid-template-columns: 1fr; }
+  .overview-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .overview-heading > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .overview-heading__note {
+    display: none;
+  }
+
+  .index-grid,
+  .index-skeleton-grid,
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .heatmap-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sector-search {
+    width: 100%;
+  }
+
+  .sector-list {
+    grid-template-columns: 1fr;
+  }
+
+  .heatmap-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .chart-summary {
+    text-align: left;
+  }
+
+  .top-stock-table__head {
+    display: none;
+  }
+
+  .top-stock-row {
+    grid-template-columns: 1.2fr 1fr;
+    gap: 8px 12px;
+  }
+
+  .top-stock-row > :nth-child(n + 3) {
+    display: none;
+  }
+
+  .ranking-grid,
+  .mutation-list {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

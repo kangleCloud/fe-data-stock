@@ -86,4 +86,40 @@ describe("market chart adapters", () => {
     };
     expect(option.series[0]?.data[0]?.value).toEqual([10, 2.3]);
   });
+
+  it("omits sectors without a valid area or change value instead of inventing zeroes", () => {
+    const sectors: SectorSnapshot[] = [
+      {
+        code: "BK001",
+        name: "面积缺失",
+        type: "industry",
+        changePercent: 1,
+        turnover: null,
+        marketCap: 100,
+        turnoverRate: null,
+        riseCount: null,
+        fallCount: null,
+        leadingStockName: null,
+        mainNetInflow: null,
+      },
+      {
+        code: "BK002",
+        name: "涨跌缺失",
+        type: "industry",
+        changePercent: null,
+        turnover: 10,
+        marketCap: 100,
+        turnoverRate: null,
+        riseCount: null,
+        fallCount: null,
+        leadingStockName: null,
+        mainNetInflow: null,
+      },
+    ];
+    const option = buildTreemapOption(sectors, "turnover") as {
+      series: Array<{ data: unknown[] }>;
+    };
+
+    expect(option.series[0]?.data).toEqual([]);
+  });
 });

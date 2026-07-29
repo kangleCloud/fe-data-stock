@@ -71,4 +71,19 @@ describe("dynamic routes", () => {
     expect(routes[0]?.meta?.loadError).toBeUndefined();
     expect(firstVisiblePath(routes)).toBe("/market/overview");
   });
+
+  it("reports an explicit diagnostic when the market root uses admin Layout", () => {
+    const [route] = buildDynamicRoutes([
+      {
+        routeName: "Market",
+        path: "/market",
+        hidden: false,
+        component: "Layout",
+        meta: { menuName: "行情大屏" },
+      },
+    ]);
+
+    expect(route?.meta?.loadError).toContain("必须使用 MarketLayout");
+    expect(firstVisiblePath(route ? [route] : [])).toBe("/market");
+  });
 });
