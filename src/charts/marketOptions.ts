@@ -5,6 +5,7 @@ import type {
   MarketFundPoint,
   SectorAreaMetric,
   SectorSnapshot,
+  SnapshotSector,
   StockFundPoint,
 } from "@/types/market";
 import { formatAmount, formatPercent, insertTimeBreaks } from "@/utils/market";
@@ -110,6 +111,64 @@ export function buildTreemapOption(
         }),
       },
     ],
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] || character);
+}
+
+export function buildSnapshotTreemapOption(sectors: SnapshotSector[]): EChartsCoreOption {
+  return {
+    aria: { enabled: true, decal: { show: true } },
+    tooltip: {
+      backgroundColor: "#102039",
+      borderColor: "#20334D",
+      textStyle: { color: "#F3F7FC" },
+      formatter: (raw: unknown) => {
+        const item = (raw as { data?: SnapshotSector }).data;
+        if (!item) return "暂无数据";
+        return [
+          `<strong>${escapeHtml(item.sectorName)}</strong>`,
+          `涨跌幅：${formatPercent(item.changePercent)}`,
+          `总市值：${formatAmount(item.marketCap)}`,
+          `换手率：${formatPercent(item.turnoverRate)}`,
+          `上涨 / 下跌：${item.riseCount ?? "—"} / ${item.fallCount ?? "—"}`,
+          `领涨股票：${escapeHtml(item.leadingStockName || "—")}`,
+        ].join("<br>");
+      },
+    },
+    visualMap: {
+      show: false,
+      min: -5,
+      max: 5,
+      dimension: 1,
+      inRange: { color: ["#146C43", "#223044", "#8E303A", "#E4505B"] },
+    },
+    series: [{
+      type: "treemap",
+      roam: false,
+      nodeClick: false,
+      breadcrumb: { show: false },
+      label: {
+        show: true,
+        color: "#F3F7FC",
+        formatter: (raw: { data?: SnapshotSector }) =>
+          raw.data ? `${raw.data.sectorName}\n${formatPercent(raw.data.changePercent)}` : "",
+      },
+      itemStyle: { borderColor: "#07111F", borderWidth: 2, gapWidth: 2 },
+      data: sectors.flatMap((sector) =>
+        sector.marketCap != null && sector.marketCap > 0 && sector.changePercent != null
+          ? [{ ...sector, name: sector.sectorName, value: [sector.marketCap, sector.changePercent] }]
+          : [],
+      ),
+    }],
   };
 }
 

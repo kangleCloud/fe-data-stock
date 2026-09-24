@@ -1,6 +1,11 @@
 import type { LoginResponse, StoredCredential } from "@/types/api";
 
 const AUTH_STORAGE_KEY = "vita-stock-admin:credential";
+export const CREDENTIAL_CHANGED_EVENT = "vita-stock-admin:credential-changed";
+
+function announceCredentialChange(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(CREDENTIAL_CHANGED_EVENT));
+}
 
 export function saveCredential(login: LoginResponse): StoredCredential {
   const credential: StoredCredential = {
@@ -10,6 +15,7 @@ export function saveCredential(login: LoginResponse): StoredCredential {
     expiresAt: Date.now() + login.expiresIn * 1000,
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(credential));
+  announceCredentialChange();
   return credential;
 }
 
@@ -38,6 +44,7 @@ export function getCredential(): StoredCredential | null {
 
 export function clearCredential(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  announceCredentialChange();
 }
 
 export function buildAuthorizationValue(

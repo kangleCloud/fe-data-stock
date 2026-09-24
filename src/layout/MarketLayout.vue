@@ -1,39 +1,18 @@
 <script setup lang="ts">
-import {
-  ArrowDown,
-  Back,
-  Refresh,
-  SwitchButton,
-  TrendCharts,
-} from "@element-plus/icons-vue";
+import { ArrowDown, Back, SwitchButton, TrendCharts } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import "element-plus/theme-chalk/el-message-box.css";
 import { computed } from "vue";
 import type { RouteRecordRaw } from "vue-router";
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 
-import { useMarketRefresh } from "@/composables/useMarketRefresh";
 import { useAuthStore } from "@/stores/auth";
-import { useMarketStore } from "@/stores/market";
 import { usePermissionStore } from "@/stores/permission";
-import { formatDateTime, tradeStatusLabels } from "@/utils/market";
 
-const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
-const marketStore = useMarketStore();
 const permissionStore = usePermissionStore();
-const { countdownLabel, manualRefresh, refreshing } = useMarketRefresh();
-
-const avatarText = computed(() =>
-  authStore.displayName.trim().slice(0, 1).toUpperCase(),
-);
-const tradeStatus = computed(() => marketStore.status?.tradeStatus || "UNKNOWN");
-const lastUpdated = computed(() =>
-  formatDateTime(
-    marketStore.status?.lastValidDataTime || marketStore.status?.lastRefreshAt,
-  ),
-);
+const avatarText = computed(() => authStore.displayName.trim().slice(0, 1).toUpperCase());
 
 function findAdminPath(routes: RouteRecordRaw[]): string {
   for (const item of routes) {
@@ -73,43 +52,10 @@ async function handleLogout(): Promise<void> {
         </div>
 
         <nav class="market-view-nav" aria-label="行情视图">
-          <RouterLink
-            to="/market/overview"
-            :class="{ 'is-active': route.path === '/market/overview' }"
-          >
-            大盘与板块总览
-          </RouterLink>
-          <RouterLink
-            to="/market/stockMonitor"
-            :class="{ 'is-active': route.path === '/market/stockMonitor' }"
-          >
-            个股资金监控
-          </RouterLink>
+          <RouterLink to="/market/overview" class="is-active">板块与资金总览</RouterLink>
         </nav>
 
         <div class="market-topbar__status">
-          <span class="trade-status" :class="`is-${tradeStatus.toLowerCase()}`">
-            <i />
-            {{ tradeStatusLabels[tradeStatus] }}
-          </span>
-          <span class="status-copy">
-            <small>交易日期</small>
-            <b>{{ marketStore.status?.tradeDate || "—" }}</b>
-          </span>
-          <span class="status-copy">
-            <small>最后更新</small>
-            <b>{{ lastUpdated }}</b>
-          </span>
-          <button
-            class="market-icon-button refresh-button"
-            type="button"
-            :disabled="refreshing"
-            :aria-label="`手动刷新，距下次刷新 ${countdownLabel}`"
-            @click="manualRefresh"
-          >
-            <el-icon :class="{ 'is-spinning': refreshing }"><Refresh /></el-icon>
-            <span>{{ countdownLabel }}</span>
-          </button>
           <button
             class="market-icon-button back-button"
             type="button"
@@ -135,9 +81,6 @@ async function handleLogout(): Promise<void> {
       </div>
     </header>
 
-    <p v-if="marketStore.statusError" class="market-global-error" aria-live="polite">
-      状态服务暂不可用，页面将保留最后有效数据。{{ marketStore.statusError }}
-    </p>
     <main id="market-content" class="market-content" tabindex="-1">
       <RouterView />
     </main>

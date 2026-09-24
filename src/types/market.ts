@@ -10,6 +10,84 @@ export type TradeStatus =
 
 export type MarketDataStatus = "FRESH" | "STALE" | "NO_DATA" | "ERROR";
 
+export type SnapshotStatus = "FRESH" | "STALE" | "ERROR";
+export type SnapshotDateBasis = "CALENDAR" | "SOURCE";
+
+export interface SnapshotModule<T> {
+  status: SnapshotStatus;
+  tradeDate: string | null;
+  tradeDateBasis: SnapshotDateBasis;
+  lastSuccessAt: string | null;
+  lastAttemptAt: string | null;
+  message: string | null;
+  data: T | null;
+}
+
+export interface SnapshotSector {
+  sectorCode: string;
+  sectorName: string;
+  sectorType: SectorType;
+  marketCap: number | null;
+  changePercent: number | null;
+  turnoverRate: number | null;
+  riseCount: number | null;
+  fallCount: number | null;
+  leadingStockName: string | null;
+}
+
+export interface SnapshotRankingItem {
+  sectorCode: string;
+  sectorName: string;
+  sectorType: SectorType;
+  changePercent: number | null;
+  mainNetInflow?: number | null;
+  mainNetInflowRatio?: number | null;
+}
+
+export interface SnapshotTop5 {
+  topRise: SnapshotRankingItem[];
+  topFall: SnapshotRankingItem[];
+  topInflow: SnapshotRankingItem[];
+  topOutflow: SnapshotRankingItem[];
+  unmatchedFundRows: number;
+}
+
+export interface SnapshotFundPoint {
+  date: string;
+  mainNetInflow: number | null;
+  mainNetInflowRatio: number | null;
+  superLargeNetInflow: number | null;
+  superLargeNetInflowRatio: number | null;
+  largeNetInflow: number | null;
+  largeNetInflowRatio: number | null;
+  mediumNetInflow: number | null;
+  mediumNetInflowRatio: number | null;
+  smallNetInflow: number | null;
+  smallNetInflowRatio: number | null;
+  shanghaiClose: number | null;
+  shanghaiChangePercent: number | null;
+  shenzhenClose: number | null;
+  shenzhenChangePercent: number | null;
+}
+
+export interface SnapshotFundFlow {
+  latest: SnapshotFundPoint;
+  series: SnapshotFundPoint[];
+}
+
+export interface MarketDashboardSnapshot {
+  schemaVersion: 1;
+  provider: "akshare";
+  generatedAt: string;
+  modules: {
+    industryHeatmap: SnapshotModule<SnapshotSector[]>;
+    conceptHeatmap: SnapshotModule<SnapshotSector[]>;
+    industryTop5: SnapshotModule<SnapshotTop5>;
+    conceptTop5: SnapshotModule<SnapshotTop5>;
+    marketFundFlow: SnapshotModule<SnapshotFundFlow>;
+  };
+}
+
 export interface MarketModuleResponse<T> {
   data: T;
   dataStatus: MarketDataStatus;

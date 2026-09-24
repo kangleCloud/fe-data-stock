@@ -117,3 +117,38 @@ httpClient.interceptors.response.use(
 export function request<T>(config: ApiRequestConfig): Promise<T> {
   return httpClient.request<CommonResult<T>, T>(config);
 }
+
+/** Streaming counterpart to request: the SSE response is not a CommonResult. */
+export async function requestStream(path: string, signal: AbortSignal): Promise<Response> {
+  const credential = getCredential();
+  const headers = new Headers({ Accept: "text/event-stream" });
+  if (credential) {
+    headers.set(credential.tokenName, buildAuthorizationValue(credential));
+  }
+  const base = String(httpClient.defaults.baseURL || "/admin/api").replace(/\/$/, "");
+  const response = await fetch(`${base}${path}`, {
+    method: "GET",
+    headers,
+    signal,
+    cache: "no-store",
+  });
+  const isEventStream = response.headers.get("content-type")?.toLowerCase().includes("text/event-stream") ?? false;
+  if (!response.ok || !isEventStream) {
+    let code: number | undefined = response.ok ? undefined : response.status;
+    let message = response.status === 403 ? "无权查看市场快照" : "市场流响应格式异常";
+    try {
+      const body = await response.json() as Partial<CommonResult<unknown>>;
+      if (typeof body.code === "number") code = body.code;
+      if (typeof body.msg === "string" && body.msg) message = body.msg;
+    } catch { /* Error responses may not contain JSON. */ }
+    if (code === 401) {
+      expireSession();
+      throw new ApiError(message, 401);
+    }
+    throw new ApiError(message, code);
+  }
+  if (!response.body) {
+    throw new ApiError("市场流响应格式异常");
+  }
+  return response;
+}

@@ -1,4 +1,5 @@
 import type {
+  MarketDashboardSnapshot,
   MarketFundPoint,
   MarketIndex,
   MarketModuleResponse,
@@ -23,6 +24,14 @@ import type {
 import { request } from "@/utils/request";
 
 const silent = { silentError: true } as const;
+
+export function getMarketDashboardSnapshot(): Promise<MarketDashboardSnapshot> {
+  return request<MarketDashboardSnapshot>({
+    url: "/market/dashboard/snapshot",
+    method: "GET",
+    ...silent,
+  });
+}
 
 interface SectorHeatmapSource {
   availableAreaMetrics?: string[];
