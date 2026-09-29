@@ -41,7 +41,9 @@ export const usePermissionStore = defineStore("permission", {
         useAuthStore().setAuthInfo(authInfo);
 
         const routes = buildDynamicRoutes(backendRoutes ?? []);
-        removeRouteHandlers = routes.map((route) => router.addRoute(route));
+        removeRouteHandlers = routes
+          .filter((route) => route.path !== "/market")
+          .map((route) => router.addRoute(route));
         this.routes = routes;
         this.initialized = true;
       })();

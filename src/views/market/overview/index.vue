@@ -2,7 +2,7 @@
 import { Refresh } from "@element-plus/icons-vue";
 import { computed, ref } from "vue";
 
-import { buildMarketFundOption, buildSnapshotTreemapOption } from "@/charts/marketOptions";
+import { buildMarketFundOption } from "@/charts/marketOptions";
 import BaseChart from "@/components/market/BaseChart.vue";
 import MarketPanel from "@/components/market/MarketPanel.vue";
 import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
@@ -10,7 +10,6 @@ import type {
   FundType,
   SnapshotModule,
   SnapshotRankingItem,
-  SnapshotSector,
   SnapshotTop5,
 } from "@/types/market";
 import { formatAmount, formatDateTime, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
@@ -31,8 +30,8 @@ const sectorKinds = [
 const rankingKinds = [
   { key: "topRise", label: "涨幅 Top 5", unit: "change" },
   { key: "topFall", label: "跌幅 Top 5", unit: "change" },
-  { key: "topInflow", label: "主力净流入 Top 5", unit: "flow" },
-  { key: "topOutflow", label: "主力净流出 Top 5", unit: "flow" },
+  { key: "topInflow", label: "同花顺资金净额流入 Top 5", unit: "flow" },
+  { key: "topOutflow", label: "同花顺资金净额流出 Top 5", unit: "flow" },
 ] as const;
 const fundMetrics = [
   { key: "mainNetInflow", ratio: "mainNetInflowRatio", label: "主力" },
@@ -43,7 +42,6 @@ const fundMetrics = [
 ] as const;
 
 const { snapshot, loading, loadError, manualRefresh } = useMarketSnapshotStream();
-const heatmapView = ref<"CHART" | "LIST">("CHART");
 const fundDays = ref<5 | 10 | 20>(20);
 const visibleFundTypes = ref<FundType[]>(["MAIN"]);
 
@@ -55,16 +53,8 @@ const fundOption = computed(() =>
   buildMarketFundOption(fundSeries.value, visibleFundTypes.value, "上证指数"),
 );
 
-function heatmapModule(kind: SectorKey): SnapshotModule<SnapshotSector[]> | null {
-  return snapshot.value?.modules[kind === "industry" ? "industryHeatmap" : "conceptHeatmap"] ?? null;
-}
-
 function top5Module(kind: SectorKey): SnapshotModule<SnapshotTop5> | null {
   return snapshot.value?.modules[kind === "industry" ? "industryTop5" : "conceptTop5"] ?? null;
-}
-
-function hasHeatmapData(kind: SectorKey): boolean {
-  return Boolean(heatmapModule(kind)?.data?.length);
 }
 
 function hasTop5Data(kind: SectorKey): boolean {
@@ -74,7 +64,7 @@ function hasTop5Data(kind: SectorKey): boolean {
 function rankingValue(item: SnapshotRankingItem, kind: RankingKey): string {
   return kind === "topRise" || kind === "topFall"
     ? formatPercent(item.changePercent)
-    : formatAmount(item.mainNetInflow);
+    : `${formatAmount(item.netFlowAmount)}元`;
 }
 
 </script>
@@ -85,7 +75,7 @@ function rankingValue(item: SnapshotRankingItem, kind: RankingKey): string {
       <div>
         <p class="snapshot-kicker">AKSHARE · MARKET SNAPSHOT V1</p>
         <h1>板块与大盘资金总览</h1>
-        <p>板块面积按总市值展示；涨跌幅与资金数据以各模块标注的交易日期为准。</p>
+        <p>板块榜单与大盘资金分别标注参考交易日、源数据日期及采集状态。</p>
       </div>
       <div class="snapshot-intro__actions">
         <span>{{ snapshotGeneratedLabel(snapshot) }}</span>
@@ -104,61 +94,10 @@ function rankingValue(item: SnapshotRankingItem, kind: RankingKey): string {
       暂无市场快照。请手动完成采集后重新读取。
     </p>
 
-    <section class="snapshot-section" aria-labelledby="heatmap-title">
-      <div class="snapshot-section__heading">
-        <div>
-          <p class="snapshot-kicker">01 / SECTORS</p>
-          <h2 id="heatmap-title">板块热力图</h2>
-        </div>
-        <div class="market-controls" role="group" aria-label="热力图展示方式">
-          <button type="button" :class="{ 'is-active': heatmapView === 'CHART' }" :aria-pressed="heatmapView === 'CHART'" @click="heatmapView = 'CHART'">热力图</button>
-          <button type="button" :class="{ 'is-active': heatmapView === 'LIST' }" :aria-pressed="heatmapView === 'LIST'" @click="heatmapView = 'LIST'">数据列表</button>
-        </div>
-      </div>
-      <div class="snapshot-grid">
-        <MarketPanel
-          v-for="kind in sectorKinds"
-          :key="kind.key"
-          :title="kind.label"
-          :status="heatmapModule(kind.key)?.status ?? 'ERROR'"
-          :loading="loading && !snapshot"
-          :has-data="hasHeatmapData(kind.key)"
-          :message="heatmapModule(kind.key)?.message ?? loadError"
-        >
-          <div class="snapshot-meta" aria-live="polite">
-            <span>{{ snapshotStatusLabel(heatmapModule(kind.key)) }}</span>
-            <span>{{ snapshotDateLabel(heatmapModule(kind.key)) }}</span>
-            <span>上次成功：{{ formatDateTime(heatmapModule(kind.key)?.lastSuccessAt) }}</span>
-          </div>
-          <p class="snapshot-summary">共 {{ heatmapModule(kind.key)?.data?.length ?? 0 }} 个板块，面积为总市值，颜色表示涨跌幅。</p>
-          <BaseChart
-            v-if="heatmapView === 'CHART'"
-            :option="buildSnapshotTreemapOption(heatmapModule(kind.key)?.data ?? [])"
-            :accessible-label="`${kind.label}热力图，${snapshotDateLabel(heatmapModule(kind.key))}`"
-            height="320px"
-          />
-          <div v-else class="snapshot-table-wrap">
-            <table class="snapshot-table">
-              <caption>{{ kind.label }}板块数据</caption>
-              <thead><tr><th scope="col">板块</th><th scope="col">涨跌幅</th><th scope="col">总市值</th><th scope="col">领涨股票</th></tr></thead>
-              <tbody>
-                <tr v-for="sector in heatmapModule(kind.key)?.data ?? []" :key="sector.sectorCode">
-                  <th scope="row">{{ sector.sectorName }}</th>
-                  <td :class="`tone-${valueTone(sector.changePercent)}`">{{ formatPercent(sector.changePercent) }}</td>
-                  <td>{{ formatAmount(sector.marketCap) }}</td>
-                  <td>{{ sector.leadingStockName || "—" }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </MarketPanel>
-      </div>
-    </section>
-
     <section class="snapshot-section" aria-labelledby="top5-title">
       <div class="snapshot-section__heading">
         <div>
-          <p class="snapshot-kicker">02 / RANKINGS</p>
+          <p class="snapshot-kicker">01 / RANKINGS</p>
           <h2 id="top5-title">板块 Top 5</h2>
         </div>
       </div>
@@ -175,23 +114,21 @@ function rankingValue(item: SnapshotRankingItem, kind: RankingKey): string {
           <div class="snapshot-meta" aria-live="polite">
             <span>{{ snapshotStatusLabel(top5Module(kind.key)) }}</span>
             <span>{{ snapshotDateLabel(top5Module(kind.key)) }}</span>
+            <span v-if="top5Module(kind.key)?.data">同花顺 · 盘中榜单</span>
             <span>上次成功：{{ formatDateTime(top5Module(kind.key)?.lastSuccessAt) }}</span>
           </div>
           <div class="snapshot-rankings">
             <div v-for="ranking in rankingKinds" :key="ranking.key" class="snapshot-ranking">
               <h3>{{ ranking.label }}</h3>
               <ol v-if="top5Module(kind.key)?.data?.[ranking.key]?.length">
-                <li v-for="item in top5Module(kind.key)?.data?.[ranking.key] ?? []" :key="item.sectorCode">
+                <li v-for="item in top5Module(kind.key)?.data?.[ranking.key] ?? []" :key="`${item.sectorType}:${item.sectorName}`">
                   <span>{{ item.sectorName }}</span>
-                  <span :class="`tone-${valueTone(ranking.unit === 'change' ? item.changePercent : item.mainNetInflow)}`">{{ rankingValue(item, ranking.key) }}</span>
+                  <span :class="`tone-${valueTone(ranking.unit === 'change' ? item.changePercent : item.netFlowAmount)}`">{{ rankingValue(item, ranking.key) }}</span>
                 </li>
               </ol>
               <p v-else class="snapshot-no-rank">暂无符合方向的数据</p>
             </div>
           </div>
-          <p v-if="top5Module(kind.key)?.data?.unmatchedFundRows" class="snapshot-note">
-            {{ top5Module(kind.key)?.data?.unmatchedFundRows }} 条资金记录无法唯一匹配板块，未纳入资金榜。
-          </p>
         </MarketPanel>
       </div>
     </section>
@@ -199,7 +136,7 @@ function rankingValue(item: SnapshotRankingItem, kind: RankingKey): string {
     <section class="snapshot-section" aria-labelledby="fund-title">
       <div class="snapshot-section__heading">
         <div>
-          <p class="snapshot-kicker">03 / CAPITAL FLOW</p>
+          <p class="snapshot-kicker">02 / CAPITAL FLOW</p>
           <h2 id="fund-title">大盘资金流向</h2>
         </div>
       </div>
@@ -262,12 +199,7 @@ function rankingValue(item: SnapshotRankingItem, kind: RankingKey): string {
 .snapshot-grid { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .snapshot-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; color: var(--market-muted); font-size: 12px; line-height: 1.5; }
 .snapshot-meta span:first-child { color: var(--market-text-secondary); }
-.snapshot-summary, .snapshot-note { margin: 4px 0 10px; color: var(--market-muted); font-size: 12px; line-height: 1.5; }
-.snapshot-table-wrap { max-height: 320px; overflow: auto; }
-.snapshot-table { width: 100%; border-collapse: collapse; color: var(--market-text-secondary); font-size: 12px; }
-.snapshot-table caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.snapshot-table th, .snapshot-table td { padding: 8px; border-bottom: 1px solid var(--market-border-soft); text-align: left; white-space: nowrap; }
-.snapshot-table th { color: var(--market-text); font-weight: 600; }
+.snapshot-note { margin: 4px 0 10px; color: var(--market-muted); font-size: 12px; line-height: 1.5; }
 .snapshot-rankings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .snapshot-ranking { min-width: 0; padding: 10px; border: 1px solid var(--market-border-soft); border-radius: 8px; background: var(--market-surface); }
 .snapshot-ranking h3 { margin: 0 0 8px; color: var(--market-text); font-size: 13px; }

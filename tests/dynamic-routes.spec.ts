@@ -48,6 +48,24 @@ describe("dynamic routes", () => {
     expect(route?.meta?.loadError).toContain("missing/index");
   });
 
+  it("resolves all three stock management menu views", () => {
+    const components = [
+      "system/stockMonitor/index",
+      "system/stockDictionary/index",
+      "system/stockProfile/index",
+    ];
+    const routes = buildDynamicRoutes(components.map((component, index) => ({
+      routeName: `StockPage${index}`,
+      path: `/system/stockPage${index}`,
+      hidden: false,
+      component,
+      meta: { menuName: `个股数据${index}` },
+    })));
+
+    expect(routes.map((route) => route.meta?.loadError)).toEqual([undefined, undefined, undefined]);
+    expect(firstVisiblePath(routes)).toBe("/system/stockPage0");
+  });
+
   it("recognizes the immersive MarketLayout component", () => {
     const routes = buildDynamicRoutes([
       {

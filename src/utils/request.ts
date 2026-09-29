@@ -16,14 +16,17 @@ import {
 declare module "axios" {
   export interface AxiosRequestConfig {
     silentError?: boolean;
+    publicAccess?: boolean;
   }
 
   export interface InternalAxiosRequestConfig {
     silentError?: boolean;
+    publicAccess?: boolean;
   }
 }
 
 export const AUTH_EXPIRED_EVENT = "vita-stock-admin:auth-expired";
+export const PUBLIC_API_BASE_URL = "/openapi/api";
 
 export type ApiMethod = "GET" | "POST";
 
@@ -67,6 +70,7 @@ function shouldShowError(config?: AxiosRequestConfig): boolean {
 }
 
 httpClient.interceptors.request.use((config) => {
+  if (config.publicAccess) return config;
   const credential = getCredential();
   if (credential) {
     config.headers.set(
@@ -87,7 +91,7 @@ httpClient.interceptors.response.use(
       return result.content as unknown as AxiosResponse;
     }
 
-    if (result.code === 401) {
+    if (result.code === 401 && !response.config.publicAccess) {
       expireSession();
     }
     const message = result.msg || "请求失败，请稍后重试";
@@ -104,7 +108,7 @@ httpClient.interceptors.response.use(
         ? "请求超时，请检查服务状态"
         : "网络连接异常，请稍后重试");
 
-    if (code === 401) {
+    if (code === 401 && !error.config?.publicAccess) {
       expireSession();
     }
     if (shouldShowError(error.config)) {
@@ -119,18 +123,19 @@ export function request<T>(config: ApiRequestConfig): Promise<T> {
 }
 
 /** Streaming counterpart to request: the SSE response is not a CommonResult. */
-export async function requestStream(path: string, signal: AbortSignal): Promise<Response> {
-  const credential = getCredential();
+export async function requestStream(path: string, signal: AbortSignal, publicAccess = false): Promise<Response> {
   const headers = new Headers({ Accept: "text/event-stream" });
+  const credential = publicAccess ? null : getCredential();
   if (credential) {
     headers.set(credential.tokenName, buildAuthorizationValue(credential));
   }
-  const base = String(httpClient.defaults.baseURL || "/admin/api").replace(/\/$/, "");
+  const base = publicAccess ? PUBLIC_API_BASE_URL : String(httpClient.defaults.baseURL || "/admin/api").replace(/\/$/, "");
   const response = await fetch(`${base}${path}`, {
     method: "GET",
     headers,
     signal,
     cache: "no-store",
+    credentials: publicAccess ? "omit" : "same-origin",
   });
   const isEventStream = response.headers.get("content-type")?.toLowerCase().includes("text/event-stream") ?? false;
   if (!response.ok || !isEventStream) {
@@ -141,7 +146,7 @@ export async function requestStream(path: string, signal: AbortSignal): Promise<
       if (typeof body.code === "number") code = body.code;
       if (typeof body.msg === "string" && body.msg) message = body.msg;
     } catch { /* Error responses may not contain JSON. */ }
-    if (code === 401) {
+    if (code === 401 && !publicAccess) {
       expireSession();
       throw new ApiError(message, 401);
     }

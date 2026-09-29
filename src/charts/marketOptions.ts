@@ -3,12 +3,10 @@ import type { EChartsCoreOption } from "echarts/core";
 import type {
   FundType,
   MarketFundPoint,
-  SectorAreaMetric,
-  SectorSnapshot,
-  SnapshotSector,
-  StockFundPoint,
+  StockPricePoint,
 } from "@/types/market";
-import { formatAmount, formatPercent, insertTimeBreaks } from "@/utils/market";
+import { formatAmount, formatPlainNumber } from "@/utils/market";
+import { splitPriceSeries } from "@/utils/stockMonitor";
 
 const axisColor = "#5F718A";
 const splitColor = "rgba(148, 163, 184, 0.12)";
@@ -43,132 +41,6 @@ export function buildSparklineOption(
         areaStyle: { color, opacity: 0.08 },
       },
     ],
-  };
-}
-
-export function buildTreemapOption(
-  sectors: SectorSnapshot[],
-  metric: SectorAreaMetric,
-): EChartsCoreOption {
-  return {
-    tooltip: {
-      backgroundColor: "#102039",
-      borderColor: "#20334D",
-      textStyle: { color: "#F3F7FC" },
-      formatter: (raw: unknown) => {
-        const params = raw as { data?: SectorSnapshot & { value?: number } };
-        const data = params.data;
-        if (!data) return "暂无数据";
-        return [
-          `<strong>${data.name}</strong>`,
-          `涨跌幅：${formatPercent(data.changePercent)}`,
-          `成交额：${formatAmount(data.turnover)}`,
-          `换手率：${formatPercent(data.turnoverRate)}`,
-          `上涨 / 下跌：${data.riseCount ?? "—"} / ${data.fallCount ?? "—"}`,
-          `领涨股票：${data.leadingStockName || "—"}`,
-          `主力净流入：${formatAmount(data.mainNetInflow)}`,
-        ].join("<br>");
-      },
-    },
-    visualMap: {
-      show: false,
-      min: -5,
-      max: 5,
-      dimension: 1,
-      inRange: { color: ["#146C43", "#223044", "#8E303A", "#E4505B"] },
-    },
-    series: [
-      {
-        type: "treemap",
-        roam: false,
-        nodeClick: false,
-        breadcrumb: { show: false },
-        label: {
-          show: true,
-          color: "#F3F7FC",
-          formatter: "{b}",
-          textBorderColor: "rgba(7, 17, 31, .45)",
-          textBorderWidth: 2,
-        },
-        upperLabel: { show: false },
-        itemStyle: { borderColor: "#07111F", borderWidth: 2, gapWidth: 2 },
-        data: sectors.flatMap((sector) => {
-          const areaValue =
-            metric === "turnover" ? sector.turnover : sector.marketCap;
-          if (
-            areaValue == null ||
-            areaValue <= 0 ||
-            sector.changePercent == null
-          ) {
-            return [];
-          }
-          return [
-            {
-              ...sector,
-              value: [areaValue, sector.changePercent],
-            },
-          ];
-        }),
-      },
-    ],
-  };
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[character] || character);
-}
-
-export function buildSnapshotTreemapOption(sectors: SnapshotSector[]): EChartsCoreOption {
-  return {
-    aria: { enabled: true, decal: { show: true } },
-    tooltip: {
-      backgroundColor: "#102039",
-      borderColor: "#20334D",
-      textStyle: { color: "#F3F7FC" },
-      formatter: (raw: unknown) => {
-        const item = (raw as { data?: SnapshotSector }).data;
-        if (!item) return "暂无数据";
-        return [
-          `<strong>${escapeHtml(item.sectorName)}</strong>`,
-          `涨跌幅：${formatPercent(item.changePercent)}`,
-          `总市值：${formatAmount(item.marketCap)}`,
-          `换手率：${formatPercent(item.turnoverRate)}`,
-          `上涨 / 下跌：${item.riseCount ?? "—"} / ${item.fallCount ?? "—"}`,
-          `领涨股票：${escapeHtml(item.leadingStockName || "—")}`,
-        ].join("<br>");
-      },
-    },
-    visualMap: {
-      show: false,
-      min: -5,
-      max: 5,
-      dimension: 1,
-      inRange: { color: ["#146C43", "#223044", "#8E303A", "#E4505B"] },
-    },
-    series: [{
-      type: "treemap",
-      roam: false,
-      nodeClick: false,
-      breadcrumb: { show: false },
-      label: {
-        show: true,
-        color: "#F3F7FC",
-        formatter: (raw: { data?: SnapshotSector }) =>
-          raw.data ? `${raw.data.sectorName}\n${formatPercent(raw.data.changePercent)}` : "",
-      },
-      itemStyle: { borderColor: "#07111F", borderWidth: 2, gapWidth: 2 },
-      data: sectors.flatMap((sector) =>
-        sector.marketCap != null && sector.marketCap > 0 && sector.changePercent != null
-          ? [{ ...sector, name: sector.sectorName, value: [sector.marketCap, sector.changePercent] }]
-          : [],
-      ),
-    }],
   };
 }
 
@@ -252,92 +124,45 @@ export function buildMarketFundOption(
   };
 }
 
-export function buildStockFundOption(
-  points: StockFundPoint[],
-): EChartsCoreOption {
-  const broken = insertTimeBreaks(points);
-  const values = broken.map((point) => {
-    const data = point as Partial<StockFundPoint> & { time: string };
-    return {
-      time: data.time,
-      inflow: data.inflow ?? null,
-      outflow: data.outflow == null ? null : -Math.abs(data.outflow),
-      netAmount: data.netAmount ?? null,
-      latestPrice: data.latestPrice ?? null,
-      changePercent: data.changePercent ?? null,
-    };
-  });
+export function buildStockPriceOption(points: StockPricePoint[]): EChartsCoreOption {
+  const segments = splitPriceSeries(points);
   return {
-    aria: { enabled: true, decal: { show: true } },
+    aria: { enabled: true },
     tooltip: {
       trigger: "axis",
       backgroundColor: "#102039",
       borderColor: "#20334D",
       textStyle: { color: "#F3F7FC" },
-      formatter: (raw: unknown) => {
-        const params = raw as Array<{ dataIndex: number; axisValue: string }>;
-        const index = params[0]?.dataIndex ?? 0;
-        const point = values[index];
-        if (!point) return "暂无数据";
-        return [
-          `<strong>${params[0]?.axisValue || point.time}</strong>`,
-          `流入：${formatAmount(point.inflow)}`,
-          `流出：${formatAmount(point.outflow == null ? null : Math.abs(point.outflow))}`,
-          `净额：${formatAmount(point.netAmount)}`,
-          `最新价：${point.latestPrice ?? "—"}`,
-          `涨跌幅：${formatPercent(point.changePercent)}`,
-        ].join("<br>");
-      },
+      valueFormatter: (value: unknown) =>
+        Array.isArray(value) ? `${formatPlainNumber(Number(value[1]))} 元` : "—",
     },
-    legend: { top: 0, textStyle: { color: textColor } },
-    grid: { top: 42, right: 16, bottom: 28, left: 56 },
+    grid: { top: 16, right: 18, bottom: 34, left: 55 },
     xAxis: {
-      type: "category",
-      boundaryGap: false,
-      data: values.map((point) => point.time.slice(11, 16)),
+      type: "time",
       axisLine: { lineStyle: { color: axisColor } },
-      axisLabel: { color: textColor, hideOverlap: true },
+      axisLabel: { color: textColor, hideOverlap: true, formatter: (value: number) => {
+        const date = new Date(value);
+        return new Intl.DateTimeFormat("zh-CN", {
+          timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false,
+        }).format(date);
+      } },
     },
     yAxis: {
       type: "value",
-      axisLabel: { color: textColor, formatter: (value: number) => formatAmount(value) },
+      scale: true,
+      axisLabel: { color: textColor, formatter: (value: number) => formatPlainNumber(value) },
       splitLine: { lineStyle: { color: splitColor } },
     },
-    series: [
-      {
-        name: "资金流入",
-        type: "line",
-        data: values.map((point) => point.inflow),
-        showSymbol: false,
-        connectNulls: false,
-        lineStyle: { color: riseColor, width: 2 },
-        itemStyle: { color: riseColor },
-        markLine: {
-          symbol: "none",
-          silent: true,
-          lineStyle: { color: axisColor },
-          data: [{ yAxis: 0 }],
-          label: { show: false },
-        },
-      },
-      {
-        name: "资金流出",
-        type: "line",
-        data: values.map((point) => point.outflow),
-        showSymbol: false,
-        connectNulls: false,
-        lineStyle: { color: fallColor, width: 2, type: "dashed" },
-        itemStyle: { color: fallColor },
-      },
-      {
-        name: "资金净额",
-        type: "line",
-        data: values.map((point) => point.netAmount),
-        showSymbol: false,
-        connectNulls: false,
-        lineStyle: { color: amberColor, width: 3 },
-        itemStyle: { color: amberColor },
-      },
-    ],
+    series: segments.map((segment) => ({
+      name: "采样价格",
+      type: "line",
+      data: segment.map((point) => [point.time, point.price]),
+      showSymbol: segment.length === 1,
+      symbolSize: 5,
+      connectNulls: false,
+      lineStyle: { color: primaryColor, width: 2 },
+      itemStyle: { color: primaryColor },
+      areaStyle: { color: primaryColor, opacity: 0.05 },
+    })),
   };
 }

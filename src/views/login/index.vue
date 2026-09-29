@@ -65,18 +65,16 @@ async function refreshCaptcha(): Promise<void> {
 }
 
 async function handleSubmit(): Promise<void> {
-  const valid = await formRef.value?.validate().catch(() => false);
-  if (!valid) {
-    return;
-  }
-  if (!captcha.value) {
-    ElMessage.warning("验证码尚未加载，请刷新后重试");
-    await refreshCaptcha();
-    return;
-  }
-
+  if (submitting.value) return;
   submitting.value = true;
   try {
+    const valid = await formRef.value?.validate().catch(() => false);
+    if (!valid) return;
+    if (!captcha.value) {
+      ElMessage.warning("验证码尚未加载，请刷新后重试");
+      await refreshCaptcha();
+      return;
+    }
     await authStore.authenticate(
       buildLoginRequest(
         form.userName,
@@ -179,7 +177,6 @@ onMounted(refreshCaptcha);
               autocomplete="current-password"
               maxlength="64"
               placeholder="请输入密码"
-              @keyup.enter="handleSubmit"
             />
           </el-form-item>
           <el-form-item label="图形验证码" prop="captchaCode">
@@ -189,7 +186,6 @@ onMounted(refreshCaptcha);
                 maxlength="8"
                 autocomplete="off"
                 placeholder="输入图片字符"
-                @keyup.enter="handleSubmit"
               />
               <button
                 class="captcha-image"

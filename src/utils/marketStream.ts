@@ -44,24 +44,10 @@ function nullableNumber(value: unknown): boolean {
   return value === null || finiteNumber(value);
 }
 
-function nullableString(value: unknown): boolean {
-  return value === null || typeof value === "string";
-}
-
-function sectorIdentity(value: unknown, sectorType: "industry" | "concept"): value is Record<string, unknown> {
-  return record(value) && typeof value.sectorCode === "string" &&
-    typeof value.sectorName === "string" && value.sectorType === sectorType;
-}
-
-function sector(value: unknown, sectorType: "industry" | "concept"): boolean {
-  return sectorIdentity(value, sectorType) &&
-    ["marketCap", "changePercent", "turnoverRate", "riseCount", "fallCount"].every((key) => nullableNumber(value[key])) &&
-    nullableString(value.leadingStockName);
-}
-
-function ranking(value: unknown, sectorType: "industry" | "concept", flow: boolean): boolean {
-  return sectorIdentity(value, sectorType) && nullableNumber(value.changePercent) &&
-    (!flow || (nullableNumber(value.mainNetInflow) && nullableNumber(value.mainNetInflowRatio)));
+function ranking(value: unknown, sectorType: "industry" | "concept"): boolean {
+  return record(value) && typeof value.sectorName === "string" && value.sectorType === sectorType &&
+    finiteNumber(value.changePercent) && finiteNumber(value.netFlowAmount) &&
+    !("sectorCode" in value) && !("mainNetInflow" in value) && !("mainNetInflowRatio" in value);
 }
 
 const FUND_NUMBERS = [
@@ -76,31 +62,31 @@ function fundPoint(value: unknown): boolean {
     FUND_NUMBERS.every((key) => nullableNumber(value[key]));
 }
 
-function validModule(value: unknown, kind: "heatmap" | "top5" | "fund", sectorType?: "industry" | "concept"): boolean {
+function validModule(value: unknown, kind: "top5" | "fund", sectorType?: "industry" | "concept"): boolean {
   if (!record(value) || !["FRESH", "STALE", "ERROR"].includes(String(value.status))) return false;
   if (!(value.tradeDate === null || typeof value.tradeDate === "string")) return false;
   if (!["CALENDAR", "SOURCE"].includes(String(value.tradeDateBasis))) return false;
+  if (kind === "top5" && value.tradeDateBasis !== "CALENDAR") return false;
+  if (kind === "fund" && value.tradeDateBasis !== "SOURCE") return false;
   if (!(value.lastSuccessAt === null || typeof value.lastSuccessAt === "string")) return false;
   if (!(value.lastAttemptAt === null || typeof value.lastAttemptAt === "string")) return false;
   if (!(value.message === null || typeof value.message === "string")) return false;
   if (value.data === null) return value.status === "ERROR";
   if (value.status === "ERROR") return false;
-  if (kind === "heatmap") return Array.isArray(value.data) && value.data.every((item) => sector(item, sectorType!));
   if (!record(value.data)) return false;
   if (kind === "fund") return fundPoint(value.data.latest) && Array.isArray(value.data.series) && value.data.series.every(fundPoint);
-  return Number.isInteger(value.data.unmatchedFundRows) && Number(value.data.unmatchedFundRows) >= 0 &&
+  return value.data.source === "THS" && value.data.period === "INTRADAY" &&
+    !("unmatchedFundRows" in value.data) &&
     ["topRise", "topFall", "topInflow", "topOutflow"].every((key) => {
     const list = (value.data as Record<string, unknown>)[key];
     return Array.isArray(list) && list.length <= 5 &&
-      list.every((item) => ranking(item, sectorType!, key === "topInflow" || key === "topOutflow"));
+      list.every((item) => ranking(item, sectorType!));
   });
 }
 
 export function parseMarketSnapshot(value: unknown): MarketDashboardSnapshot {
   if (!record(value) || value.schemaVersion !== 1 || typeof value.generatedAt !== "string" ||
-      value.provider !== "akshare" || !record(value.modules) ||
-      !validModule(value.modules.industryHeatmap, "heatmap", "industry") ||
-      !validModule(value.modules.conceptHeatmap, "heatmap", "concept") ||
+      value.provider !== "akshare" || !record(value.modules) || Object.keys(value.modules).length !== 3 ||
       !validModule(value.modules.industryTop5, "top5", "industry") ||
       !validModule(value.modules.conceptTop5, "top5", "concept") ||
       !validModule(value.modules.marketFundFlow, "fund")) {

@@ -16,6 +16,28 @@ const staticRoutes: RouteRecordRaw[] = [
     path: "/",
     name: "Root",
     component: () => import("@/views/entry/index.vue"),
+    meta: { title: "首页", publicAccess: true },
+  },
+  {
+    path: "/market",
+    name: "PublicMarket",
+    component: () => import("@/layout/MarketLayout.vue"),
+    redirect: "/market/overview",
+    meta: { publicAccess: true },
+    children: [
+      {
+        path: "overview",
+        name: "PublicMarketOverview",
+        component: () => import("@/views/market/overview/index.vue"),
+        meta: { title: "板块与资金总览", publicAccess: true },
+      },
+      {
+        path: "stock-monitor",
+        name: "PublicStockMonitor",
+        component: () => import("@/views/market/stockMonitor/index.vue"),
+        meta: { title: "个股监控", publicAccess: true },
+      },
+    ],
   },
   {
     path: "/login",
@@ -44,6 +66,7 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
+  if (to.meta.publicAccess) return true;
   const authStore = useAuthStore(pinia);
   const permissionStore = usePermissionStore(pinia);
 
@@ -100,7 +123,7 @@ if (typeof window !== "undefined") {
     const permissionStore = usePermissionStore(pinia);
     authStore.clearSession();
     permissionStore.resetRoutes();
-    if (router.currentRoute.value.path !== "/login") {
+    if (router.currentRoute.value.path !== "/login" && !router.currentRoute.value.meta.publicAccess) {
       void router.replace({
         path: "/login",
         query: { redirect: router.currentRoute.value.fullPath },

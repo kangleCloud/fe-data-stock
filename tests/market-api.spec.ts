@@ -22,19 +22,25 @@ describe("market API contracts", () => {
       method: string;
       url: string;
       params?: unknown;
+      baseURL?: string;
+      publicAccess?: boolean;
     }> = [];
     const adapter: AxiosAdapter = async (config: InternalAxiosRequestConfig) => {
       requests.push({
         method: String(config.method).toUpperCase(),
         url: String(config.url),
         params: config.params,
+        baseURL: config.baseURL,
+        publicAccess: config.publicAccess,
       });
       return {
         data: {
           code: 200,
           success: true,
           msg: "ok",
-          content: {},
+          content: config.url === "/stock-monitor/v1/dashboard"
+            ? { schemaVersion: 1, xqEnabled: false, tradeDate: null, stocks: [] }
+            : {},
         } satisfies CommonResult<unknown>,
         status: 200,
         statusText: "OK",
@@ -49,7 +55,6 @@ describe("market API contracts", () => {
       marketApi.getIndices(),
       marketApi.getMarketSummary(),
       marketApi.refreshDashboard(),
-      marketApi.getSectorHeatmap({ sectorType: "industry" }),
       marketApi.getSectorTopStocks({
         sectorType: "industry",
         sectorCode: "BK001",
@@ -61,24 +66,20 @@ describe("market API contracts", () => {
       }),
       marketApi.getSectorMutations(),
       marketApi.getMarketFundTrend({ days: 20, indexCode: "000001" }),
-      marketApi.getStockDictionaryPage({ pageNum: 1, pageSize: 10 }),
-      marketApi.getStockMonitorPage({ pageNum: 1, pageSize: 4 }),
-      marketApi.enableStock({ stockCode: "600000" }),
-      marketApi.disableStock({ stockCode: "600000" }),
-      marketApi.reorderStock({ stockCode: "600000", direction: "UP" }),
-      marketApi.syncStockDictionary(),
+      marketApi.getStockMonitorDashboard(),
+      marketApi.searchStockDictionary("浦发", 20),
+      marketApi.getStockMonitorConfig(),
+      marketApi.setStockEnabled("SH600000", true),
+      marketApi.sortStockMonitor(["SH600000"]),
+      marketApi.refreshStockMonitor(),
+      marketApi.getStockMonitorRefreshStatus(),
     ]);
 
     expect(requests).toEqual([
-      { method: "GET", url: "/market/dashboard/status", params: undefined },
-      { method: "GET", url: "/market/dashboard/indices", params: undefined },
-      { method: "GET", url: "/market/dashboard/summary", params: undefined },
-      { method: "POST", url: "/market/dashboard/refresh", params: undefined },
-      {
-        method: "GET",
-        url: "/market/sector/heatmap",
-        params: { sectorType: "industry" },
-      },
+      { method: "GET", url: "/market/dashboard/status", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "GET", url: "/market/dashboard/indices", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "GET", url: "/market/dashboard/summary", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "POST", url: "/market/dashboard/refresh", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
       {
         method: "GET",
         url: "/market/sector/topStocks",
@@ -87,68 +88,35 @@ describe("market API contracts", () => {
           sectorCode: "BK001",
           metric: "changepercent",
         },
+        baseURL: "/admin/api", publicAccess: undefined,
       },
       {
         method: "GET",
         url: "/market/sector/rankings",
-        params: { period: "today", sectorType: "industry" },
+        params: { period: "today", sectorType: "industry" }, baseURL: "/admin/api", publicAccess: undefined,
       },
-      { method: "GET", url: "/market/sector/mutations", params: undefined },
+      { method: "GET", url: "/market/sector/mutations", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
       {
         method: "GET",
         url: "/market/fund/trend",
-        params: { days: 20, indexCode: "000001" },
+        params: { days: 20, indexCode: "000001" }, baseURL: "/admin/api", publicAccess: undefined,
       },
-      {
-        method: "GET",
-        url: "/market/stock/dictionary/page",
-        params: { pageNum: 1, pageSize: 10 },
-      },
-      {
-        method: "GET",
-        url: "/market/stock/monitor/page",
-        params: { pageNum: 1, pageSize: 4 },
-      },
-      { method: "POST", url: "/market/stock/enable", params: undefined },
-      { method: "POST", url: "/market/stock/disable", params: undefined },
-      { method: "POST", url: "/market/stock/reorder", params: undefined },
-      {
-        method: "POST",
-        url: "/market/stock/dictionary/sync",
-        params: undefined,
-      },
+      { method: "GET", url: "/stock-monitor/v1/dashboard", params: undefined, baseURL: "/openapi/api", publicAccess: true },
+      { method: "GET", url: "/system/stockMonitor/dictionary", params: { keyword: "浦发", limit: 20 }, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "GET", url: "/system/stockMonitor/list", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "POST", url: "/system/stockMonitor/enable", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "POST", url: "/system/stockMonitor/sort", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "POST", url: "/system/stockMonitor/refresh", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
+      { method: "GET", url: "/system/stockMonitor/refresh/status", params: undefined, baseURL: "/admin/api", publicAccess: undefined },
     ]);
     expect(new Set(requests.map((item) => item.method))).toEqual(
       new Set(["GET", "POST"]),
     );
   });
 
-  it("reads the heatmap list wrapper and groups ranking rows", async () => {
+  it("groups the legacy ranking rows still used by other market views", async () => {
     const adapter: AxiosAdapter = async (config: InternalAxiosRequestConfig) => {
-      const content =
-        config.url === "/market/sector/heatmap"
-          ? {
-              dataStatus: "FRESH",
-              data: {
-                availableAreaMetrics: ["turnover", "marketcap"],
-                list: [
-                  {
-                    sectorType: "industry",
-                    sectorCode: "BK001",
-                    name: "传媒",
-                    changePercent: 1.2,
-                    turnover: 100,
-                    marketCap: 200,
-                    turnoverRate: 3,
-                    upCount: 10,
-                    downCount: 2,
-                    leader: "测试股份",
-                    mainNetInflow: 5,
-                  },
-                ],
-              },
-            }
-          : {
+      const content = {
               dataStatus: "FRESH",
               data: [
                 {
@@ -184,22 +152,11 @@ describe("market API contracts", () => {
     };
     httpClient.defaults.adapter = adapter;
 
-    const heatmap = await marketApi.getSectorHeatmap({
-      sectorType: "industry",
-    });
     const rankings = await marketApi.getSectorRankings({
       period: "today",
       sectorType: "industry",
     });
 
-    expect(heatmap.data.list).toEqual([
-      expect.objectContaining({
-        code: "BK001",
-        type: "industry",
-        riseCount: 10,
-        leadingStockName: "测试股份",
-      }),
-    ]);
     expect(rankings.data.topRise[0]).toMatchObject({
       sectorCode: "BK001",
       value: 1.2,

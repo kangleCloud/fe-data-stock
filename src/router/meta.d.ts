@@ -9,5 +9,6 @@ declare module "vue-router" {
     hidden?: boolean;
     keepAlive?: boolean;
     loadError?: string;
+    publicAccess?: boolean;
   }
 }

@@ -1,7 +1,5 @@
 import type {
-  IntradayPoint,
   MarketDataStatus,
-  StockFundPoint,
   TradeStatus,
 } from "@/types/market";
 
@@ -95,33 +93,6 @@ export const dataStatusLabels: Record<MarketDataStatus, string> = {
   NO_DATA: "暂无数据",
   ERROR: "数据加载失败",
 };
-
-type TimePoint = IntradayPoint | StockFundPoint;
-
-export function insertTimeBreaks<T extends TimePoint>(
-  points: T[],
-  gapMilliseconds = 80_000,
-): Array<Partial<T> & { time: string }> {
-  const result: Array<Partial<T> & { time: string }> = [];
-  points.forEach((point, index) => {
-    const previous = points[index - 1];
-    if (previous) {
-      const previousTime = new Date(previous.time).getTime();
-      const currentTime = new Date(point.time).getTime();
-      if (
-        Number.isFinite(previousTime) &&
-        Number.isFinite(currentTime) &&
-        currentTime - previousTime > gapMilliseconds
-      ) {
-        result.push({
-          time: new Date(previousTime + 1).toISOString(),
-        } as Partial<T> & { time: string });
-      }
-    }
-    result.push(point as Partial<T> & { time: string });
-  });
-  return result;
-}
 
 export function secondsUntil(value: string | null | undefined): number {
   if (!value) {

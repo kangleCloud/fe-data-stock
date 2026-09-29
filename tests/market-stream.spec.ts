@@ -5,12 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
 import { SseParser, parseMarketSnapshot, readMarketStream } from "@/utils/marketStream";
 import { AUTH_EXPIRED_EVENT, httpClient, requestStream } from "@/utils/request";
-import { clearCredential, saveCredential } from "@/utils/storage";
+import { saveCredential } from "@/utils/storage";
 
 const originalAdapter = httpClient.defaults.adapter;
 
-const moduleOf = (data: unknown) => ({
-  status: "FRESH", tradeDate: "2026-09-22", tradeDateBasis: "SOURCE",
+const moduleOf = (data: unknown, tradeDateBasis: "CALENDAR" | "SOURCE" = "CALENDAR") => ({
+  status: "FRESH", tradeDate: "2026-09-22", tradeDateBasis,
   lastSuccessAt: "2026-09-23T10:00:00+08:00", lastAttemptAt: "2026-09-23T10:00:00+08:00",
   message: null, data,
 });
@@ -25,13 +25,17 @@ const fundPoint = {
   shenzhenClose: null, shenzhenChangePercent: null,
 };
 
+const top5 = {
+  source: "THS", period: "INTRADAY",
+  topRise: [], topFall: [], topInflow: [], topOutflow: [],
+};
+
 const snapshot = {
   schemaVersion: 1, provider: "akshare", generatedAt: "2026-09-23T10:00:00+08:00",
   modules: {
-    industryHeatmap: moduleOf([]), conceptHeatmap: moduleOf([]),
-    industryTop5: moduleOf({ topRise: [], topFall: [], topInflow: [], topOutflow: [], unmatchedFundRows: 0 }),
-    conceptTop5: moduleOf({ topRise: [], topFall: [], topInflow: [], topOutflow: [], unmatchedFundRows: 0 }),
-    marketFundFlow: moduleOf({ latest: fundPoint, series: [fundPoint] }),
+    industryTop5: moduleOf(top5),
+    conceptTop5: moduleOf(top5),
+    marketFundFlow: moduleOf({ latest: fundPoint, series: [fundPoint] }, "SOURCE"),
   },
 };
 
@@ -64,16 +68,37 @@ describe("market snapshot stream", () => {
       (value) => accepted.push(value), (error) => errors.push(error));
     expect(accepted).toEqual([snapshot]);
     expect(errors).toHaveLength(1);
+    expect(parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, industryTop5: moduleOf({ ...top5,
+        topInflow: [{ sectorName: "测试行业", sectorType: "industry", changePercent: 2.5, netFlowAmount: 123_000_000 }],
+      }),
+    } }).schemaVersion).toBe(1);
     expect(() => parseMarketSnapshot({ ...snapshot, schemaVersion: 2 })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, industryTop5: moduleOf({ ...top5, source: "EM" }),
+    } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: { ...snapshot.modules, conceptTop5: {} } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, marketFundFlow: moduleOf({ latest: { date: "2026-09-22" }, series: [] }),
+      ...snapshot.modules, marketFundFlow: moduleOf({ latest: { date: "2026-09-22" }, series: [] }, "SOURCE"),
     } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryTop5: moduleOf({ topRise: [], topFall: [], topInflow: [], topOutflow: [] }),
+      ...snapshot.modules, industryTop5: moduleOf({ topRise: [], topFall: [], topInflow: [], topOutflow: [], unmatchedFundRows: 1 }),
     } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryHeatmap: moduleOf([{ sectorCode: "BK1", sectorName: "行业" }]),
+      ...snapshot.modules, industryTop5: moduleOf({ ...top5,
+        topInflow: [{ sectorName: "测试行业", sectorType: "industry", changePercent: 2.5, mainNetInflow: 100 }],
+      }),
+    } })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, industryTop5: moduleOf({ ...top5,
+        topRise: [{ sectorName: "测试行业", sectorType: "industry", changePercent: 2.5 }],
+      }),
+    } })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, industryTop5: moduleOf(top5, "SOURCE"),
+    } })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, industryHeatmap: moduleOf([]),
     } })).toThrow();
   });
 
@@ -85,7 +110,7 @@ describe("market snapshot stream", () => {
     })) as AxiosAdapter;
     const valid = { ...snapshot, generatedAt: "2026-09-24T10:00:00+08:00" };
     const invalid = { ...snapshot, generatedAt: "2026-09-25T10:00:00+08:00", modules: {
-      ...snapshot.modules, marketFundFlow: moduleOf({ latest: { date: "2026-09-25" }, series: [] }),
+      ...snapshot.modules, marketFundFlow: moduleOf({ latest: { date: "2026-09-25" }, series: [] }, "SOURCE"),
     } };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(stream(
       `event: snapshot\ndata: ${JSON.stringify(valid)}\n\nevent: snapshot\ndata: ${JSON.stringify(invalid)}\n\n`,
@@ -99,28 +124,29 @@ describe("market snapshot stream", () => {
     wrapper.unmount();
   });
 
-  it("sends the existing token in a header and expires the session on 401", async () => {
+  it("opens the public stream without a token and preserves the admin session on 401", async () => {
     credential();
     const fetchMock = vi.fn().mockResolvedValueOnce(stream(": heartbeat\n\n"))
       .mockResolvedValueOnce(new Response(JSON.stringify({ success: false, code: 401, msg: "会话失效" }), {
         status: 200, headers: { "Content-Type": "application/json" },
       }));
     vi.stubGlobal("fetch", fetchMock);
-    await requestStream("/market/dashboard/stream", new AbortController().signal);
+    await requestStream("/market/dashboard/stream", new AbortController().signal, true);
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/admin/api/market/dashboard/stream");
+    expect(url).toBe("/openapi/api/market/dashboard/stream");
     expect(url).not.toContain("secret");
-    expect(new Headers(options.headers).get("X-Token")).toBe("Bearer secret");
+    expect(new Headers(options.headers).get("X-Token")).toBeNull();
+    expect(options.credentials).toBe("omit");
     const expired = vi.fn();
     window.addEventListener(AUTH_EXPIRED_EVENT, expired, { once: true });
-    await expect(requestStream("/market/dashboard/stream", new AbortController().signal)).rejects.toMatchObject({ code: 401 });
-    expect(expired).toHaveBeenCalledOnce();
-    expect(localStorage.length).toBe(0);
+    await expect(requestStream("/market/dashboard/stream", new AbortController().signal, true)).rejects.toMatchObject({ code: 401 });
+    expect(expired).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(1);
+    window.removeEventListener(AUTH_EXPIRED_EVENT, expired);
   });
 
   it("GETs before reconnecting, stops on 403, and aborts on unmount", async () => {
     vi.useFakeTimers();
-    credential();
     let gets = 0;
     httpClient.defaults.adapter = (async (config) => {
       gets += 1;
@@ -153,16 +179,10 @@ describe("market snapshot stream", () => {
     const second = mount(Probe);
     await flushPromises();
     const signal = pending.mock.calls[0]![1].signal;
-    clearCredential();
+    second.unmount();
     expect(signal?.aborted).toBe(true);
     await vi.advanceTimersByTimeAsync(30_000);
     expect(pending).toHaveBeenCalledTimes(1);
-    credential();
-    await flushPromises();
-    expect(pending).toHaveBeenCalledTimes(2);
-    const replacementSignal = pending.mock.calls[1]![1].signal;
-    second.unmount();
-    expect(replacementSignal?.aborted).toBe(true);
   });
 
   it("stops the live subscription after a 401 handshake", async () => {
@@ -180,7 +200,7 @@ describe("market snapshot stream", () => {
     const wrapper = mount(Probe);
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(localStorage.length).toBe(0);
+    expect(localStorage.length).toBe(1);
     await vi.advanceTimersByTimeAsync(30_000);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     wrapper.unmount();

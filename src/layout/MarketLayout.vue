@@ -2,7 +2,7 @@
 import { ArrowDown, Back, SwitchButton, TrendCharts } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import "element-plus/theme-chalk/el-message-box.css";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { RouteRecordRaw } from "vue-router";
 import { useRouter } from "vue-router";
 
@@ -13,6 +13,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const permissionStore = usePermissionStore();
 const avatarText = computed(() => authStore.displayName.trim().slice(0, 1).toUpperCase());
+const openingAdmin = ref(false);
 
 function findAdminPath(routes: RouteRecordRaw[]): string {
   for (const item of routes) {
@@ -21,7 +22,20 @@ function findAdminPath(routes: RouteRecordRaw[]): string {
     if (childPath) return childPath;
     if (item.path && item.path !== "/") return item.path;
   }
-  return "/";
+  return "/403";
+}
+
+async function openAdmin(): Promise<void> {
+  if (openingAdmin.value) return;
+  openingAdmin.value = true;
+  try {
+    await permissionStore.initialize(router);
+    await router.push(findAdminPath(permissionStore.routes));
+  } catch {
+    if (!authStore.isAuthenticated) await router.push("/login");
+  } finally {
+    openingAdmin.value = false;
+  }
 }
 
 async function handleLogout(): Promise<void> {
@@ -52,18 +66,23 @@ async function handleLogout(): Promise<void> {
         </div>
 
         <nav class="market-view-nav" aria-label="行情视图">
-          <RouterLink to="/market/overview" class="is-active">板块与资金总览</RouterLink>
+          <RouterLink to="/" exact-active-class="is-active">首页</RouterLink>
+          <RouterLink to="/market/overview" active-class="is-active">板块与资金总览</RouterLink>
+          <RouterLink to="/market/stock-monitor" active-class="is-active">个股监控</RouterLink>
         </nav>
 
         <div class="market-topbar__status">
           <button
+            v-if="authStore.isAuthenticated"
             class="market-icon-button back-button"
             type="button"
-            @click="router.push(findAdminPath(permissionStore.routes))"
+            :disabled="openingAdmin"
+            @click="openAdmin"
           >
             <el-icon><Back /></el-icon><span>管理端</span>
           </button>
-          <el-dropdown trigger="click" popper-class="market-dark-popper">
+          <RouterLink v-else class="market-icon-button market-login-link" to="/login">登录管理端</RouterLink>
+          <el-dropdown v-if="authStore.isAuthenticated" trigger="click" popper-class="market-dark-popper">
             <button class="market-user-menu" type="button" aria-label="打开用户菜单">
               <span>{{ avatarText }}</span>
               <strong>{{ authStore.displayName }}</strong>

@@ -35,6 +35,10 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_PROXY_TARGET || "http://127.0.0.1:19001",
           changeOrigin: true,
         },
+        "/openapi/api": {
+          target: env.VITE_OPENAPI_PROXY_TARGET || "http://127.0.0.1:19002",
+          changeOrigin: true,
+        },
       },
     },
     test: {
@@ -42,6 +46,7 @@ export default defineConfig(({ mode }) => {
       globals: true,
       setupFiles: ["./tests/setup.ts"],
       css: true,
+      server: { deps: { inline: ["element-plus"] } },
     },
   };
 });

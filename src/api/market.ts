@@ -3,25 +3,23 @@ import type {
   MarketFundPoint,
   MarketIndex,
   MarketModuleResponse,
-  MarketPageResponse,
   MarketRefreshResult,
   MarketSummary,
   RankingPeriod,
   RefreshStatus,
-  SectorHeatmapData,
   SectorMutation,
   SectorRankings,
   SectorTopMetric,
   SectorTopStock,
   SectorType,
-  StockDictionaryItem,
-  StockDictionaryQuery,
-  StockMonitorItem,
-  StockMonitorQuery,
-  StockReorderRequest,
-  StockToggleRequest,
+  StockMonitorConfig,
+  StockMonitorDashboard,
+  StockMonitorRefreshResult,
+  StockMonitorRefreshStatus,
+  StockSymbol,
 } from "@/types/market";
-import { request } from "@/utils/request";
+import { PUBLIC_API_BASE_URL, request } from "@/utils/request";
+import { parseStockMonitorDashboard } from "@/utils/stockMonitor";
 
 const silent = { silentError: true } as const;
 
@@ -29,25 +27,11 @@ export function getMarketDashboardSnapshot(): Promise<MarketDashboardSnapshot> {
   return request<MarketDashboardSnapshot>({
     url: "/market/dashboard/snapshot",
     method: "GET",
+    baseURL: PUBLIC_API_BASE_URL,
+    publicAccess: true,
+    withCredentials: false,
     ...silent,
   });
-}
-
-interface SectorHeatmapSource {
-  availableAreaMetrics?: string[];
-  list?: Array<{
-    sectorType: SectorType;
-    sectorCode: string | null;
-    name: string;
-    changePercent: number | null;
-    turnover: number | null;
-    marketCap: number | null;
-    turnoverRate: number | null;
-    upCount: number | null;
-    downCount: number | null;
-    leader: string | null;
-    mainNetInflow: number | null;
-  }>;
 }
 
 interface SectorTopStockSource extends Omit<SectorTopStock, "turnover"> {
@@ -61,16 +45,6 @@ interface SectorRankingSource {
   sectorName: string;
   changePercent: number | null;
   mainNetInflow: number | null;
-}
-
-function normalizeAreaMetrics(values?: string[]): SectorHeatmapData["availableAreaMetrics"] {
-  return (values || []).flatMap((value) => {
-    const normalized = value.toLowerCase();
-    if (normalized === "turnover" || normalized === "marketcap") {
-      return [normalized];
-    }
-    return [];
-  });
 }
 
 function groupRankings(items: SectorRankingSource[]): SectorRankings {
@@ -114,37 +88,6 @@ export function getMarketSummary(): Promise<MarketModuleResponse<MarketSummary>>
 
 export function refreshDashboard(): Promise<MarketRefreshResult> {
   return request({ url: "/market/dashboard/refresh", method: "POST", ...silent });
-}
-
-export async function getSectorHeatmap(params: {
-  sectorType: SectorType;
-}): Promise<MarketModuleResponse<SectorHeatmapData>> {
-  const response = await request<MarketModuleResponse<SectorHeatmapSource>>({
-    url: "/market/sector/heatmap",
-    method: "GET",
-    params,
-    ...silent,
-  });
-  const source = response.data;
-  return {
-    ...response,
-    data: {
-      availableAreaMetrics: normalizeAreaMetrics(source?.availableAreaMetrics),
-      list: (source?.list || []).map((item) => ({
-        code: item.sectorCode || item.name,
-        name: item.name,
-        type: item.sectorType,
-        changePercent: item.changePercent,
-        turnover: item.turnover,
-        marketCap: item.marketCap,
-        turnoverRate: item.turnoverRate,
-        riseCount: item.upCount,
-        fallCount: item.downCount,
-        leadingStockName: item.leader,
-        mainNetInflow: item.mainNetInflow,
-      })),
-    },
-  };
 }
 
 export async function getSectorTopStocks(params: {
@@ -203,40 +146,43 @@ export function getMarketFundTrend(params: {
   });
 }
 
-export function getStockDictionaryPage(
-  params: StockDictionaryQuery,
-): Promise<MarketPageResponse<StockDictionaryItem>> {
-  return request({
-    url: "/market/stock/dictionary/page",
+export async function getStockMonitorDashboard(): Promise<StockMonitorDashboard> {
+  const content = await request<unknown>({
+    url: "/stock-monitor/v1/dashboard",
     method: "GET",
-    params,
+    baseURL: PUBLIC_API_BASE_URL,
+    publicAccess: true,
+    withCredentials: false,
+    ...silent,
+  });
+  return parseStockMonitorDashboard(content);
+}
+
+export function searchStockDictionary(keyword: string, limit = 20): Promise<StockSymbol[]> {
+  return request({
+    url: "/system/stockMonitor/dictionary",
+    method: "GET",
+    params: { keyword, limit },
     ...silent,
   });
 }
 
-export function getStockMonitorPage(
-  params: StockMonitorQuery,
-): Promise<MarketModuleResponse<MarketPageResponse<StockMonitorItem>>> {
-  return request({
-    url: "/market/stock/monitor/page",
-    method: "GET",
-    params,
-    ...silent,
-  });
+export function getStockMonitorConfig(): Promise<StockMonitorConfig[]> {
+  return request({ url: "/system/stockMonitor/list", method: "GET", ...silent });
 }
 
-export function enableStock(data: StockToggleRequest): Promise<boolean> {
-  return request({ url: "/market/stock/enable", method: "POST", data });
+export function setStockEnabled(symbol: string, enabled: boolean): Promise<boolean> {
+  return request({ url: "/system/stockMonitor/enable", method: "POST", data: { symbol, enabled } });
 }
 
-export function disableStock(data: StockToggleRequest): Promise<boolean> {
-  return request({ url: "/market/stock/disable", method: "POST", data });
+export function sortStockMonitor(symbols: string[]): Promise<boolean> {
+  return request({ url: "/system/stockMonitor/sort", method: "POST", data: { symbols } });
 }
 
-export function reorderStock(data: StockReorderRequest): Promise<boolean> {
-  return request({ url: "/market/stock/reorder", method: "POST", data });
+export function refreshStockMonitor(): Promise<StockMonitorRefreshResult> {
+  return request({ url: "/system/stockMonitor/refresh", method: "POST", data: {} });
 }
 
-export function syncStockDictionary(): Promise<boolean> {
-  return request({ url: "/market/stock/dictionary/sync", method: "POST" });
+export function getStockMonitorRefreshStatus(): Promise<StockMonitorRefreshStatus> {
+  return request({ url: "/system/stockMonitor/refresh/status", method: "GET", ...silent });
 }

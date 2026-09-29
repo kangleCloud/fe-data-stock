@@ -1,855 +1,280 @@
 <script setup lang="ts">
-import {
-  ArrowDown,
-  ArrowUp,
-  Collection,
-  Refresh,
-  Search,
-  Setting,
-} from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox } from "element-plus";
-import "element-plus/theme-chalk/el-message-box.css";
-import { computed, onMounted, ref, watch } from "vue";
+import { Refresh, Search, Setting } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import * as marketApi from "@/api/market";
-import { buildStockFundOption } from "@/charts/marketOptions";
+import { getStockMonitorDashboard } from "@/api/market";
+import { buildStockPriceOption } from "@/charts/marketOptions";
 import BaseChart from "@/components/market/BaseChart.vue";
-import MarketPanel from "@/components/market/MarketPanel.vue";
 import { useAuthStore } from "@/stores/auth";
-import { useMarketStore } from "@/stores/market";
-import type {
-  ListingStatus,
-  MarketDataStatus,
-  MarketPageResponse,
-  StockDictionaryItem,
-  StockMonitorItem,
-} from "@/types/market";
-import {
-  dataStatusLabels,
-  formatAmount,
-  formatDateTime,
-  formatPercent,
-  formatPlainNumber,
-  valueTone,
-} from "@/utils/market";
-import { pageAfterSingleRowDelete } from "@/utils/pagination";
+import { usePermissionStore } from "@/stores/permission";
+import type { StockMonitorDashboard, StockMonitorStock } from "@/types/market";
+import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
 import { canAccess } from "@/utils/permission";
+import { isHistoricalStock } from "@/utils/stockMonitor";
 
 const PAGE_SIZE = 4;
-const ENABLE_LIMIT = 10;
-
+const POLL_INTERVAL = 120_000;
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
-const marketStore = useMarketStore();
-
-const monitorPage = ref<MarketPageResponse<StockMonitorItem>>({
-  list: [],
-  total: 0,
-  pageNum: 1,
-  pageSize: PAGE_SIZE,
-  enabledTotal: 0,
-});
+const permissionStore = usePermissionStore();
+const dashboard = ref<StockMonitorDashboard | null>(null);
+const loading = ref(true);
+const errorMessage = ref("");
 const pageNum = ref(1);
-const monitorStatus = ref<MarketDataStatus>("FRESH");
-const monitorMessage = ref("");
-const monitorLoading = ref(true);
-const quickKeyword = ref("");
-const highlightCode = ref("");
+const keyword = ref("");
+const highlighted = ref("");
+let pollId: ReturnType<typeof setInterval> | undefined;
+let highlightId: ReturnType<typeof setTimeout> | undefined;
 
-const dictionaryOpen = ref(false);
-const dictionaryLoading = ref(false);
-const dictionarySubmitting = ref("");
-const dictionaryKeyword = ref("");
-const dictionaryEnabled = ref<boolean | undefined>();
-const dictionaryListingStatus = ref<ListingStatus | undefined>();
-const dictionaryPageNum = ref(1);
-const dictionaryPage = ref({
-  list: [] as StockDictionaryItem[],
-  total: 0,
-});
+const canViewConfig = computed(() => canAccess(authStore.permissionCodes, "system:stock-monitor:view"));
+const stocks = computed(() => dashboard.value?.stocks ?? []);
+const pageCount = computed(() => Math.max(1, Math.ceil(stocks.value.length / PAGE_SIZE)));
+const visibleStocks = computed(() => stocks.value.slice((pageNum.value - 1) * PAGE_SIZE, pageNum.value * PAGE_SIZE));
 
-const canManage = computed(() =>
-  canAccess(authStore.permissionCodes, "market:stock:manage"),
-);
-const canSync = computed(() =>
-  canAccess(authStore.permissionCodes, "market:stock:sync"),
-);
-const pageCount = computed(() =>
-  Math.max(1, Math.ceil(monitorPage.value.enabledTotal / PAGE_SIZE)),
-);
-
-function cardSummary(stock: StockMonitorItem): string {
-  return `${stock.stockName} ${stock.stockCode}，最新价 ${formatPlainNumber(stock.latestPrice)}，涨跌幅 ${formatPercent(stock.changePercent)}，资金流入 ${formatAmount(stock.inflow)}，资金流出 ${formatAmount(stock.outflow)}，资金净额 ${formatAmount(stock.netAmount)}。`;
+function shanghaiTime(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).format(date);
 }
 
-async function loadMonitor(options?: {
-  locateStockCode?: string;
-}): Promise<void> {
-  monitorLoading.value = true;
+function formatCurrency(value: number | null): string {
+  return formatAmount(value).replace(/^\+/, "");
+}
+
+function quoteLabel(stock: StockMonitorStock): string {
+  if (!dashboard.value?.xqEnabled) return "采集未开启";
+  if (stock.quote.status === "DISABLED") return "该股采集未开启";
+  if (stock.quote.status === "ERROR") return "报价缓存不可用";
+  if (isHistoricalStock(stock)) return `历史数据 · ${stock.quote.tradeDate}`;
+  return stock.quote.status === "STALE" ? "数据已过期" : "采样数据";
+}
+
+function quoteMessage(stock: StockMonitorStock): string {
+  if (stock.quote.status === "DISABLED") return "该股暂无可用报价和曲线。";
+  if (stock.quote.status === "ERROR") return "报价或曲线缓存缺失，暂无可展示的行情。";
+  if (stock.quote.status === "STALE") return "保留最近一次有效报价，请核对源时间。";
+  if (!stock.series.length) return "尚无实际价格采样点。";
+  return "";
+}
+
+function hasChart(stock: StockMonitorStock): boolean {
+  return (stock.quote.status === "FRESH" || stock.quote.status === "STALE") && stock.series.length > 0;
+}
+
+async function loadDashboard(): Promise<void> {
+  loading.value = true;
   try {
-    const response = await marketApi.getStockMonitorPage({
-      pageNum: pageNum.value,
-      pageSize: PAGE_SIZE,
-      locateStockCode: options?.locateStockCode,
-    });
-    monitorPage.value = response.data;
-    monitorStatus.value = response.dataStatus;
-    monitorMessage.value = response.message || "";
-    marketStore.setEnabledTotal(response.data.enabledTotal);
-    marketStore.markModule("stockMonitor", response);
-    if (
-      options?.locateStockCode &&
-      response.data.locatedPageNum &&
-      response.data.locatedPageNum !== pageNum.value
-    ) {
-      pageNum.value = response.data.locatedPageNum;
-      await loadMonitor();
-      highlightStock(options.locateStockCode);
-    } else if (options?.locateStockCode) {
-      highlightStock(options.locateStockCode);
-    }
+    dashboard.value = await getStockMonitorDashboard();
+    errorMessage.value = "";
+    pageNum.value = Math.min(pageNum.value, pageCount.value);
   } catch (error) {
-    monitorStatus.value = monitorPage.value.list.length ? "STALE" : "ERROR";
-    monitorMessage.value =
-      error instanceof Error ? error.message : "个股资金刷新失败";
-    marketStore.markModuleFailure(
-      "stockMonitor",
-      monitorMessage.value,
-      monitorPage.value.list.length > 0,
-    );
+    dashboard.value = null;
+    errorMessage.value = error instanceof Error ? error.message : "个股监控加载失败";
   } finally {
-    monitorLoading.value = false;
+    loading.value = false;
   }
 }
 
-function highlightStock(stockCode: string): void {
-  highlightCode.value = stockCode;
-  window.setTimeout(() => {
-    if (highlightCode.value === stockCode) highlightCode.value = "";
-  }, 2_000);
-}
-
-async function locateStock(): Promise<void> {
-  const keyword = quickKeyword.value.trim();
-  if (!keyword) return;
-  await loadMonitor({ locateStockCode: keyword });
-  if (
-    !monitorPage.value.list.some(
-      (item) =>
-        item.stockCode.includes(keyword) || item.stockName.includes(keyword),
-    )
-  ) {
+function locateStock(): void {
+  const search = keyword.value.trim().toUpperCase();
+  if (!search) return;
+  const index = stocks.value.findIndex((item) =>
+    item.symbol.includes(search) || item.code.includes(search) || item.name.includes(search));
+  if (index < 0) {
     ElMessage.warning("未在已启用股票中找到匹配项");
-  }
-}
-
-async function loadDictionary(): Promise<void> {
-  dictionaryLoading.value = true;
-  try {
-    const response = await marketApi.getStockDictionaryPage({
-      pageNum: dictionaryPageNum.value,
-      pageSize: 10,
-      keyword: dictionaryKeyword.value.trim() || undefined,
-      enabled: dictionaryEnabled.value,
-      listingStatus: dictionaryListingStatus.value,
-    });
-    dictionaryPage.value = response;
-  } catch {
-    // 行情接口已启用静默错误，抽屉内保留当前列表。
-  } finally {
-    dictionaryLoading.value = false;
-  }
-}
-
-async function toggleStock(item: StockDictionaryItem): Promise<void> {
-  if (!canManage.value) return;
-  if (!item.enabled && monitorPage.value.enabledTotal >= ENABLE_LIMIT) {
-    ElMessage.warning("最多同时启用10只股票，请先停用其他股票");
     return;
   }
-  const action = item.enabled ? "停用" : "启用";
-  await ElMessageBox.confirm(
-    `${action} ${item.stockName}（${item.stockCode}）？${
-      item.enabled ? "停用后将立即从实时监控中移除。" : ""
-    }`,
-    `${action}资金监控`,
-    {
-      confirmButtonText: action,
-      cancelButtonText: "取消",
-      type: item.enabled ? "warning" : "info",
-      customClass: "market-dark-dialog",
-    },
-  );
-  dictionarySubmitting.value = item.stockCode;
+  pageNum.value = Math.floor(index / PAGE_SIZE) + 1;
+  highlighted.value = stocks.value[index]!.symbol;
+  if (highlightId) clearTimeout(highlightId);
+  highlightId = setTimeout(() => { highlighted.value = ""; }, 2_000);
+}
+
+async function initializePermissions(): Promise<void> {
+  if (!authStore.isAuthenticated || permissionStore.initialized) return;
   try {
-    if (item.enabled) {
-      await marketApi.disableStock({ stockCode: item.stockCode });
-    } else {
-      await marketApi.enableStock({ stockCode: item.stockCode });
-    }
-    ElMessage.success(`${action}成功`);
-    if (item.enabled && monitorPage.value.list.length === 1) {
-      pageNum.value = pageAfterSingleRowDelete(pageNum.value, 1);
-    }
-    await Promise.all([loadDictionary(), loadMonitor()]);
-  } finally {
-    dictionarySubmitting.value = "";
+    await permissionStore.initialize(router);
+  } catch {
+    // 公开行情继续可读；配置入口只在权限加载成功后显示。
   }
 }
 
-async function reorder(item: StockDictionaryItem, direction: "UP" | "DOWN") {
-  if (!canManage.value || dictionarySubmitting.value) return;
-  dictionarySubmitting.value = item.stockCode;
-  try {
-    await marketApi.reorderStock({ stockCode: item.stockCode, direction });
-    ElMessage.success("显示顺序已更新");
-    await Promise.all([loadDictionary(), loadMonitor()]);
-  } finally {
-    dictionarySubmitting.value = "";
+async function openConfig(): Promise<void> {
+  if (!canViewConfig.value) return;
+  await permissionStore.initialize(router);
+  await router.push("/system/stockMonitor");
+}
+
+onMounted(async () => {
+  await Promise.all([loadDashboard(), initializePermissions()]);
+  const initial = route.query.symbol ?? route.query.stockCode;
+  if (typeof initial === "string") {
+    keyword.value = initial;
+    locateStock();
+    await router.replace({ query: {} });
   }
-}
+  pollId = setInterval(() => { void loadDashboard(); }, POLL_INTERVAL);
+});
 
-async function syncDictionary(): Promise<void> {
-  dictionarySubmitting.value = "SYNC";
-  try {
-    await marketApi.syncStockDictionary();
-    ElMessage.success("股票字典同步任务已提交");
-    await loadDictionary();
-  } finally {
-    dictionarySubmitting.value = "";
-  }
-}
-
-function openDictionary(): void {
-  dictionaryOpen.value = true;
-  void loadDictionary();
-}
-
-function resetDictionaryFilters(): void {
-  dictionaryKeyword.value = "";
-  dictionaryEnabled.value = undefined;
-  dictionaryListingStatus.value = undefined;
-  dictionaryPageNum.value = 1;
-  void loadDictionary();
-}
-
-watch(() => marketStore.refreshSignal, () => loadMonitor(), { immediate: true });
-watch(pageNum, () => loadMonitor());
-watch(dictionaryPageNum, () => loadDictionary());
-
-onMounted(() => {
-  const stockCode = String(route.query.stockCode || "");
-  if (stockCode) {
-    quickKeyword.value = stockCode;
-    void loadMonitor({ locateStockCode: stockCode });
-    void router.replace({ query: {} });
-  }
+onBeforeUnmount(() => {
+  if (pollId) clearInterval(pollId);
+  if (highlightId) clearTimeout(highlightId);
 });
 </script>
 
 <template>
   <div class="stock-monitor-page">
-    <section class="monitor-heading">
+    <header class="monitor-heading">
       <div>
-        <p>STOCK FUND MONITOR</p>
-        <h1>个股资金监控</h1>
-        <span>每只启用股票独立成图，流入、流出与净额均按40秒节奏更新</span>
+        <p>STOCK PRICE MONITOR · V1</p>
+        <h1>个股监控大屏</h1>
+        <span>最多 10 只股票，每页展示 4 只；约 2 分钟采样，曲线仅使用实际源时间点</span>
       </div>
-      <div class="monitor-heading__tools">
+      <div class="monitor-tools">
+        <span class="monitor-count">{{ stocks.length }} / 10 只</span>
         <span class="monitor-count">第 {{ pageNum }} / {{ pageCount }} 页</span>
-        <span class="monitor-count">已启用 {{ monitorPage.enabledTotal }} / {{ ENABLE_LIMIT }} 只</span>
         <div class="quick-search">
-          <el-input
-            v-model="quickKeyword"
-            clearable
-            placeholder="输入股票编号或名称快速定位"
-            :prefix-icon="Search"
-            @keyup.enter="locateStock"
-          />
+          <el-input v-model="keyword" clearable placeholder="股票代码或名称" :prefix-icon="Search" @keyup.enter="locateStock" />
           <button type="button" @click="locateStock">定位</button>
         </div>
-        <button class="dictionary-button" type="button" @click="openDictionary">
-          <el-icon><Collection /></el-icon>
-          股票字典与管理
+        <button class="outline-button" type="button" :disabled="loading" @click="loadDashboard">
+          <el-icon><Refresh /></el-icon>重新加载
+        </button>
+        <button v-if="canViewConfig" class="outline-button" type="button" @click="openConfig">
+          <el-icon><Setting /></el-icon>配置管理
         </button>
       </div>
-    </section>
+    </header>
 
-    <p class="monitor-disclaimer">
-      资金流入、流出与净额均为行情数据观察指标，不构成收益承诺、买卖建议或交易指令。
+    <p v-if="dashboard && !dashboard.xqEnabled" class="monitor-notice" role="status">
+      雪球采集开关未开启，仅展示监控清单。
     </p>
+    <p v-else-if="dashboard?.tradeDate" class="monitor-notice" role="status">
+      最近交易日：{{ dashboard.tradeDate }}。报价请以每张卡片的源时间和状态为准。
+    </p>
+    <p class="monitor-disclaimer">价格采样、涨跌幅和成交额仅供观察，不构成交易建议。</p>
 
-    <div
-      v-if="monitorLoading && monitorPage.list.length === 0"
-      class="monitor-skeleton-grid"
-      aria-label="个股资金数据加载中"
-    >
+    <div v-if="loading && !dashboard" class="monitor-skeleton-grid" aria-label="个股监控加载中">
       <div v-for="item in 4" :key="item" class="monitor-skeleton" />
     </div>
-
-    <MarketPanel
-      v-else-if="monitorPage.enabledTotal === 0"
-      title="尚未启用资金监控"
-      status="NO_DATA"
-      :has-data="false"
-      message="股票字典中的全部股票均可检索。管理员可启用最多10只股票，启用后才会读取实时资金曲线。"
-      class="monitor-empty-panel"
-    >
-      <template #retry>
-        <button class="dictionary-button" type="button" @click="openDictionary">
-          打开股票字典
-        </button>
-      </template>
-    </MarketPanel>
-
+    <div v-else-if="errorMessage" class="monitor-empty" role="alert">
+      <strong>个股监控不可用</strong><span>{{ errorMessage }}</span>
+      <button class="outline-button" type="button" @click="loadDashboard">重新加载</button>
+    </div>
+    <div v-else-if="stocks.length === 0" class="monitor-empty">
+      <strong>尚未启用监控股票</strong>
+      <span>管理员可在配置管理中从交易所股票字典选择最多 10 只。</span>
+      <button v-if="canViewConfig" class="outline-button" type="button" @click="openConfig">打开配置管理</button>
+    </div>
     <div v-else class="stock-card-grid">
-      <MarketPanel
-        v-for="stock in monitorPage.list"
-        :key="stock.stockCode"
-        :title="`${stock.stockName} · ${stock.stockCode}`"
-        :status="stock.dataStatus"
-        :message="stock.message"
-        :has-data="stock.points.length > 0"
-        :loading="monitorLoading"
-        class="stock-card"
-        :class="{ 'is-highlighted': highlightCode === stock.stockCode }"
-      >
-        <template #actions>
-          <span class="stock-data-time">
-            {{ dataStatusLabels[stock.dataStatus] }} ·
-            {{ formatDateTime(stock.updateTime) }}
-          </span>
+      <section v-for="stock in visibleStocks" :key="stock.symbol" class="stock-card" :class="{ 'is-highlighted': highlighted === stock.symbol }">
+        <header class="stock-card__header">
+          <div>
+            <h2>{{ stock.name }} <small>{{ stock.symbol }}</small></h2>
+            <span>{{ dashboard?.xqEnabled ? (stock.profile.industry || "行业未同步") : stock.market + " 市场" }}</span>
+          </div>
+          <div class="stock-card__state" :class="`state-${stock.quote.status.toLowerCase()}`">
+            <strong>{{ quoteLabel(stock) }}</strong>
+            <small v-if="dashboard?.xqEnabled">源时间 {{ shanghaiTime(stock.quote.sourceTime) }}</small>
+          </div>
+        </header>
+        <template v-if="dashboard?.xqEnabled">
+          <div class="stock-card__metrics">
+            <div><small>价格 · 元</small><strong>{{ formatPlainNumber(stock.quote.price) }}</strong></div>
+            <div><small>涨跌幅</small><strong :class="`tone-${valueTone(stock.quote.changePercent)}`">{{ formatPercent(stock.quote.changePercent) }}</strong></div>
+            <div><small>成交额 · 元</small><strong>{{ formatCurrency(stock.quote.amount) }}</strong></div>
+            <div><small>交易日</small><strong>{{ stock.quote.tradeDate || "—" }}</strong></div>
+          </div>
+          <div class="stock-card__chart">
+            <BaseChart
+              v-if="hasChart(stock)" :option="buildStockPriceOption(stock.series)"
+              :accessible-label="`${stock.name} ${stock.symbol}，${stock.quote.tradeDate} 实际源时间价格采样曲线，共 ${stock.series.length} 点`"
+              height="240px"
+            />
+            <div v-else class="stock-chart-empty"><strong>{{ quoteLabel(stock) }}</strong><span>{{ quoteMessage(stock) }}</span></div>
+          </div>
+          <p v-if="quoteMessage(stock) && hasChart(stock)" class="stock-card__alert">{{ quoteMessage(stock) }}</p>
+          <div class="stock-card__footer">
+            <span>采集时间 {{ shanghaiTime(stock.quote.collectedAt) }}</span>
+            <span>上市 {{ stock.profile.listingDate || "—" }}</span>
+            <span>总市值 {{ formatCurrency(stock.profile.marketCap) }}</span>
+          </div>
+          <details v-if="hasChart(stock)" class="stock-accessible-table">
+            <summary>查看价格采样表</summary>
+            <div class="stock-table-scroll">
+              <table>
+                <thead><tr><th>实际源时间</th><th>价格 · 元</th></tr></thead>
+                <tbody><tr v-for="point in stock.series" :key="point.time"><td>{{ shanghaiTime(point.time) }}</td><td>{{ formatPlainNumber(point.price) }}</td></tr></tbody>
+              </table>
+            </div>
+          </details>
         </template>
-        <template #retry>
-          <button class="market-retry-button" type="button" @click="loadMonitor()">
-            重新加载
-          </button>
-        </template>
-        <div class="stock-card__metrics">
-          <div class="stock-price">
-            <small>最新价</small>
-            <strong>{{ formatPlainNumber(stock.latestPrice) }}</strong>
-            <span :class="`tone-${valueTone(stock.changePercent)}`">
-              {{ formatPercent(stock.changePercent) }}
-            </span>
-          </div>
-          <div><small>当日成交额</small><strong>{{ formatAmount(stock.turnover) }}</strong></div>
-          <div><small>换手率</small><strong>{{ formatPercent(stock.turnoverRate) }}</strong></div>
-          <div><small>资金流入</small><strong class="tone-rise">流入 {{ formatAmount(stock.inflow) }}</strong></div>
-          <div><small>资金流出</small><strong class="tone-fall">流出 {{ formatAmount(stock.outflow) }}</strong></div>
-          <div><small>资金净额</small><strong :class="`tone-${valueTone(stock.netAmount)}`">{{ stock.netAmount != null && stock.netAmount >= 0 ? "净流入" : "净流出" }} {{ formatAmount(stock.netAmount) }}</strong></div>
-        </div>
-        <BaseChart
-          v-if="stock.points.length"
-          :option="buildStockFundOption(stock.points)"
-          :accessible-label="cardSummary(stock)"
-          height="clamp(200px, 22vh, 270px)"
-        />
-        <div v-else class="stock-chart-empty">
-          <strong>{{ dataStatusLabels[stock.dataStatus] }}</strong>
-          <span>{{ stock.message || "尚无有效资金数据点" }}</span>
-        </div>
-        <p
-          v-if="(stock.dataStatus === 'STALE' || stock.dataStatus === 'ERROR') && stock.points.length"
-          class="stock-card__alert"
-          aria-live="polite"
-        >
-          {{ stock.message || "本次刷新失败，当前保留上次成功曲线。" }}
-        </p>
-        <details class="stock-accessible-table">
-          <summary>查看可访问数据表</summary>
-          <div class="stock-table-scroll">
-            <table>
-              <thead><tr><th>时间</th><th>流入</th><th>流出</th><th>净额</th><th>最新价</th><th>涨跌幅</th></tr></thead>
-              <tbody>
-                <tr v-for="point in stock.points" :key="point.time">
-                  <td>{{ formatDateTime(point.time) }}</td>
-                  <td>{{ formatAmount(point.inflow) }}</td>
-                  <td>{{ formatAmount(point.outflow) }}</td>
-                  <td>{{ formatAmount(point.netAmount) }}</td>
-                  <td>{{ formatPlainNumber(point.latestPrice) }}</td>
-                  <td>{{ formatPercent(point.changePercent) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </MarketPanel>
+        <p v-else class="stock-card__disabled">仅展示监控清单；报价、曲线和雪球资料暂不公开。</p>
+      </section>
     </div>
-
-    <div v-if="monitorPage.enabledTotal > PAGE_SIZE" class="monitor-pagination">
-      <el-pagination
-        v-model:current-page="pageNum"
-        background
-        layout="prev, pager, next"
-        :page-size="PAGE_SIZE"
-        :total="monitorPage.enabledTotal"
-      />
-    </div>
-
-    <p
-      v-if="monitorStatus === 'STALE' || monitorStatus === 'ERROR'"
-      class="monitor-error"
-      aria-live="polite"
-    >
-      {{ monitorStatus === "STALE" ? "本次刷新失败，当前保留上次成功数据。" : "个股资金加载失败。" }}
-      {{ monitorMessage }}
-    </p>
-
-    <el-drawer
-      v-model="dictionaryOpen"
-      title="A股股票字典"
-      size="min(760px, 100vw)"
-      class="stock-dictionary-drawer"
-      modal-class="market-drawer-overlay"
-    >
-      <div class="dictionary-intro">
-        <div>
-          <strong>沪深京A股统一字典</strong>
-          <span>全部股票可检索，仅已启用股票进入实时资金监控。</span>
-        </div>
-        <el-button
-          v-if="canSync"
-          :icon="Refresh"
-          :loading="dictionarySubmitting === 'SYNC'"
-          @click="syncDictionary"
-        >
-          同步字典
-        </el-button>
-      </div>
-      <div class="dictionary-filters">
-        <el-input
-          v-model="dictionaryKeyword"
-          clearable
-          placeholder="股票编号或名称"
-          :prefix-icon="Search"
-          @keyup.enter="dictionaryPageNum = 1; loadDictionary()"
-        />
-        <el-select v-model="dictionaryEnabled" clearable placeholder="启用状态">
-          <el-option label="已启用" :value="true" />
-          <el-option label="未启用" :value="false" />
-        </el-select>
-        <el-select v-model="dictionaryListingStatus" clearable placeholder="上市状态">
-          <el-option label="正常上市" value="LISTED" />
-          <el-option label="暂停上市" value="SUSPENDED" />
-          <el-option label="已退市" value="DELISTED" />
-          <el-option label="终止上市" value="TERMINATED" />
-        </el-select>
-        <el-button type="primary" :icon="Search" @click="dictionaryPageNum = 1; loadDictionary()">查询</el-button>
-        <el-button @click="resetDictionaryFilters">重置</el-button>
-      </div>
-
-      <div v-loading="dictionaryLoading" class="dictionary-list">
-        <article v-for="item in dictionaryPage.list" :key="item.stockCode">
-          <div class="dictionary-stock">
-            <span class="stock-market">{{ item.market }}</span>
-            <span><strong>{{ item.stockName }}</strong><small>{{ item.stockCode }}</small></span>
-          </div>
-          <div><small>上市状态</small><strong>{{ item.listingStatus }}</strong></div>
-          <div><small>启用状态</small><strong :class="item.enabled ? 'tone-rise' : 'market-muted'">{{ item.enabled ? "已启用" : "未启用" }}</strong></div>
-          <div><small>启用时间</small><strong>{{ formatDateTime(item.enabledAt) }}</strong></div>
-          <div class="dictionary-actions">
-            <template v-if="canManage && item.enabled">
-              <el-button
-                circle
-                :icon="ArrowUp"
-                aria-label="上移"
-                :disabled="Boolean(dictionarySubmitting)"
-                @click="reorder(item, 'UP')"
-              />
-              <el-button
-                circle
-                :icon="ArrowDown"
-                aria-label="下移"
-                :disabled="Boolean(dictionarySubmitting)"
-                @click="reorder(item, 'DOWN')"
-              />
-            </template>
-            <el-button
-              v-if="canManage"
-              :type="item.enabled ? 'danger' : 'primary'"
-              plain
-              :icon="Setting"
-              :loading="dictionarySubmitting === item.stockCode"
-              :disabled="Boolean(dictionarySubmitting) || (!item.enabled && monitorPage.enabledTotal >= ENABLE_LIMIT)"
-              :title="!item.enabled && monitorPage.enabledTotal >= ENABLE_LIMIT ? '已达到10只上限，请先停用其他股票' : ''"
-              @click="toggleStock(item)"
-            >
-              {{ item.enabled ? "停用" : "启用" }}
-            </el-button>
-          </div>
-        </article>
-        <div v-if="!dictionaryLoading && dictionaryPage.list.length === 0" class="dictionary-empty">
-          没有匹配的股票字典记录
-        </div>
-      </div>
-      <el-pagination
-        v-model:current-page="dictionaryPageNum"
-        background
-        layout="prev, pager, next, total"
-        :page-size="10"
-        :total="dictionaryPage.total"
-        class="dictionary-pagination"
-      />
-    </el-drawer>
+    <el-pagination
+      v-if="stocks.length > PAGE_SIZE" v-model:current-page="pageNum" class="monitor-pagination"
+      background layout="prev, pager, next" :page-size="PAGE_SIZE" :total="stocks.length"
+    />
   </div>
 </template>
 
 <style scoped>
-.stock-monitor-page { display: grid; gap: 13px; }
-.monitor-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
-.monitor-heading p { margin: 0 0 4px; color: #3b82f6; font-size: 9px; letter-spacing: .18em; }
-.monitor-heading h1 { margin: 0; font-size: 20px; }
-.monitor-heading__tools { display: flex; align-items: center; justify-content: flex-end; gap: 9px; color: #94a3b8; font-size: 11px; }
-.quick-search { width: 290px; display: flex; gap: 5px; }
-.quick-search button, .dictionary-button {
-  min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 0 11px; color: #dbeafe; white-space: nowrap; border: 1px solid #2563eb;
-  border-radius: 7px; background: rgba(37,99,235,.14); cursor: pointer;
-}
-.monitor-disclaimer { margin: 0; color: #5f718a; font-size: 10px; text-align: right; }
-.stock-card-grid, .monitor-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
-.stock-card { transition: border-color .18s, box-shadow .18s; }
-.stock-card.is-highlighted { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(59,130,246,.22); }
-.stock-data-time { color: #718096; font-size: 9px; }
-.stock-card__metrics {
-  display: grid; grid-template-columns: 1.2fr repeat(5, 1fr); gap: 1px; overflow: hidden;
-  margin-bottom: 7px; border: 1px solid #1a2b42; border-radius: 8px; background: #1a2b42;
-}
-.stock-card__metrics > div { min-width: 0; min-height: 58px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 8px; background: #091525; }
-.stock-card__metrics small { color: #718096; font-size: 9px; }
-.stock-card__metrics strong { overflow: hidden; text-overflow: ellipsis; font-size: 11px; white-space: nowrap; }
-.stock-price { position: relative; }
-.stock-price strong { font-size: 18px; }
-.stock-price span { position: absolute; right: 8px; bottom: 9px; font-size: 9px; }
-.stock-accessible-table { margin-top: 5px; color: #718096; font-size: 10px; }
-.stock-accessible-table summary { min-height: 30px; display: flex; align-items: center; cursor: pointer; }
-.stock-table-scroll { max-height: 180px; overflow: auto; }
-.stock-accessible-table table { width: 100%; border-collapse: collapse; color: #94a3b8; }
-.stock-accessible-table th, .stock-accessible-table td { padding: 6px; border-bottom: 1px solid #1a2b42; text-align: right; }
-.stock-accessible-table th:first-child, .stock-accessible-table td:first-child { text-align: left; }
-.stock-chart-empty { height: 270px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: #718096; font-size: 11px; }
-.stock-chart-empty strong { color: #cbd5e1; font-size: 13px; }
+.stock-monitor-page { display: grid; gap: 14px; color: var(--market-text); }
+.monitor-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.monitor-heading p { margin: 0 0 3px; color: var(--market-primary); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+.monitor-heading h1 { margin: 0; font-size: clamp(20px, 1.5vw, 25px); }
+.monitor-heading span, .monitor-tools { color: var(--market-muted); font-size: 12px; }
+.monitor-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.monitor-count { padding: 8px 10px; white-space: nowrap; border: 1px solid var(--market-border); border-radius: 8px; background: var(--market-panel); }
+.quick-search { display: flex; gap: 6px; width: 270px; }
+.quick-search :deep(.el-input) { min-width: 0; }
+.quick-search button, .outline-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; color: #dbeafe; white-space: nowrap; border: 1px solid #3b82f6; border-radius: 8px; background: rgba(59,130,246,.14); cursor: pointer; }
+.quick-search button:hover, .outline-button:hover { background: rgba(59,130,246,.24); }
+.outline-button:disabled { opacity: .5; cursor: not-allowed; }
+.monitor-notice { margin: 0; padding: 10px 14px; color: #bfdbfe; border: 1px solid rgba(59,130,246,.35); border-radius: 9px; background: rgba(59,130,246,.1); font-size: 12px; }
+.monitor-disclaimer { margin: -5px 0 0; color: var(--market-muted); font-size: 11px; text-align: right; }
+.stock-card-grid, .monitor-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.stock-card { min-width: 0; padding: 15px; border: 1px solid var(--market-border); border-radius: 12px; background: var(--market-panel); }
+.stock-card.is-highlighted { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(59,130,246,.2); }
+.stock-card__header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.stock-card__header h2 { margin: 0 0 5px; font-size: 16px; }
+.stock-card__header h2 small { margin-left: 5px; color: var(--market-muted); font-size: 11px; font-weight: 400; }
+.stock-card__header span, .stock-card__state small { color: var(--market-muted); font-size: 11px; }
+.stock-card__state { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.stock-card__state strong { color: #bfdbfe; font-size: 11px; }
+.stock-card__state.state-error strong { color: #fecaca; }
+.stock-card__state.state-stale strong { color: #fcd34d; }
+.stock-card__metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--market-border); border-radius: 8px; background: var(--market-border); }
+.stock-card__metrics > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px; background: #091423; }
+.stock-card__metrics small { color: var(--market-muted); font-size: 11px; }
+.stock-card__metrics strong { overflow: hidden; font-size: 14px; white-space: nowrap; text-overflow: ellipsis; }
+.stock-card__metrics .tone-rise { color: #f87171; }
+.stock-card__metrics .tone-fall { color: #4ade80; }
+.stock-card__chart { min-height: 240px; margin-top: 12px; }
+.stock-chart-empty, .monitor-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 240px; color: var(--market-muted); text-align: center; font-size: 12px; }
+.stock-chart-empty strong, .monitor-empty strong { color: var(--market-text-secondary); font-size: 15px; }
+.monitor-empty { min-height: 340px; padding: 20px; border: 1px solid var(--market-border); border-radius: 12px; background: var(--market-panel); }
+.stock-card__disabled { margin: 8px 0 0; padding: 16px; color: var(--market-muted); border: 1px dashed var(--market-border); border-radius: 8px; font-size: 12px; }
+.stock-card__alert { margin: 8px 0; color: #fcd34d; font-size: 11px; }
+.stock-card__footer { display: flex; flex-wrap: wrap; gap: 7px 15px; padding-top: 8px; color: var(--market-muted); border-top: 1px solid var(--market-border); font-size: 11px; }
+.stock-accessible-table { margin-top: 10px; color: var(--market-muted); font-size: 11px; }
+.stock-accessible-table summary { min-height: 32px; cursor: pointer; }
+.stock-table-scroll { max-height: 160px; overflow: auto; }
+.stock-accessible-table table { width: 100%; border-collapse: collapse; }
+.stock-accessible-table th, .stock-accessible-table td { padding: 6px; border-bottom: 1px solid var(--market-border); text-align: left; }
 .monitor-pagination { display: flex; justify-content: center; }
-.monitor-error { margin: 0; padding: 9px 12px; color: #fecaca; border: 1px solid rgba(240,82,82,.3); border-radius: 8px; background: rgba(127,29,29,.16); font-size: 11px; }
-.monitor-skeleton { min-height: 420px; border: 1px solid #20334d; border-radius: 12px; background: linear-gradient(100deg, #0b1728 30%, #102039 50%, #0b1728 70%); background-size: 240% 100%; animation: skeleton-move 1.4s linear infinite; }
+.monitor-skeleton { min-height: 420px; border: 1px solid var(--market-border); border-radius: 12px; background: linear-gradient(100deg, #0b1728 30%, #102039 50%, #0b1728 70%); background-size: 240% 100%; animation: skeleton-move 1.4s linear infinite; }
 @keyframes skeleton-move { to { background-position: -240% 0; } }
-.dictionary-intro, .dictionary-filters { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.dictionary-intro > div { display: flex; flex-direction: column; gap: 5px; }
-.dictionary-intro span { color: #64748b; font-size: 12px; }
-.dictionary-filters { margin: 18px 0 13px; justify-content: flex-start; }
-.dictionary-filters .el-input { width: 210px; }
-.dictionary-filters .el-select { width: 130px; }
-.dictionary-list { min-height: 220px; display: grid; gap: 7px; }
-.dictionary-list article {
-  min-height: 66px; display: grid; grid-template-columns: 1.3fr .8fr .7fr 1fr auto;
-  align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #e2e8f0; border-radius: 9px;
-}
-.dictionary-list article > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.dictionary-list small { color: #94a3b8; font-size: 10px; }
-.dictionary-list strong { overflow: hidden; color: #334155; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.dictionary-stock { flex-direction: row !important; align-items: center; gap: 9px !important; }
-.dictionary-stock > span:last-child { display: flex; flex-direction: column; gap: 3px; }
-.stock-market { width: 30px; height: 30px; display: grid; place-items: center; color: #2563eb; border-radius: 7px; background: #eff6ff; font-size: 9px; font-weight: 700; }
-.dictionary-actions { flex-direction: row !important; align-items: center; justify-content: flex-end; }
-.dictionary-empty { min-height: 180px; display: grid; place-items: center; color: #94a3b8; }
-.dictionary-pagination { justify-content: flex-end; margin-top: 15px; }
-@media (max-width: 1023px) {
-  .monitor-heading { align-items: flex-start; flex-direction: column; }
-  .monitor-heading__tools { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
-  .stock-card-grid, .monitor-skeleton-grid { grid-template-columns: 1fr; }
-}
-@media (max-width: 767px) {
-  .quick-search { width: 100%; order: 3; }
-  .monitor-disclaimer { text-align: left; }
-  .stock-card__metrics { grid-template-columns: repeat(2, 1fr); }
-  .dictionary-filters { align-items: stretch; flex-direction: column; }
-  .dictionary-filters .el-input, .dictionary-filters .el-select { width: 100%; }
-  .dictionary-list article { grid-template-columns: 1fr 1fr; }
-  .dictionary-actions { grid-column: 1 / -1; justify-content: flex-start; }
-}
-</style>
-
-<style scoped>
-.stock-monitor-page {
-  gap: 12px;
-}
-
-.monitor-heading {
-  min-height: 52px;
-  align-items: center;
-}
-
-.monitor-heading > div:first-child {
-  min-width: 230px;
-}
-
-.monitor-heading p {
-  margin-bottom: 2px;
-  color: var(--market-primary);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .16em;
-}
-
-.monitor-heading h1 {
-  display: inline;
-  color: var(--market-text);
-  font-size: clamp(20px, 1.4vw, 24px);
-  line-height: 1.2;
-}
-
-.monitor-heading > div:first-child > span {
-  margin-left: 12px;
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.monitor-heading__tools {
-  min-width: 0;
-  gap: 8px;
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.monitor-count {
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  color: var(--market-text-secondary);
-  white-space: nowrap;
-  border: 1px solid var(--market-border);
-  border-radius: 8px;
-  background: var(--market-panel);
-}
-
-.quick-search {
-  width: min(310px, 28vw);
-  gap: 6px;
-}
-
-.quick-search button,
-.dictionary-button {
-  min-height: 44px;
-  padding: 0 13px;
-  color: #dbeafe;
-  border-color: #3b82f6;
-  border-radius: 8px;
-  background: rgba(59, 130, 246, .14);
-  transition: border-color .18s ease, background-color .18s ease;
-}
-
-.quick-search button:hover,
-.dictionary-button:hover {
-  border-color: #60a5fa;
-  background: rgba(59, 130, 246, .24);
-}
-
-.monitor-disclaimer {
-  margin-top: -4px;
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.stock-card-grid,
-.monitor-skeleton-grid {
-  gap: 12px;
-}
-
-.stock-card {
-  min-height: clamp(380px, 40vh, 440px);
-}
-
-.stock-card.is-highlighted {
-  border-color: #60a5fa;
-  box-shadow: inset 4px 0 0 #3b82f6, 0 0 0 2px rgba(59, 130, 246, .2);
-}
-
-.stock-data-time {
-  color: var(--market-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.stock-card__metrics {
-  grid-template-columns: 1.25fr repeat(5, minmax(0, 1fr));
-  margin-bottom: 8px;
-  border-color: var(--market-border);
-  border-radius: 9px;
-  background: var(--market-border);
-}
-
-.stock-card__metrics > div {
-  min-height: 62px;
-  padding: 8px 10px;
-  background: #091423;
-}
-
-.stock-card__metrics small {
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.stock-card__metrics strong {
-  color: var(--market-text);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.stock-price strong {
-  font-size: 22px;
-}
-
-.stock-price span {
-  right: 9px;
-  bottom: 10px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.stock-card__alert {
-  margin: 7px 0 0;
-  padding: 7px 10px;
-  color: #fecaca;
-  border: 1px solid rgba(248, 113, 113, .28);
-  border-radius: 7px;
-  background: rgba(127, 29, 29, .16);
-  font-size: 12px;
-}
-
-.stock-accessible-table {
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.stock-accessible-table summary {
-  min-height: 36px;
-}
-
-.stock-accessible-table table {
-  color: var(--market-text-secondary);
-}
-
-.stock-accessible-table th,
-.stock-accessible-table td {
-  padding: 7px;
-  border-bottom-color: var(--market-border);
-}
-
-.stock-chart-empty {
-  height: clamp(200px, 22vh, 270px);
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.stock-chart-empty strong {
-  color: var(--market-text-secondary);
-  font-size: 14px;
-}
-
-.monitor-pagination {
-  min-height: 44px;
-  align-items: center;
-}
-
-.monitor-error {
-  color: #fecaca;
-  border-color: rgba(248, 113, 113, .3);
-  background: rgba(127, 29, 29, .16);
-  font-size: 12px;
-}
-
-.monitor-skeleton {
-  min-height: clamp(380px, 40vh, 440px);
-  border-color: var(--market-border);
-  background:
-    linear-gradient(var(--market-surface), var(--market-surface)) 16px 18px / 38% 18px no-repeat,
-    linear-gradient(var(--market-surface), var(--market-surface)) 16px 58px / calc(100% - 32px) 64px no-repeat,
-    linear-gradient(var(--market-surface), var(--market-surface)) 16px 142px / calc(100% - 32px) 220px no-repeat,
-    linear-gradient(100deg, var(--market-panel) 30%, var(--market-surface) 50%, var(--market-panel) 70%);
-  background-size: 38% 18px, calc(100% - 32px) 64px, calc(100% - 32px) 220px, 240% 100%;
-}
-
-.dictionary-intro strong {
-  color: var(--market-text);
-  font-size: 15px;
-}
-
-.dictionary-intro span {
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.dictionary-list {
-  align-content: start;
-}
-
-.dictionary-list article {
-  min-height: 70px;
-  border-color: var(--market-border);
-  background: #091423;
-}
-
-.dictionary-list small {
-  color: var(--market-muted);
-  font-size: 12px;
-}
-
-.dictionary-list strong {
-  color: var(--market-text-secondary);
-  font-size: 13px;
-}
-
-.stock-market {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
-  color: #bfdbfe;
-  border: 1px solid rgba(96, 165, 250, .35);
-  border-radius: 8px;
-  background: rgba(37, 99, 235, .16);
-  font-size: 11px;
-}
-
-.dictionary-actions :deep(.el-button) {
-  min-width: 44px;
-  min-height: 44px;
-}
-
-.dictionary-empty {
-  color: var(--market-muted);
-  font-size: 13px;
-}
-
-@media (max-width: 1023px) {
-  .quick-search {
-    width: min(360px, 45vw);
-  }
-}
-
-@media (max-width: 767px) {
-  .monitor-heading > div:first-child > span {
-    display: block;
-    margin: 5px 0 0;
-  }
-
-  .monitor-heading__tools {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .quick-search,
-  .dictionary-button {
-    width: 100%;
-    grid-column: 1 / -1;
-  }
-
-  .dictionary-intro {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
+@media (max-width: 1100px) { .monitor-heading { align-items: flex-start; flex-direction: column; } .monitor-tools { justify-content: flex-start; } }
+@media (max-width: 800px) { .stock-card-grid, .monitor-skeleton-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .quick-search { width: 100%; } .monitor-tools { justify-content: flex-start; } .stock-card__metrics { grid-template-columns: repeat(2, 1fr); } .monitor-disclaimer { text-align: left; } .stock-card__header { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .monitor-skeleton { animation: none; } }
 </style>

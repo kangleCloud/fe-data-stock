@@ -34,11 +34,13 @@ pnpm dev
 
 默认访问地址为 `http://127.0.0.1:5173`。
 
-开发环境使用 `/admin/api` 作为统一 API 基址，并代理到本地 `vita-admin`：
+开发环境的管理接口 `/admin/api` 代理到本地 `vita-admin`，公开行情接口
+`/openapi/api` 代理到本地 `vita-openapi`：
 
 ```dotenv
 VITE_API_BASE_URL=/admin/api
 VITE_API_PROXY_TARGET=http://127.0.0.1:19001
+VITE_OPENAPI_PROXY_TARGET=http://127.0.0.1:19002
 ```
 
 需要本地覆盖时使用 `.env.local` 或 `.env.development.local`，不要把凭据或生产地址

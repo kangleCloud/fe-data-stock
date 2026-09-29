@@ -23,33 +23,20 @@ export interface SnapshotModule<T> {
   data: T | null;
 }
 
-export interface SnapshotSector {
-  sectorCode: string;
-  sectorName: string;
-  sectorType: SectorType;
-  marketCap: number | null;
-  changePercent: number | null;
-  turnoverRate: number | null;
-  riseCount: number | null;
-  fallCount: number | null;
-  leadingStockName: string | null;
-}
-
 export interface SnapshotRankingItem {
-  sectorCode: string;
   sectorName: string;
   sectorType: SectorType;
-  changePercent: number | null;
-  mainNetInflow?: number | null;
-  mainNetInflowRatio?: number | null;
+  changePercent: number;
+  netFlowAmount: number;
 }
 
 export interface SnapshotTop5 {
+  source: "THS";
+  period: "INTRADAY";
   topRise: SnapshotRankingItem[];
   topFall: SnapshotRankingItem[];
   topInflow: SnapshotRankingItem[];
   topOutflow: SnapshotRankingItem[];
-  unmatchedFundRows: number;
 }
 
 export interface SnapshotFundPoint {
@@ -80,8 +67,6 @@ export interface MarketDashboardSnapshot {
   provider: "akshare";
   generatedAt: string;
   modules: {
-    industryHeatmap: SnapshotModule<SnapshotSector[]>;
-    conceptHeatmap: SnapshotModule<SnapshotSector[]>;
     industryTop5: SnapshotModule<SnapshotTop5>;
     conceptTop5: SnapshotModule<SnapshotTop5>;
     marketFundFlow: SnapshotModule<SnapshotFundFlow>;
@@ -145,33 +130,12 @@ export interface MarketSummary {
 }
 
 export type SectorType = "industry" | "concept";
-export type SectorAreaMetric = "turnover" | "marketcap";
 export type SectorDirection = "all" | "up" | "down";
 export type SectorTopMetric =
   | "changepercent"
   | "mainnetinflow"
   | "turnover";
 export type RankingPeriod = "today" | "5d" | "10d";
-
-export interface SectorSnapshot {
-  code: string;
-  name: string;
-  type: SectorType;
-  changePercent: number | null;
-  turnover: number | null;
-  marketCap: number | null;
-  turnoverRate: number | null;
-  riseCount: number | null;
-  fallCount: number | null;
-  leadingStockName: string | null;
-  mainNetInflow: number | null;
-  updateTime?: string | null;
-}
-
-export interface SectorHeatmapData {
-  availableAreaMetrics: SectorAreaMetric[];
-  list: SectorSnapshot[];
-}
 
 export interface SectorTopStock {
   stockCode: string;
@@ -228,75 +192,98 @@ export interface SectorMutation {
   mutationTime: string | null;
 }
 
-export type ListingStatus =
-  | "LISTED"
-  | "SUSPENDED"
-  | "DELISTED"
-  | "TERMINATED"
-  | "UNKNOWN";
+export type StockMarket = "SH" | "SZ" | "BJ";
+export type StockQuoteStatus = "DISABLED" | "FRESH" | "STALE" | "ERROR";
 
-export interface StockDictionaryItem {
-  id: EntityId;
-  stockCode: string;
-  stockName: string;
-  market: "SH" | "SZ" | "BJ" | string;
-  listingStatus: ListingStatus;
-  enabled: boolean;
-  enabledAt: string | null;
-  displayOrder: number | null;
+export interface StockSymbol {
+  symbol: string;
+  code: string;
+  name: string;
+  market: StockMarket;
+}
+
+export interface StockProfile {
+  industry: string | null;
+  listingDate: string | null;
+  marketCap: number | null;
   updatedAt: string | null;
 }
 
-export interface StockFundPoint {
+export interface StockQuote {
+  source: "XQ";
+  sourceTime: string | null;
+  collectedAt: string | null;
+  tradeDate: string | null;
+  price: number | null;
+  changePercent: number | null;
+  amount: number | null;
+  status: StockQuoteStatus;
+}
+
+export interface StockPricePoint {
   time: string;
-  inflow: number | null;
-  outflow: number | null;
-  netAmount: number | null;
-  latestPrice: number | null;
-  changePercent: number | null;
+  price: number;
 }
 
-export interface StockMonitorItem {
-  stockCode: string;
-  stockName: string;
-  latestPrice: number | null;
-  changePercent: number | null;
-  turnover: number | null;
-  turnoverRate: number | null;
-  inflow: number | null;
-  outflow: number | null;
-  netAmount: number | null;
-  updateTime: string | null;
-  dataStatus: MarketDataStatus;
-  message?: string;
-  points: StockFundPoint[];
+export interface StockMonitorStock extends StockSymbol {
+  sortOrder: number;
+  profile: StockProfile;
+  quote: StockQuote;
+  series: StockPricePoint[];
 }
 
-export interface MarketPageResponse<T> {
-  list: T[];
-  total: number;
-  pageNum: number;
-  pageSize: number;
-  enabledTotal: number;
-  locatedPageNum?: number;
+export interface StockMonitorDashboard {
+  schemaVersion: 1;
+  xqEnabled: boolean;
+  tradeDate: string | null;
+  stocks: StockMonitorStock[];
 }
 
-export interface StockDictionaryQuery extends PageQuery {
+export interface StockMonitorConfig extends StockSymbol {
+  enabled: true;
+  sortOrder: number;
+  profile: StockProfile;
+}
+
+export interface StockMonitorAdminRow extends StockSymbol {
+  enabled: boolean;
+  sortOrder: number;
+  profile: StockProfile;
+}
+
+export interface StockProfileRow extends StockSymbol, StockProfile {}
+
+export interface StockMonitorPageQuery extends PageQuery {
   keyword?: string;
   enabled?: boolean;
-  listingStatus?: ListingStatus;
 }
 
-export interface StockMonitorQuery extends PageQuery {
+export interface StockDictionaryPageQuery extends PageQuery {
   keyword?: string;
-  locateStockCode?: string;
+  market?: StockMarket;
 }
 
-export interface StockToggleRequest {
-  stockCode: string;
+export interface StockDictionaryCreateRequest {
+  market: StockMarket;
+  code: string;
+  name: string;
 }
 
-export interface StockReorderRequest {
-  stockCode: string;
-  direction: "UP" | "DOWN";
+export interface StockProfilePageQuery extends PageQuery {
+  keyword?: string;
+  industry?: string;
+}
+
+export interface StockMonitorRefreshResult {
+  accepted: boolean;
+  jobId: string | null;
+  status: string;
+}
+
+export interface StockMonitorRefreshStatus {
+  jobId: string | null;
+  status: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  message: string | null;
 }

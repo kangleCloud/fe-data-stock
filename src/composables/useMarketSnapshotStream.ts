@@ -4,7 +4,6 @@ import { getMarketDashboardSnapshot } from "@/api/market";
 import type { MarketDashboardSnapshot } from "@/types/market";
 import { parseMarketSnapshot, readMarketStream } from "@/utils/marketStream";
 import { ApiError, requestStream } from "@/utils/request";
-import { CREDENTIAL_CHANGED_EVENT, getCredential } from "@/utils/storage";
 
 const RETRY_DELAYS = [1_000, 2_000, 5_000, 10_000, 15_000];
 
@@ -17,12 +16,6 @@ export function useMarketSnapshotStream() {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let resolveDelay: (() => void) | null = null;
   let mounted = false;
-  let credentialIdentity = "";
-
-  function identity(): string {
-    const credential = getCredential();
-    return credential ? `${credential.tokenName}:${credential.tokenPrefix}:${credential.tokenValue}` : "";
-  }
 
   function stop(): void {
     generation += 1;
@@ -76,11 +69,11 @@ export function useMarketSnapshotStream() {
   async function connect(current: number): Promise<void> {
     let retries = 0;
     if (!await loadSnapshot(current)) return;
-    while (mounted && current === generation && credentialIdentity) {
+    while (mounted && current === generation) {
       const activeController = new AbortController();
       controller = activeController;
       try {
-        const response = await requestStream("/market/dashboard/stream", activeController.signal);
+        const response = await requestStream("/market/dashboard/stream", activeController.signal, true);
         retries = 0;
         await readMarketStream(response, (next) => {
           if (current !== generation) return;
@@ -105,14 +98,8 @@ export function useMarketSnapshotStream() {
 
   function start(): void {
     stop();
-    credentialIdentity = identity();
     if (!mounted) return;
     void connect(generation);
-  }
-
-  function onCredentialChange(): void {
-    const next = identity();
-    if (next !== credentialIdentity) start();
   }
 
   async function manualRefresh(): Promise<void> {
@@ -121,15 +108,11 @@ export function useMarketSnapshotStream() {
 
   onMounted(() => {
     mounted = true;
-    window.addEventListener(CREDENTIAL_CHANGED_EVENT, onCredentialChange);
-    window.addEventListener("storage", onCredentialChange);
     start();
   });
   onBeforeUnmount(() => {
     mounted = false;
     stop();
-    window.removeEventListener(CREDENTIAL_CHANGED_EVENT, onCredentialChange);
-    window.removeEventListener("storage", onCredentialChange);
   });
 
   return { snapshot, loading, loadError, manualRefresh };

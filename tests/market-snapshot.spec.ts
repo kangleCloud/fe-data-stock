@@ -5,7 +5,7 @@ import {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getMarketDashboardSnapshot } from "@/api/market";
 import type { CommonResult } from "@/types/api";
@@ -14,7 +14,6 @@ import type {
   SnapshotFundFlow,
   SnapshotFundPoint,
   SnapshotModule,
-  SnapshotSector,
   SnapshotTop5,
 } from "@/types/market";
 import { snapshotDateLabel, snapshotStatusLabel } from "@/utils/marketSnapshot";
@@ -23,17 +22,11 @@ import MarketOverview from "@/views/market/overview/index.vue";
 
 const originalAdapter = httpClient.defaults.adapter;
 
-const sector: SnapshotSector = {
-  sectorCode: "BK001",
-  sectorName: "测试行业",
-  sectorType: "industry",
-  marketCap: 1_000_000_000,
-  changePercent: 2.5,
-  turnoverRate: 1.2,
-  riseCount: 10,
-  fallCount: 2,
-  leadingStockName: "测试股份",
-};
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    options.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+  })));
+});
 
 const latest: SnapshotFundPoint = {
   date: "2026-09-22",
@@ -71,23 +64,22 @@ function moduleOf<T>(
 }
 
 const rankings: SnapshotTop5 = {
+  source: "THS",
+  period: "INTRADAY",
   topRise: [{
-    sectorCode: "BK001",
     sectorName: "测试行业",
     sectorType: "industry",
     changePercent: 2.5,
+    netFlowAmount: 123_000_000,
   }],
   topFall: [],
   topInflow: [{
-    sectorCode: "BK001",
     sectorName: "测试行业",
     sectorType: "industry",
     changePercent: 2.5,
-    mainNetInflow: 123_000_000,
-    mainNetInflowRatio: 2.5,
+    netFlowAmount: 123_000_000,
   }],
   topOutflow: [],
-  unmatchedFundRows: 1,
 };
 
 const snapshot: MarketDashboardSnapshot = {
@@ -95,8 +87,6 @@ const snapshot: MarketDashboardSnapshot = {
   provider: "akshare",
   generatedAt: "2026-09-23T10:00:00+08:00",
   modules: {
-    industryHeatmap: moduleOf([sector]),
-    conceptHeatmap: moduleOf<SnapshotSector[]>(null, "ERROR"),
     industryTop5: moduleOf(rankings, "STALE"),
     conceptTop5: moduleOf<SnapshotTop5>(null, "ERROR"),
     marketFundFlow: moduleOf<SnapshotFundFlow>({
@@ -124,43 +114,53 @@ function useSnapshotAdapter(content: MarketDashboardSnapshot): void {
 
 afterEach(() => {
   httpClient.defaults.adapter = originalAdapter;
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe("market snapshot V1", () => {
-  it("GETs the single backend snapshot endpoint and unwraps CommonResult", async () => {
-    const requests: Array<{ method: string; url: string }> = [];
+  it("GETs the public snapshot endpoint and unwraps CommonResult", async () => {
+    const requests: Array<{ method: string; url: string; baseURL: string; publicAccess?: boolean }> = [];
     useSnapshotAdapter(snapshot);
     const adapter = httpClient.defaults.adapter as AxiosAdapter;
     httpClient.defaults.adapter = async (config) => {
-      requests.push({ method: String(config.method).toUpperCase(), url: String(config.url) });
+      requests.push({ method: String(config.method).toUpperCase(), url: String(config.url),
+        baseURL: String(config.baseURL), publicAccess: config.publicAccess });
       return adapter(config);
     };
 
     expect(await getMarketDashboardSnapshot()).toEqual(snapshot);
-    expect(requests).toEqual([{ method: "GET", url: "/market/dashboard/snapshot" }]);
+    expect(requests).toEqual([{ method: "GET", url: "/market/dashboard/snapshot",
+      baseURL: "/openapi/api", publicAccess: true }]);
   });
 
   it("labels collection status separately from the actual source date", () => {
     expect(snapshotStatusLabel(snapshot.modules.marketFundFlow)).toBe("本轮采集成功");
     expect(snapshotDateLabel(snapshot.modules.marketFundFlow, "2026-09-23"))
       .toBe("源数据日期 2026-09-22 · 历史数据");
-    expect(snapshotDateLabel(snapshot.modules.industryHeatmap, "2026-09-23"))
+    expect(snapshotDateLabel(snapshot.modules.industryTop5, "2026-09-23"))
       .toBe("参考交易日 2026-09-22 · 历史数据");
     expect(snapshotStatusLabel(snapshot.modules.industryTop5))
       .toContain("上次成功数据");
   });
 
-  it("shows only the V1 sections, preserved stale data, and module errors", async () => {
+  it("shows the three V1 modules with separate THS and market fund-flow semantics", async () => {
     useSnapshotAdapter(snapshot);
     const wrapper = mount(MarketOverview, {
       global: { stubs: { BaseChart: true } },
     });
     await flushPromises();
 
-    expect(wrapper.findAll(".snapshot-section")).toHaveLength(3);
-    expect(wrapper.text()).toContain("板块热力图");
+    expect(wrapper.findAll(".snapshot-section")).toHaveLength(2);
+    expect(wrapper.findAll(".market-panel")).toHaveLength(3);
+    expect(wrapper.text()).not.toContain("板块热力图");
     expect(wrapper.text()).toContain("板块 Top 5");
+    expect(wrapper.text()).toContain("MARKET SNAPSHOT V1");
+    expect(wrapper.text()).toContain("同花顺资金净额流入 Top 5");
+    expect(wrapper.text()).toContain("+1.23亿元");
+    expect(wrapper.text()).toContain("同花顺 · 盘中榜单");
+    expect(wrapper.text()).toContain("最新可得交易日 · 主力净流入");
+    expect(wrapper.text()).not.toContain("无法唯一匹配板块");
     expect(wrapper.text()).toContain("大盘资金流向");
     expect(wrapper.text()).toContain("源数据日期 2026-09-22 · 历史数据");
     expect(wrapper.text()).toContain("本轮采集失败，显示上次成功数据");
@@ -169,8 +169,6 @@ describe("market snapshot V1", () => {
     expect(wrapper.text()).not.toContain("个股资金监控");
     expect(wrapper.text()).not.toContain("异动板块");
 
-    await wrapper.findAll(".snapshot-section")[0]!.findAll("button")[1]!.trigger("click");
-    expect(wrapper.find(".snapshot-table").exists()).toBe(true);
     wrapper.unmount();
   });
 
@@ -195,7 +193,7 @@ describe("market snapshot V1", () => {
 
     expect(wrapper.text()).toContain("暂无市场快照");
     expect(wrapper.text()).toContain("市场快照不存在");
-    expect(wrapper.findAll(".market-empty").length).toBe(5);
+    expect(wrapper.findAll(".market-empty").length).toBe(3);
     expect(wrapper.get(".snapshot-intro__actions button").text()).toContain("重新读取快照");
     wrapper.unmount();
   });

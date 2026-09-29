@@ -1,14 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildStockFundOption,
-  buildTreemapOption,
-} from "@/charts/marketOptions";
-import type { SectorSnapshot, StockFundPoint } from "@/types/market";
+import { buildStockPriceOption } from "@/charts/marketOptions";
+import type { StockPricePoint } from "@/types/market";
 import {
   formatAmount,
   formatPercent,
-  insertTimeBreaks,
   valueTone,
 } from "@/utils/market";
 
@@ -29,97 +25,21 @@ describe("market formatters", () => {
   });
 });
 
-describe("market chart adapters", () => {
-  const points: StockFundPoint[] = [
-    {
-      time: "2026-07-28T09:30:00+08:00",
-      inflow: 100,
-      outflow: 70,
-      netAmount: 30,
-      latestPrice: 10,
-      changePercent: 1,
-    },
-    {
-      time: "2026-07-28T11:30:00+08:00",
-      inflow: 120,
-      outflow: 90,
-      netAmount: 30,
-      latestPrice: 10.1,
-      changePercent: 1.1,
-    },
+describe("stock price chart", () => {
+  const points: StockPricePoint[] = [
+    { time: "2026-09-28T09:30:00+08:00", price: 10 },
+    { time: "2026-09-28T09:32:00+08:00", price: 10.1 },
+    { time: "2026-09-28T13:02:00+08:00", price: 10.3 },
   ];
 
-  it("inserts a null break for gaps over 80 seconds", () => {
-    const result = insertTimeBreaks(points);
-    expect(result).toHaveLength(3);
-    expect(result[1]).toEqual({ time: expect.any(String) });
-  });
-
-  it("maps outflow to the negative axis and never invents zero points", () => {
-    const option = buildStockFundOption(points) as {
-      series: Array<{ name: string; data: Array<number | null> }>;
+  it("draws only actual source points and breaks across lunch", () => {
+    const option = buildStockPriceOption(points) as {
+      series: Array<{ data: Array<[string, number]> }>;
     };
-    const outflow = option.series.find((item) => item.name === "资金流出");
-    expect(outflow?.data).toEqual([-70, null, -90]);
-    const net = option.series.find((item) => item.name === "资金净额");
-    expect(net?.data).toEqual([30, null, 30]);
-  });
-
-  it("uses change percentage as the treemap color dimension", () => {
-    const sectors: SectorSnapshot[] = [
-      {
-        code: "BK001",
-        name: "测试板块",
-        type: "industry",
-        changePercent: 2.3,
-        turnover: 10,
-        marketCap: 100,
-        turnoverRate: 1,
-        riseCount: 2,
-        fallCount: 1,
-        leadingStockName: "测试股份",
-        mainNetInflow: 3,
-      },
-    ];
-    const option = buildTreemapOption(sectors, "turnover") as {
-      series: Array<{ data: Array<{ value: number[] }> }>;
-    };
-    expect(option.series[0]?.data[0]?.value).toEqual([10, 2.3]);
-  });
-
-  it("omits sectors without a valid area or change value instead of inventing zeroes", () => {
-    const sectors: SectorSnapshot[] = [
-      {
-        code: "BK001",
-        name: "面积缺失",
-        type: "industry",
-        changePercent: 1,
-        turnover: null,
-        marketCap: 100,
-        turnoverRate: null,
-        riseCount: null,
-        fallCount: null,
-        leadingStockName: null,
-        mainNetInflow: null,
-      },
-      {
-        code: "BK002",
-        name: "涨跌缺失",
-        type: "industry",
-        changePercent: null,
-        turnover: 10,
-        marketCap: 100,
-        turnoverRate: null,
-        riseCount: null,
-        fallCount: null,
-        leadingStockName: null,
-        mainNetInflow: null,
-      },
-    ];
-    const option = buildTreemapOption(sectors, "turnover") as {
-      series: Array<{ data: unknown[] }>;
-    };
-
-    expect(option.series[0]?.data).toEqual([]);
+    expect(option.series).toHaveLength(2);
+    expect(option.series.map((part) => part.data)).toEqual([
+      [[points[0]!.time, 10], [points[1]!.time, 10.1]],
+      [[points[2]!.time, 10.3]],
+    ]);
   });
 });

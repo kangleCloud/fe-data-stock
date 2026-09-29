@@ -248,6 +248,11 @@
   font-size: 12px;
 }
 
+.market-login-link {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .market-user-menu > span {
   width: 27px;
   height: 27px;

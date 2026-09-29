@@ -4,12 +4,13 @@ import {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { deleteRole } from "@/api/role";
 import { deleteUser } from "@/api/user";
+import { getMarketDashboardSnapshot } from "@/api/market";
 import type { CommonResult, LoginResponse } from "@/types/api";
-import { httpClient, request } from "@/utils/request";
+import { AUTH_EXPIRED_EVENT, httpClient, request } from "@/utils/request";
 import { saveCredential } from "@/utils/storage";
 
 const originalAdapter = httpClient.defaults.adapter;
@@ -71,6 +72,23 @@ describe("request", () => {
     await request<boolean>({ url: "/testing", method: "GET" });
 
     expect(authorization).toBe("Bearer token-value");
+  });
+
+  it("keeps credentials out of the public snapshot GET and does not expire admin session on public 401", async () => {
+    saveCredential({ tokenName: "X-Token", tokenValue: "secret", tokenPrefix: "Bearer",
+      expiresIn: 3600, userId: 1, username: "admin", nickName: "管理员" });
+    const expired = vi.fn();
+    window.addEventListener(AUTH_EXPIRED_EVENT, expired);
+    httpClient.defaults.adapter = async (config) => {
+      expect(config.baseURL).toBe("/openapi/api");
+      expect(config.headers.get("X-Token")).toBeUndefined();
+      return { data: { code: 401, success: false, msg: "公开接口异常", content: null },
+        status: 200, statusText: "OK", headers: new AxiosHeaders(), config };
+    };
+    await expect(getMarketDashboardSnapshot()).rejects.toMatchObject({ code: 401 });
+    expect(expired).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(1);
+    window.removeEventListener(AUTH_EXPIRED_EVENT, expired);
   });
 
   it("uses POST for user and role deletion", async () => {
