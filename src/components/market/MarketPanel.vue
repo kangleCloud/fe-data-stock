@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { MarketDataStatus } from "@/types/market";
+import type { SnapshotStatus } from "@/types/market";
 import { dataStatusLabels } from "@/utils/market";
 
 const props = withDefaults(
   defineProps<{
     title: string;
-    status?: MarketDataStatus;
+    status?: SnapshotStatus;
     loading?: boolean;
     message?: string;
     hasData?: boolean;
@@ -28,7 +28,7 @@ const showEmptyState = computed(
   () =>
     !props.hasData &&
     !props.loading &&
-    (props.status === "ERROR" || props.status === "NO_DATA"),
+    props.status === "ERROR",
 );
 </script>
 

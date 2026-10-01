@@ -28,6 +28,8 @@ const keyword = ref("");
 const highlighted = ref("");
 let pollId: ReturnType<typeof setInterval> | undefined;
 let highlightId: ReturnType<typeof setTimeout> | undefined;
+let requestInFlight = false;
+let active = false;
 
 const canViewConfig = computed(() => canAccess(authStore.permissionCodes, "system:stock-monitor:view"));
 const stocks = computed(() => dashboard.value?.stocks ?? []);
@@ -48,12 +50,26 @@ function formatCurrency(value: number | null): string {
   return formatAmount(value).replace(/^\+/, "");
 }
 
+function formatAveragePrice(value: number | null): string {
+  return value === null ? "—" : value.toLocaleString("zh-CN", {
+    minimumFractionDigits: 2, maximumFractionDigits: 3,
+  });
+}
+
+function formatVolume(value: number | null): string {
+  return value === null ? "—" : value.toLocaleString("zh-CN", { maximumFractionDigits: 3 });
+}
+
 function quoteLabel(stock: StockMonitorStock): string {
   if (!dashboard.value?.xqEnabled) return "采集未开启";
   if (stock.quote.status === "DISABLED") return "该股采集未开启";
   if (stock.quote.status === "ERROR") return "报价缓存不可用";
+  if (stock.quote.status === "STALE" && isHistoricalStock(stock)) {
+    return `历史数据 · ${stock.quote.tradeDate} · 已过期`;
+  }
+  if (stock.quote.status === "STALE") return "数据已过期";
   if (isHistoricalStock(stock)) return `历史数据 · ${stock.quote.tradeDate}`;
-  return stock.quote.status === "STALE" ? "数据已过期" : "采样数据";
+  return "采样数据";
 }
 
 function quoteMessage(stock: StockMonitorStock): string {
@@ -69,6 +85,8 @@ function hasChart(stock: StockMonitorStock): boolean {
 }
 
 async function loadDashboard(): Promise<void> {
+  if (requestInFlight) return;
+  requestInFlight = true;
   loading.value = true;
   try {
     dashboard.value = await getStockMonitorDashboard();
@@ -79,6 +97,7 @@ async function loadDashboard(): Promise<void> {
     errorMessage.value = error instanceof Error ? error.message : "个股监控加载失败";
   } finally {
     loading.value = false;
+    requestInFlight = false;
   }
 }
 
@@ -113,7 +132,9 @@ async function openConfig(): Promise<void> {
 }
 
 onMounted(async () => {
+  active = true;
   await Promise.all([loadDashboard(), initializePermissions()]);
+  if (!active) return;
   const initial = route.query.symbol ?? route.query.stockCode;
   if (typeof initial === "string") {
     keyword.value = initial;
@@ -124,6 +145,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  active = false;
   if (pollId) clearInterval(pollId);
   if (highlightId) clearTimeout(highlightId);
 });
@@ -188,8 +210,16 @@ onBeforeUnmount(() => {
         <template v-if="dashboard?.xqEnabled">
           <div class="stock-card__metrics">
             <div><small>价格 · 元</small><strong>{{ formatPlainNumber(stock.quote.price) }}</strong></div>
+            <div><small>昨收 · 元</small><strong>{{ formatPlainNumber(stock.quote.previousClose) }}</strong></div>
+            <div><small>今开 · 元</small><strong>{{ formatPlainNumber(stock.quote.open) }}</strong></div>
+            <div><small>最低 · 元</small><strong>{{ formatPlainNumber(stock.quote.low) }}</strong></div>
+            <div><small>最高 · 元</small><strong>{{ formatPlainNumber(stock.quote.high) }}</strong></div>
+            <div><small>涨停 · 元</small><strong>{{ formatPlainNumber(stock.quote.limitUp) }}</strong></div>
+            <div><small>跌停 · 元</small><strong>{{ formatPlainNumber(stock.quote.limitDown) }}</strong></div>
+            <div><small>均价 · 元</small><strong>{{ formatAveragePrice(stock.quote.averagePrice) }}</strong></div>
             <div><small>涨跌幅</small><strong :class="`tone-${valueTone(stock.quote.changePercent)}`">{{ formatPercent(stock.quote.changePercent) }}</strong></div>
             <div><small>成交额 · 元</small><strong>{{ formatCurrency(stock.quote.amount) }}</strong></div>
+            <div><small>成交量 · 股</small><strong>{{ formatVolume(stock.quote.volume) }}</strong></div>
             <div><small>交易日</small><strong>{{ stock.quote.tradeDate || "—" }}</strong></div>
           </div>
           <div class="stock-card__chart">

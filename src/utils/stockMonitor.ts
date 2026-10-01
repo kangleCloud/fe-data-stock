@@ -24,6 +24,10 @@ function nullableNumber(value: unknown): number | null {
   return value;
 }
 
+function optionalNullableNumber(value: unknown): number | null {
+  return value === undefined ? null : nullableNumber(value);
+}
+
 function nullableTime(value: unknown): string | null {
   if (value === null) return null;
   if (typeof value !== "string" || !SHANGHAI_TIME.test(value) || Number.isNaN(Date.parse(value))) {
@@ -49,6 +53,14 @@ function parseQuote(value: unknown): StockQuote {
     collectedAt: nullableTime(quote.collectedAt),
     tradeDate: nullableDate(quote.tradeDate),
     price: nullableNumber(quote.price),
+    previousClose: optionalNullableNumber(quote.previousClose),
+    low: optionalNullableNumber(quote.low),
+    high: optionalNullableNumber(quote.high),
+    open: optionalNullableNumber(quote.open),
+    limitUp: optionalNullableNumber(quote.limitUp),
+    limitDown: optionalNullableNumber(quote.limitDown),
+    averagePrice: optionalNullableNumber(quote.averagePrice),
+    volume: optionalNullableNumber(quote.volume),
     changePercent: nullableNumber(quote.changePercent),
     amount: nullableNumber(quote.amount),
     status: quote.status as StockQuoteStatus,
@@ -103,7 +115,9 @@ function parseStock(value: unknown, xqEnabled: boolean): StockMonitorStock {
 
 const disabledQuote: StockQuote = {
   source: "XQ", sourceTime: null, collectedAt: null, tradeDate: null,
-  price: null, changePercent: null, amount: null, status: "DISABLED",
+  price: null, previousClose: null, low: null, high: null, open: null, limitUp: null,
+  limitDown: null, averagePrice: null, volume: null,
+  changePercent: null, amount: null, status: "DISABLED",
 };
 
 export function parseStockMonitorDashboard(value: unknown): StockMonitorDashboard {

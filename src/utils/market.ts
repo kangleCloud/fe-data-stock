@@ -1,7 +1,4 @@
-import type {
-  MarketDataStatus,
-  TradeStatus,
-} from "@/types/market";
+import type { SnapshotStatus } from "@/types/market";
 
 const numberFormatter = new Intl.NumberFormat("zh-CN", {
   maximumFractionDigits: 2,
@@ -78,25 +75,8 @@ export function valueTone(
   return value > 0 ? "rise" : "fall";
 }
 
-export const tradeStatusLabels: Record<TradeStatus, string> = {
-  PRE_OPEN: "盘前",
-  TRADING: "交易中",
-  LUNCH_BREAK: "午间休市",
-  CLOSED: "已收盘",
-  NON_TRADING_DAY: "非交易日",
-  UNKNOWN: "状态未知",
-};
-
-export const dataStatusLabels: Record<MarketDataStatus, string> = {
+export const dataStatusLabels: Record<SnapshotStatus, string> = {
   FRESH: "数据正常",
   STALE: "本次刷新失败",
-  NO_DATA: "暂无数据",
   ERROR: "数据加载失败",
 };
-
-export function secondsUntil(value: string | null | undefined): number {
-  if (!value) {
-    return 0;
-  }
-  return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000));
-}

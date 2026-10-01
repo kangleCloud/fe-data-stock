@@ -27,7 +27,9 @@ const stock = {
   quote: {
     source: "XQ", sourceTime: "2026-09-27T14:30:00+08:00",
     collectedAt: "2026-09-27T14:30:03+08:00", tradeDate: "2026-09-27",
-    price: 10.2, changePercent: 1.2, amount: 1000000, status: "FRESH",
+    price: 10.2, previousClose: 10.08, low: 10.01, high: 10.33, open: 10.05,
+    limitUp: 11.22, limitDown: 9.18, averagePrice: 10.123,
+    volume: 123456, changePercent: 1.2, amount: 1000000, status: "FRESH",
   },
   series: [{ time: "2026-09-27T14:30:00+08:00", price: 10.2 }],
 };
@@ -52,6 +54,7 @@ describe("public stock monitor view", () => {
     expect(wrapper.text()).toContain("雪球采集开关未开启，仅展示监控清单");
     expect(wrapper.text()).toContain("采集未开启");
     expect(wrapper.text()).not.toContain("10.20");
+    expect(wrapper.text()).not.toContain("昨收 · 元");
     expect(wrapper.text()).not.toContain("历史行业资料");
     expect(wrapper.text()).not.toContain("配置管理");
     wrapper.unmount();
@@ -66,11 +69,69 @@ describe("public stock monitor view", () => {
     const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
     await flushPromises();
     expect(wrapper.text()).toContain("历史数据 · 2026-09-27");
+    expect(wrapper.text()).toContain("昨收 · 元10.08");
+    expect(wrapper.text()).toContain("最低 · 元10.01");
+    expect(wrapper.text()).toContain("最高 · 元10.33");
+    expect(wrapper.text()).toContain("今开 · 元10.05");
+    expect(wrapper.text()).toContain("涨停 · 元11.22");
+    expect(wrapper.text()).toContain("跌停 · 元9.18");
+    expect(wrapper.text()).toContain("均价 · 元10.123");
+    expect(wrapper.text()).toContain("成交量 · 股123,456");
     const manage = wrapper.findAll("button").find((button) => button.text().includes("配置管理"));
     expect(manage).toBeDefined();
     await manage!.trigger("click");
     await flushPromises();
     expect(mocks.push).toHaveBeenCalledWith("/system/stockMonitor");
     wrapper.unmount();
+  });
+
+  it("marks stale history and shows missing extended values as dashes", async () => {
+    mocks.getStockMonitorDashboard.mockResolvedValue({
+      schemaVersion: 1, xqEnabled: true, tradeDate: "2026-09-27",
+      stocks: [{ ...stock, quote: {
+        ...stock.quote, status: "STALE", previousClose: null, low: null, high: null, open: null,
+        limitUp: null, limitDown: null, averagePrice: null, volume: null,
+      } }],
+    });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("历史数据 · 2026-09-27 · 已过期");
+    expect(wrapper.text()).toContain("保留最近一次有效报价");
+    const metrics = wrapper.findAll(".stock-card__metrics > div");
+    expect(metrics.find((metric) => metric.text().includes("昨收"))?.text()).toContain("—");
+    expect(metrics.find((metric) => metric.text().includes("均价"))?.text()).toContain("—");
+    expect(metrics.find((metric) => metric.text().includes("成交量"))?.text()).toContain("—");
+    wrapper.unmount();
+  });
+
+  it("keeps a single dashboard GET in flight on the 120-second timer", async () => {
+    vi.useFakeTimers();
+    const data = { schemaVersion: 1, xqEnabled: true, tradeDate: "2026-09-27", stocks: [stock] };
+    let finishSlow!: (value: typeof data) => void;
+    mocks.getStockMonitorDashboard
+      .mockResolvedValueOnce(data)
+      .mockImplementationOnce(() => new Promise((resolve) => { finishSlow = resolve; }))
+      .mockResolvedValue(data);
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    let unmounted = false;
+    try {
+      await flushPromises();
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(2);
+      finishSlow(data);
+      await flushPromises();
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(3);
+      wrapper.unmount();
+      unmounted = true;
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(3);
+    } finally {
+      if (!unmounted) wrapper.unmount();
+      vi.useRealTimers();
+    }
   });
 });

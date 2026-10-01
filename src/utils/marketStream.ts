@@ -1,4 +1,5 @@
 import type { MarketDashboardSnapshot } from "@/types/market";
+import { chinaDate } from "@/utils/marketSnapshot";
 
 export interface SseFrame { event: string; data: string }
 
@@ -44,51 +45,58 @@ function nullableNumber(value: unknown): boolean {
   return value === null || finiteNumber(value);
 }
 
-function ranking(value: unknown, sectorType: "industry" | "concept"): boolean {
-  return record(value) && typeof value.sectorName === "string" && value.sectorType === sectorType &&
-    finiteNumber(value.changePercent) && finiteNumber(value.netFlowAmount) &&
-    !("sectorCode" in value) && !("mainNetInflow" in value) && !("mainNetInflowRatio" in value);
+function timestamp(value: unknown): boolean {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value) &&
+    Number.isFinite(Date.parse(value));
 }
 
-const FUND_NUMBERS = [
-  "mainNetInflow", "mainNetInflowRatio", "superLargeNetInflow", "superLargeNetInflowRatio",
-  "largeNetInflow", "largeNetInflowRatio", "mediumNetInflow", "mediumNetInflowRatio",
-  "smallNetInflow", "smallNetInflowRatio", "shanghaiClose", "shanghaiChangePercent",
-  "shenzhenClose", "shenzhenChangePercent",
-];
+function sectorItem(value: unknown, sectorType: "industry" | "concept"): boolean {
+  if (!record(value) || value.type !== sectorType ||
+      !(value.code === null || typeof value.code === "string" && value.code.trim().length > 0) ||
+      typeof value.name !== "string" || !value.name.trim() ||
+      !(value.leader === null || typeof value.leader === "string")) return false;
+  return ["indexValue", "changePct", "inflow", "outflow", "netAmount", "netFlowRate",
+    "companyCount", "leaderChangePct", "leaderPrice"].every((key) => nullableNumber(value[key]));
+}
 
 function fundPoint(value: unknown): boolean {
-  return record(value) && typeof value.date === "string" &&
-    FUND_NUMBERS.every((key) => nullableNumber(value[key]));
+  return record(value) && timestamp(value.collectedAt) &&
+    ["inflow", "outflow", "netAmount"].every((key) => nullableNumber(value[key]));
 }
 
-function validModule(value: unknown, kind: "top5" | "fund", sectorType?: "industry" | "concept"): boolean {
+function fundData(value: unknown, tradeDate: string): boolean {
+  if (!record(value) || value.source !== "THS_INDIVIDUAL_AGGREGATE" ||
+      !record(value.latest) || !fundPoint(value.latest) ||
+      !["riseCount", "fallCount", "flatCount", "stockCount"].every((key) => nullableNumber((value.latest as Record<string, unknown>)[key])) ||
+      !Array.isArray(value.series) || !value.series.every(fundPoint)) return false;
+  const series = value.series as Array<{ collectedAt: string }>;
+  if (chinaDate(new Date(value.latest.collectedAt as string)) !== tradeDate ||
+      series.some((point) => chinaDate(new Date(point.collectedAt)) !== tradeDate)) return false;
+  return series.every((point, index) =>
+    index === 0 || Date.parse(point.collectedAt) > Date.parse(series[index - 1]!.collectedAt));
+}
+
+function validModule(value: unknown, kind: "sectors" | "fund", sectorType?: "industry" | "concept"): boolean {
   if (!record(value) || !["FRESH", "STALE", "ERROR"].includes(String(value.status))) return false;
-  if (!(value.tradeDate === null || typeof value.tradeDate === "string")) return false;
-  if (!["CALENDAR", "SOURCE"].includes(String(value.tradeDateBasis))) return false;
-  if (kind === "top5" && value.tradeDateBasis !== "CALENDAR") return false;
-  if (kind === "fund" && value.tradeDateBasis !== "SOURCE") return false;
-  if (!(value.lastSuccessAt === null || typeof value.lastSuccessAt === "string")) return false;
-  if (!(value.lastAttemptAt === null || typeof value.lastAttemptAt === "string")) return false;
+  if (!(value.tradeDate === null || typeof value.tradeDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.tradeDate))) return false;
+  if (value.tradeDateBasis !== "CALENDAR") return false;
+  if (!(value.lastSuccessAt === null || timestamp(value.lastSuccessAt))) return false;
+  if (!(value.lastAttemptAt === null || timestamp(value.lastAttemptAt))) return false;
   if (!(value.message === null || typeof value.message === "string")) return false;
   if (value.data === null) return value.status === "ERROR";
   if (value.status === "ERROR") return false;
+  if (value.tradeDate === null || value.lastSuccessAt === null) return false;
   if (!record(value.data)) return false;
-  if (kind === "fund") return fundPoint(value.data.latest) && Array.isArray(value.data.series) && value.data.series.every(fundPoint);
+  if (kind === "fund") return fundData(value.data, value.tradeDate as string);
   return value.data.source === "THS" && value.data.period === "INTRADAY" &&
-    !("unmatchedFundRows" in value.data) &&
-    ["topRise", "topFall", "topInflow", "topOutflow"].every((key) => {
-    const list = (value.data as Record<string, unknown>)[key];
-    return Array.isArray(list) && list.length <= 5 &&
-      list.every((item) => ranking(item, sectorType!));
-  });
+    Array.isArray(value.data.items) && value.data.items.every((item) => sectorItem(item, sectorType!));
 }
 
 export function parseMarketSnapshot(value: unknown): MarketDashboardSnapshot {
-  if (!record(value) || value.schemaVersion !== 1 || typeof value.generatedAt !== "string" ||
+  if (!record(value) || value.schemaVersion !== 1 || !timestamp(value.generatedAt) ||
       value.provider !== "akshare" || !record(value.modules) || Object.keys(value.modules).length !== 3 ||
-      !validModule(value.modules.industryTop5, "top5", "industry") ||
-      !validModule(value.modules.conceptTop5, "top5", "concept") ||
+      !validModule(value.modules.industrySectors, "sectors", "industry") ||
+      !validModule(value.modules.conceptSectors, "sectors", "concept") ||
       !validModule(value.modules.marketFundFlow, "fund")) {
     throw new Error("市场快照结构或版本无效");
   }

@@ -6,38 +6,9 @@ import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
 import { SseParser, parseMarketSnapshot, readMarketStream } from "@/utils/marketStream";
 import { AUTH_EXPIRED_EVENT, httpClient, requestStream } from "@/utils/request";
 import { saveCredential } from "@/utils/storage";
+import { industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
 
 const originalAdapter = httpClient.defaults.adapter;
-
-const moduleOf = (data: unknown, tradeDateBasis: "CALENDAR" | "SOURCE" = "CALENDAR") => ({
-  status: "FRESH", tradeDate: "2026-09-22", tradeDateBasis,
-  lastSuccessAt: "2026-09-23T10:00:00+08:00", lastAttemptAt: "2026-09-23T10:00:00+08:00",
-  message: null, data,
-});
-
-const fundPoint = {
-  date: "2026-09-22", mainNetInflow: 1, mainNetInflowRatio: 0.1,
-  superLargeNetInflow: null, superLargeNetInflowRatio: null,
-  largeNetInflow: null, largeNetInflowRatio: null,
-  mediumNetInflow: null, mediumNetInflowRatio: null,
-  smallNetInflow: null, smallNetInflowRatio: null,
-  shanghaiClose: null, shanghaiChangePercent: null,
-  shenzhenClose: null, shenzhenChangePercent: null,
-};
-
-const top5 = {
-  source: "THS", period: "INTRADAY",
-  topRise: [], topFall: [], topInflow: [], topOutflow: [],
-};
-
-const snapshot = {
-  schemaVersion: 1, provider: "akshare", generatedAt: "2026-09-23T10:00:00+08:00",
-  modules: {
-    industryTop5: moduleOf(top5),
-    conceptTop5: moduleOf(top5),
-    marketFundFlow: moduleOf({ latest: fundPoint, series: [fundPoint] }, "SOURCE"),
-  },
-};
 
 function credential(): void {
   saveCredential({ tokenName: "X-Token", tokenPrefix: "Bearer", tokenValue: "secret", expiresIn: 3600, userId: 1, username: "tester", nickName: "Tester" });
@@ -68,34 +39,31 @@ describe("market snapshot stream", () => {
       (value) => accepted.push(value), (error) => errors.push(error));
     expect(accepted).toEqual([snapshot]);
     expect(errors).toHaveLength(1);
-    expect(parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryTop5: moduleOf({ ...top5,
-        topInflow: [{ sectorName: "测试行业", sectorType: "industry", changePercent: 2.5, netFlowAmount: 123_000_000 }],
-      }),
-    } }).schemaVersion).toBe(1);
+    expect(parseMarketSnapshot(snapshot).schemaVersion).toBe(1);
     expect(() => parseMarketSnapshot({ ...snapshot, schemaVersion: 2 })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryTop5: moduleOf({ ...top5, source: "EM" }),
+      ...snapshot.modules, industrySectors: moduleOf({ ...industryData, source: "EM" }),
     } })).toThrow();
-    expect(() => parseMarketSnapshot({ ...snapshot, modules: { ...snapshot.modules, conceptTop5: {} } })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: { ...snapshot.modules, conceptSectors: {} } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, marketFundFlow: moduleOf({ latest: { date: "2026-09-22" }, series: [] }, "SOURCE"),
-    } })).toThrow();
-    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryTop5: moduleOf({ topRise: [], topFall: [], topInflow: [], topOutflow: [], unmatchedFundRows: 1 }),
+      ...snapshot.modules, marketFundFlow: moduleOf({ source: "THS_INDIVIDUAL_AGGREGATE", latest: { date: "2026-09-22" }, series: [] }),
     } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryTop5: moduleOf({ ...top5,
-        topInflow: [{ sectorName: "测试行业", sectorType: "industry", changePercent: 2.5, mainNetInflow: 100 }],
+      ...snapshot.modules, industryTop5: moduleOf({ topRise: [], topFall: [], topInflow: [], topOutflow: [] }),
+    } })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, industrySectors: moduleOf({ ...industryData,
+        items: [{ ...industryData.items[0], netFlowRate: "2.5" }],
       }),
     } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryTop5: moduleOf({ ...top5,
-        topRise: [{ sectorName: "测试行业", sectorType: "industry", changePercent: 2.5 }],
-      }),
+      ...snapshot.modules, industrySectors: { ...snapshot.modules.industrySectors, tradeDateBasis: "SOURCE" },
     } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
-      ...snapshot.modules, industryTop5: moduleOf(top5, "SOURCE"),
+      ...snapshot.modules, marketFundFlow: moduleOf({
+        ...snapshot.modules.marketFundFlow.data,
+        series: [{ ...snapshot.modules.marketFundFlow.data!.series[0]!, collectedAt: "2026-09-24T09:30:00+08:00" }],
+      }),
     } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
       ...snapshot.modules, industryHeatmap: moduleOf([]),
@@ -110,7 +78,7 @@ describe("market snapshot stream", () => {
     })) as AxiosAdapter;
     const valid = { ...snapshot, generatedAt: "2026-09-24T10:00:00+08:00" };
     const invalid = { ...snapshot, generatedAt: "2026-09-25T10:00:00+08:00", modules: {
-      ...snapshot.modules, marketFundFlow: moduleOf({ latest: { date: "2026-09-25" }, series: [] }, "SOURCE"),
+      ...snapshot.modules, marketFundFlow: moduleOf({ source: "THS_INDIVIDUAL_AGGREGATE", latest: { date: "2026-09-25" }, series: [] }),
     } };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(stream(
       `event: snapshot\ndata: ${JSON.stringify(valid)}\n\nevent: snapshot\ndata: ${JSON.stringify(invalid)}\n\n`,

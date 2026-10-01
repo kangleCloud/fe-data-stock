@@ -1,17 +1,8 @@
-import type { EntityId, PageQuery } from "@/types/api";
-
-export type TradeStatus =
-  | "PRE_OPEN"
-  | "TRADING"
-  | "LUNCH_BREAK"
-  | "CLOSED"
-  | "NON_TRADING_DAY"
-  | "UNKNOWN";
-
-export type MarketDataStatus = "FRESH" | "STALE" | "NO_DATA" | "ERROR";
+import type { PageQuery } from "@/types/api";
 
 export type SnapshotStatus = "FRESH" | "STALE" | "ERROR";
-export type SnapshotDateBasis = "CALENDAR" | "SOURCE";
+export type SnapshotDateBasis = "CALENDAR";
+export type SectorType = "industry" | "concept";
 
 export interface SnapshotModule<T> {
   status: SnapshotStatus;
@@ -23,42 +14,45 @@ export interface SnapshotModule<T> {
   data: T | null;
 }
 
-export interface SnapshotRankingItem {
-  sectorName: string;
-  sectorType: SectorType;
-  changePercent: number;
-  netFlowAmount: number;
+export interface SnapshotSectorItem {
+  code: string | null;
+  name: string;
+  type: SectorType;
+  indexValue: number | null;
+  changePct: number | null;
+  inflow: number | null;
+  outflow: number | null;
+  netAmount: number | null;
+  netFlowRate: number | null;
+  companyCount: number | null;
+  leader: string | null;
+  leaderChangePct: number | null;
+  leaderPrice: number | null;
 }
 
-export interface SnapshotTop5 {
+export interface SnapshotSectorData {
   source: "THS";
   period: "INTRADAY";
-  topRise: SnapshotRankingItem[];
-  topFall: SnapshotRankingItem[];
-  topInflow: SnapshotRankingItem[];
-  topOutflow: SnapshotRankingItem[];
+  items: SnapshotSectorItem[];
 }
 
 export interface SnapshotFundPoint {
-  date: string;
-  mainNetInflow: number | null;
-  mainNetInflowRatio: number | null;
-  superLargeNetInflow: number | null;
-  superLargeNetInflowRatio: number | null;
-  largeNetInflow: number | null;
-  largeNetInflowRatio: number | null;
-  mediumNetInflow: number | null;
-  mediumNetInflowRatio: number | null;
-  smallNetInflow: number | null;
-  smallNetInflowRatio: number | null;
-  shanghaiClose: number | null;
-  shanghaiChangePercent: number | null;
-  shenzhenClose: number | null;
-  shenzhenChangePercent: number | null;
+  collectedAt: string;
+  inflow: number | null;
+  outflow: number | null;
+  netAmount: number | null;
+}
+
+export interface SnapshotFundLatest extends SnapshotFundPoint {
+  riseCount: number | null;
+  fallCount: number | null;
+  flatCount: number | null;
+  stockCount: number | null;
 }
 
 export interface SnapshotFundFlow {
-  latest: SnapshotFundPoint;
+  source: "THS_INDIVIDUAL_AGGREGATE";
+  latest: SnapshotFundLatest;
   series: SnapshotFundPoint[];
 }
 
@@ -67,129 +61,10 @@ export interface MarketDashboardSnapshot {
   provider: "akshare";
   generatedAt: string;
   modules: {
-    industryTop5: SnapshotModule<SnapshotTop5>;
-    conceptTop5: SnapshotModule<SnapshotTop5>;
+    industrySectors: SnapshotModule<SnapshotSectorData>;
+    conceptSectors: SnapshotModule<SnapshotSectorData>;
     marketFundFlow: SnapshotModule<SnapshotFundFlow>;
   };
-}
-
-export interface MarketModuleResponse<T> {
-  data: T;
-  dataStatus: MarketDataStatus;
-  message?: string;
-  tradeStatus?: TradeStatus;
-  tradeDate?: string;
-  sourceDataTime?: string;
-  lastSuccessAt?: string;
-  lastAttemptAt?: string;
-  nextRefreshAt?: string;
-}
-
-export interface RefreshStatus {
-  tradeStatus: TradeStatus;
-  tradeDate: string | null;
-  refreshBatchId: string | null;
-  lastRefreshAt: string | null;
-  lastValidDataTime: string | null;
-  nextRefreshAt: string | null;
-  message?: string;
-}
-
-export interface MarketRefreshResult {
-  refreshBatchId?: string | null;
-  accepted: boolean;
-  message?: string;
-}
-
-export interface IntradayPoint {
-  time: string;
-  value: number | null;
-}
-
-export interface MarketIndex {
-  code: string;
-  name: string;
-  currentPoint: number | null;
-  changeAmount: number | null;
-  changePercent: number | null;
-  turnover: number | null;
-  updateTime: string | null;
-  points: IntradayPoint[];
-}
-
-export interface MarketSummary {
-  totalTurnover: number | null;
-  turnoverChangePercent: number | null;
-  riseCount: number | null;
-  fallCount: number | null;
-  flatCount: number | null;
-  limitUpCount: number | null;
-  limitDownCount: number | null;
-  mainNetInflow: number | null;
-  updateTime: string | null;
-}
-
-export type SectorType = "industry" | "concept";
-export type SectorDirection = "all" | "up" | "down";
-export type SectorTopMetric =
-  | "changepercent"
-  | "mainnetinflow"
-  | "turnover";
-export type RankingPeriod = "today" | "5d" | "10d";
-
-export interface SectorTopStock {
-  stockCode: string;
-  stockName: string;
-  latestPrice: number | null;
-  changePercent: number | null;
-  turnover: number | null;
-  turnoverRate: number | null;
-  mainNetInflow: number | null;
-  mainNetInflowRatio: number | null;
-  rank: number | null;
-  monitorEnabled: boolean;
-}
-
-export interface SectorRankingItem {
-  sectorCode: string;
-  sectorName: string;
-  sectorType: SectorType;
-  value: number | null;
-  changePercent: number | null;
-  mainNetInflow: number | null;
-}
-
-export interface SectorRankings {
-  topRise: SectorRankingItem[];
-  topFall: SectorRankingItem[];
-  topInflow: SectorRankingItem[];
-  topOutflow: SectorRankingItem[];
-}
-
-export type FundType = "MAIN" | "SUPER_LARGE" | "LARGE" | "MEDIUM" | "SMALL";
-
-export interface MarketFundPoint {
-  date: string;
-  mainNetInflow: number | null;
-  superLargeNetInflow: number | null;
-  largeNetInflow: number | null;
-  mediumNetInflow: number | null;
-  smallNetInflow: number | null;
-  indexPoint: number | null;
-  indexChangePercent: number | null;
-}
-
-export interface SectorMutation {
-  id: EntityId;
-  sectorCode: string;
-  sectorName: string;
-  sectorType: SectorType;
-  direction: "UP" | "DOWN" | "MIXED";
-  mutationCount: number | null;
-  changePercent: number | null;
-  mainNetInflow: number | null;
-  frequentStockName: string | null;
-  mutationTime: string | null;
 }
 
 export type StockMarket = "SH" | "SZ" | "BJ";
@@ -215,6 +90,14 @@ export interface StockQuote {
   collectedAt: string | null;
   tradeDate: string | null;
   price: number | null;
+  previousClose: number | null;
+  low: number | null;
+  high: number | null;
+  open: number | null;
+  limitUp: number | null;
+  limitDown: number | null;
+  averagePrice: number | null;
+  volume: number | null;
   changePercent: number | null;
   amount: number | null;
   status: StockQuoteStatus;
