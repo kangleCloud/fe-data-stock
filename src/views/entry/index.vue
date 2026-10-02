@@ -30,7 +30,7 @@ import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons
           <span class="home-option__copy">
             <small>公开查看</small>
             <strong>资金板块总览</strong>
-            <span>查看行业、概念板块 Top 5 与大盘资金流。无需登录。</span>
+            <span>查看行业、概念板块 Top 10 与大盘资金流。无需登录。</span>
           </span>
           <ArrowRight class="home-option__arrow" />
         </RouterLink>

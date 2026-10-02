@@ -43,9 +43,9 @@ export function sectorRankings(items: SnapshotSectorItem[]): {
 } {
   return {
     topRise: items.filter((item) => item.changePct !== null && item.changePct > 0)
-      .sort((a, b) => b.changePct! - a.changePct!).slice(0, 5),
+      .sort((a, b) => b.changePct! - a.changePct!).slice(0, 10),
     topFall: items.filter((item) => item.changePct !== null && item.changePct < 0)
-      .sort((a, b) => a.changePct! - b.changePct!).slice(0, 5),
+      .sort((a, b) => a.changePct! - b.changePct!).slice(0, 10),
     topInflow: items.filter((item) => item.netAmount !== null && item.netAmount > 0)
       .sort((a, b) => b.netAmount! - a.netAmount!).slice(0, 10),
     topOutflow: items.filter((item) => item.netAmount !== null && item.netAmount < 0)

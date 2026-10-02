@@ -41,6 +41,7 @@ export const conceptData: SnapshotSectorData = {
 
 export const fundData: SnapshotFundFlow = {
   source: "THS_INDIVIDUAL_AGGREGATE",
+  reconciledFromLegacy: true,
   latest: { collectedAt: "2026-09-23T13:02:00+08:00", inflow: 300_000_000,
     outflow: 177_000_000, netAmount: 123_000_000,
     riseCount: 2600, fallCount: 1800, flatCount: 120, stockCount: 4520 },
@@ -52,7 +53,7 @@ export const fundData: SnapshotFundFlow = {
 };
 
 export const snapshot: MarketDashboardSnapshot = {
-  schemaVersion: 1, provider: "akshare", generatedAt: "2026-09-23T13:02:05+08:00",
+  schemaVersion: 1, provider: "akshare", snapshotId: "s1", generatedAt: "2026-09-23T13:02:05+08:00",
   modules: {
     industrySectors: moduleOf(industryData),
     conceptSectors: moduleOf(conceptData),

@@ -58,7 +58,7 @@ describe("market snapshot V1", () => {
     expect(snapshotStatusLabel(moduleOf(industryData, "STALE"))).toContain("上次成功数据");
   });
 
-  it("derives directional Top5 and Top10 from complete items without filling missing values", () => {
+  it("derives directional Top10 from complete items without filling missing values", () => {
     const rows = Array.from({ length: 12 }, (_, index) => sectorItem({
       name: `板块${index}`, changePct: index < 6 ? index + 1 : -(index - 5),
       netAmount: index < 11 ? (index + 1) * 10_000 : -10_000,
@@ -66,9 +66,10 @@ describe("market snapshot V1", () => {
     rows.push(sectorItem({ name: "缺失", changePct: null, netAmount: null }));
     rows.push(sectorItem({ name: "零值", changePct: 0, netAmount: 0 }));
     const result = sectorRankings(rows);
-    expect(result.topRise).toHaveLength(5);
+    expect(result.topRise).toHaveLength(6);
     expect(result.topRise[0]?.name).toBe("板块5");
-    expect(result.topFall.map((item) => item.name)).toEqual(["板块11", "板块10", "板块9", "板块8", "板块7"]);
+    expect(result.topFall.map((item) => item.name)).toEqual(["板块11", "板块10", "板块9", "板块8", "板块7", "板块6"]);
+    expect(sectorRankings(Array.from({ length: 12 }, (_, index) => sectorItem({ changePct: index + 1 }))).topRise).toHaveLength(10);
     expect(result.topInflow).toHaveLength(10);
     expect(result.topInflow[0]?.name).toBe("板块10");
     expect(result.topOutflow.map((item) => item.name)).toEqual(["板块11"]);
@@ -76,8 +77,12 @@ describe("market snapshot V1", () => {
 
   it("maps treemap area to valid company count and breaks the fund line over lunch", () => {
     const treemap = buildSectorTreemapOption(industryData.items) as {
+      tooltip: { confine: boolean; appendToBody: boolean; extraCssText: string };
       series: Array<{ data: Array<{ name: string; value: number; itemStyle: { color: string } }> }>;
     };
+    expect(treemap.tooltip.confine).toBe(true);
+    expect(treemap.tooltip.appendToBody).toBe(true);
+    expect(treemap.tooltip.extraCssText).toContain("100vw - 24px");
     expect(treemap.series[0]?.data.map((item) => [item.name, item.value])).toEqual([["银行", 30], ["煤炭", 30]]);
     expect(treemap.series[0]?.data[0]?.itemStyle.color).not.toBe(treemap.series[0]?.data[1]?.itemStyle.color);
     expect(splitFundSeries(fundData.series)).toHaveLength(2);
@@ -119,6 +124,8 @@ describe("market snapshot V1", () => {
     expect(wrapper.text()).toContain("大盘资金流");
     expect(wrapper.text()).toContain("+1.23亿元");
     expect(wrapper.text()).toContain("资金流强度");
+    expect(wrapper.text()).toContain("涨幅 Top 10");
+    expect(wrapper.text()).toContain("历史快照已按统一口径校正");
     expect(wrapper.text()).toContain("涨跌幅 +2.50%");
     expect(wrapper.find(".snapshot-flow-list small .tone-fall").text()).toContain("涨跌幅 -1.80%");
     expect(wrapper.text()).not.toContain("主力净流入");
@@ -146,6 +153,22 @@ describe("market snapshot V1", () => {
     expect(wrapper.text()).toContain("采集失败，暂无可用数据");
     expect(wrapper.text()).toContain("银行");
     expect(wrapper.text()).not.toContain("源数据日期");
+    wrapper.unmount();
+  });
+
+  it("shows a two-decimal market reconciliation for the reported inflow and outflow", async () => {
+    const point = { collectedAt: "2026-09-23T13:02:00+08:00", inflow: 702_396_000_000,
+      outflow: 732_706_000_000, netAmount: -30_310_000_000 };
+    useSnapshotAdapter({ ...snapshot, modules: { ...snapshot.modules,
+      marketFundFlow: moduleOf({ ...fundData, reconciledFromLegacy: true,
+        latest: { ...fundData.latest, ...point }, series: [point] }),
+    } });
+    const wrapper = mount(MarketOverview, { global: { stubs: { BaseChart: true } } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("+7,023.96亿元");
+    expect(wrapper.text()).toContain("+7,327.06亿元");
+    expect(wrapper.text()).toContain("−303.10亿元");
+    expect(wrapper.text()).toContain("历史快照已按统一口径校正");
     wrapper.unmount();
   });
 

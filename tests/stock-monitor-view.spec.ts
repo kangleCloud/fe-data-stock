@@ -23,6 +23,7 @@ vi.mock("@/api/market", () => ({
 
 const stock = {
   symbol: "SH600000", code: "600000", name: "浦发银行", market: "SH", sortOrder: 1,
+  effectiveTradeDate: "2026-09-27", dataStatus: "HISTORICAL", closeConfirmed: false,
   profile: { industry: "历史行业资料", listingDate: null, marketCap: null, updatedAt: null },
   quote: {
     source: "XQ", sourceTime: "2026-09-27T14:30:00+08:00",
@@ -32,22 +33,26 @@ const stock = {
     volume: 123456, changePercent: 1.2, amount: 1000000, status: "FRESH",
   },
   series: [{ time: "2026-09-27T14:30:00+08:00", price: 10.2 }],
+  fundSeries: [{ collectedAt: "2026-09-27T14:30:03+08:00", inflow: 2_000_000, outflow: 1_000_000, netAmount: 1_000_000 }],
 };
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    options.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+  })));
   mocks.auth.isAuthenticated = false;
   mocks.auth.permissionCodes = [];
   mocks.permission.initialize.mockResolvedValue(undefined);
   mocks.push.mockResolvedValue(undefined);
 });
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("public stock monitor view", () => {
   it("shows disabled collection without quotes or management actions to visitors", async () => {
     mocks.getStockMonitorDashboard.mockResolvedValue({
       schemaVersion: 1, xqEnabled: false, tradeDate: null,
-      stocks: [{ ...stock, quote: { ...stock.quote, price: null, changePercent: null, amount: null, sourceTime: null, collectedAt: null, tradeDate: null, status: "DISABLED" }, series: [] }],
+      stocks: [{ ...stock, dataStatus: "DISABLED", quote: { ...stock.quote, price: null, changePercent: null, amount: null, sourceTime: null, collectedAt: null, tradeDate: null, status: "DISABLED" }, series: [], fundSeries: [] }],
     });
     const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
     await flushPromises();
@@ -69,6 +74,8 @@ describe("public stock monitor view", () => {
     const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
     await flushPromises();
     expect(wrapper.text()).toContain("历史数据 · 2026-09-27");
+    expect(wrapper.text()).toContain("资金净额采样");
+    expect(wrapper.text()).toContain("实际采集时间");
     expect(wrapper.text()).toContain("昨收 · 元10.08");
     expect(wrapper.text()).toContain("最低 · 元10.01");
     expect(wrapper.text()).toContain("最高 · 元10.33");
@@ -88,7 +95,7 @@ describe("public stock monitor view", () => {
   it("marks stale history and shows missing extended values as dashes", async () => {
     mocks.getStockMonitorDashboard.mockResolvedValue({
       schemaVersion: 1, xqEnabled: true, tradeDate: "2026-09-27",
-      stocks: [{ ...stock, quote: {
+      stocks: [{ ...stock, dataStatus: "HISTORICAL", quote: {
         ...stock.quote, status: "STALE", previousClose: null, low: null, high: null, open: null,
         limitUp: null, limitDown: null, averagePrice: null, volume: null,
       } }],
@@ -104,7 +111,63 @@ describe("public stock monitor view", () => {
     wrapper.unmount();
   });
 
-  it("keeps a single dashboard GET in flight on the 120-second timer", async () => {
+  it("keeps the price card when the independent fund curve has no points", async () => {
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "q1",
+      xqEnabled: true, tradeDate: "2026-09-27", stocks: [{ ...stock, fundSeries: [] }] });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("价格 · 元10.20");
+    expect(wrapper.text()).toContain("暂无有效资金采样点；价格信息仍可查看");
+    expect(wrapper.findAll("base-chart-stub")).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it("does not call a 14:56 quote confirmed close and labels missing source time as collection time", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-30T14:56:30+08:00"));
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "q1",
+      xqEnabled: true, tradeDate: "2026-09-30", stocks: [{ ...stock,
+        effectiveTradeDate: "2026-09-30", dataStatus: "CURRENT", closeConfirmed: false,
+        quote: { ...stock.quote, tradeDate: "2026-09-30", sourceTime: null,
+          collectedAt: "2026-09-30T14:56:03+08:00" },
+        series: [], fundSeries: [],
+      }] });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("当日采样数据");
+    expect(wrapper.text()).not.toContain("已确认收盘");
+    expect(wrapper.text()).toContain("采集时间 09/30 14:56");
+    expect(wrapper.text()).not.toContain("源时间 —");
+    wrapper.unmount();
+  });
+
+  it("replaces one card from SSE while keeping search input and layout state", async () => {
+    let streamController!: ReadableStreamDefaultController<Uint8Array>;
+    vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({ start(controller) {
+        streamController = controller;
+        controller.enqueue(new TextEncoder().encode('event: ready\ndata: {"stateId":"q1"}\n\n'));
+        options.signal?.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")), { once: true });
+      } }), { headers: { "Content-Type": "text/event-stream" } },
+    ))));
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "q1",
+      xqEnabled: true, tradeDate: "2026-09-27", stocks: [stock] });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises();
+      await wrapper.get(".quick-search input").setValue("浦发");
+      streamController.enqueue(new TextEncoder().encode(`event: patch\ndata: ${JSON.stringify({
+        baseStateId: "q1", stateId: "q2", stocks: [{ ...stock,
+          quote: { ...stock.quote, price: 10.4 } }],
+      })}\n\n`));
+      await flushPromises();
+      expect(wrapper.text()).toContain("价格 · 元10.40");
+      expect((wrapper.get(".quick-search input").element as HTMLInputElement).value).toBe("浦发");
+      expect(wrapper.text()).toContain("第 1 / 1 页");
+    } finally { wrapper.unmount(); }
+  });
+
+  it("does not poll GET and uses manual refresh without overlapping an in-flight GET", async () => {
     vi.useFakeTimers();
     const data = { schemaVersion: 1, xqEnabled: true, tradeDate: "2026-09-27", stocks: [stock] };
     let finishSlow!: (value: typeof data) => void;
@@ -117,18 +180,19 @@ describe("public stock monitor view", () => {
     try {
       await flushPromises();
       expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(1);
-      await vi.advanceTimersByTimeAsync(120_000);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(1);
+      await wrapper.get(".monitor-tools .outline-button").trigger("click");
+      await flushPromises();
       expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(2);
-      await vi.advanceTimersByTimeAsync(120_000);
+      await wrapper.get(".monitor-tools .outline-button").trigger("click");
+      await flushPromises();
       expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(2);
       finishSlow(data);
       await flushPromises();
-      await vi.advanceTimersByTimeAsync(120_000);
-      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(3);
       wrapper.unmount();
       unmounted = true;
-      await vi.advanceTimersByTimeAsync(120_000);
-      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(3);
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(2);
     } finally {
       if (!unmounted) wrapper.unmount();
       vi.useRealTimers();

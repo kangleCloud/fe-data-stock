@@ -52,6 +52,7 @@ export interface SnapshotFundLatest extends SnapshotFundPoint {
 
 export interface SnapshotFundFlow {
   source: "THS_INDIVIDUAL_AGGREGATE";
+  reconciledFromLegacy: boolean;
   latest: SnapshotFundLatest;
   series: SnapshotFundPoint[];
 }
@@ -59,6 +60,7 @@ export interface SnapshotFundFlow {
 export interface MarketDashboardSnapshot {
   schemaVersion: 1;
   provider: "akshare";
+  snapshotId: string | null;
   generatedAt: string;
   modules: {
     industrySectors: SnapshotModule<SnapshotSectorData>;
@@ -69,6 +71,7 @@ export interface MarketDashboardSnapshot {
 
 export type StockMarket = "SH" | "SZ" | "BJ";
 export type StockQuoteStatus = "DISABLED" | "FRESH" | "STALE" | "ERROR";
+export type StockDataStatus = "CURRENT" | "DELAYED" | "HISTORICAL" | "NO_DATA" | "DISABLED";
 
 export interface StockSymbol {
   symbol: string;
@@ -108,15 +111,27 @@ export interface StockPricePoint {
   price: number;
 }
 
+export interface StockFundPoint {
+  collectedAt: string;
+  inflow: number | null;
+  outflow: number | null;
+  netAmount: number | null;
+}
+
 export interface StockMonitorStock extends StockSymbol {
   sortOrder: number;
+  effectiveTradeDate: string | null;
+  dataStatus: StockDataStatus;
+  closeConfirmed: boolean;
   profile: StockProfile;
   quote: StockQuote;
   series: StockPricePoint[];
+  fundSeries: StockFundPoint[];
 }
 
 export interface StockMonitorDashboard {
   schemaVersion: 1;
+  stateId: string | null;
   xqEnabled: boolean;
   tradeDate: string | null;
   stocks: StockMonitorStock[];

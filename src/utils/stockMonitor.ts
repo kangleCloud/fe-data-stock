@@ -2,14 +2,17 @@ import type {
   StockMonitorDashboard,
   StockMonitorStock,
   StockPricePoint,
+  StockFundPoint,
   StockQuote,
   StockQuoteStatus,
+  StockDataStatus,
 } from "@/types/market";
 
 const SYMBOL = /^(SH|SZ|BJ)\d{6}$/;
 const TRADE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHANGHAI_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?\+08:00$/;
 const QUOTE_STATUSES = new Set<StockQuoteStatus>(["DISABLED", "FRESH", "STALE", "ERROR"]);
+const DATA_STATUSES = new Set<StockDataStatus>(["CURRENT", "DELAYED", "HISTORICAL", "NO_DATA", "DISABLED"]);
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -80,6 +83,12 @@ function parseStock(value: unknown, xqEnabled: boolean): StockMonitorStock {
     (profile && profile.industry !== null && typeof profile.industry !== "string")) {
     throw new Error("个股监控股票信息无效");
   }
+  const dataStatus = xqEnabled ? stock.dataStatus as StockDataStatus : "DISABLED";
+  const effectiveTradeDate = xqEnabled ? nullableDate(stock.effectiveTradeDate) : null;
+  const closeConfirmed = xqEnabled ? stock.closeConfirmed : false;
+  if (!DATA_STATUSES.has(dataStatus) || typeof closeConfirmed !== "boolean") {
+    throw new Error("个股监控数据状态无效");
+  }
   const rawSeries = xqEnabled ? stock.series : [];
   if (!Array.isArray(rawSeries)) throw new Error("个股监控曲线无效");
   let previousTime = -Infinity;
@@ -91,17 +100,42 @@ function parseStock(value: unknown, xqEnabled: boolean): StockMonitorStock {
     }
     const epoch = Date.parse(time);
     if (epoch <= previousTime) throw new Error("个股监控曲线时间未按序排列");
+    if (effectiveTradeDate === null || shanghaiToday(new Date(time)) !== effectiveTradeDate) {
+      throw new Error("个股监控价格曲线交易日不一致");
+    }
     previousTime = epoch;
     return { time, price: point.price };
   });
+  const rawFundSeries = xqEnabled ? stock.fundSeries : [];
+  if (!Array.isArray(rawFundSeries)) throw new Error("个股监控资金曲线无效");
+  let previousFundTime = -Infinity;
+  const fundSeries: StockFundPoint[] = rawFundSeries.map((item: unknown) => {
+    const point = record(item);
+    const collectedAt = nullableTime(point.collectedAt);
+    if (collectedAt === null || effectiveTradeDate === null ||
+      shanghaiToday(new Date(collectedAt)) !== effectiveTradeDate ||
+      Date.parse(collectedAt) <= previousFundTime) {
+      throw new Error("个股监控资金采样时间无效");
+    }
+    previousFundTime = Date.parse(collectedAt);
+    return { collectedAt, inflow: nullableNumber(point.inflow),
+      outflow: nullableNumber(point.outflow), netAmount: nullableNumber(point.netAmount) };
+  });
   const quote = xqEnabled ? parseQuote(stock.quote) : disabledQuote;
-  const unavailable = quote.status === "ERROR" || quote.status === "DISABLED";
+  const unavailable = !xqEnabled || dataStatus === "NO_DATA" || dataStatus === "DISABLED";
+  if (!unavailable && effectiveTradeDate === null) throw new Error("个股监控有效交易日缺失");
+  if (!unavailable && quote.tradeDate !== null && quote.tradeDate !== effectiveTradeDate) {
+    throw new Error("个股监控报价交易日不一致");
+  }
   return {
     symbol,
     code,
     name: stock.name,
     market: market as StockMonitorStock["market"],
     sortOrder: stock.sortOrder,
+    effectiveTradeDate: unavailable ? null : effectiveTradeDate,
+    dataStatus,
+    closeConfirmed: unavailable ? false : closeConfirmed,
     profile: profile ? {
       industry: profile.industry as string | null,
       listingDate: nullableDate(profile.listingDate),
@@ -110,6 +144,7 @@ function parseStock(value: unknown, xqEnabled: boolean): StockMonitorStock {
     } : { industry: null, listingDate: null, marketCap: null, updatedAt: null },
     quote: unavailable ? { ...disabledQuote, status: quote.status } : quote,
     series: unavailable ? [] : series,
+    fundSeries: unavailable ? [] : fundSeries,
   };
 }
 
@@ -122,7 +157,9 @@ const disabledQuote: StockQuote = {
 
 export function parseStockMonitorDashboard(value: unknown): StockMonitorDashboard {
   const dashboard = record(value);
-  if (dashboard.schemaVersion !== 1 || typeof dashboard.xqEnabled !== "boolean" ||
+  if (dashboard.schemaVersion !== 1 ||
+    !(dashboard.stateId == null || typeof dashboard.stateId === "string" && dashboard.stateId.length > 0) ||
+    typeof dashboard.xqEnabled !== "boolean" ||
     !Array.isArray(dashboard.stocks) || dashboard.stocks.length > 10) {
     throw new Error("个股监控 V1 响应格式异常");
   }
@@ -132,10 +169,33 @@ export function parseStockMonitorDashboard(value: unknown): StockMonitorDashboar
   }
   return {
     schemaVersion: 1,
+    stateId: dashboard.stateId ?? null,
     xqEnabled: dashboard.xqEnabled,
     tradeDate: dashboard.xqEnabled ? nullableDate(dashboard.tradeDate) : null,
     stocks: stocks.sort((left, right) => left.sortOrder - right.sortOrder),
   };
+}
+
+export function applyStockMonitorPatch(current: StockMonitorDashboard, value: unknown): StockMonitorDashboard | "duplicate" {
+  const patch = record(value);
+  if (typeof patch.stateId !== "string" || !patch.stateId ||
+      !(patch.baseStateId === null || typeof patch.baseStateId === "string") ||
+      !Array.isArray(patch.stocks) || !patch.stocks.length) throw new Error("个股监控增量结构无效");
+  if (patch.stateId === current.stateId) return "duplicate";
+  if (patch.baseStateId !== current.stateId) throw new Error("个股监控增量版本不连续");
+  const changes = patch.stocks.map((raw: unknown) => parseStock(raw, current.xqEnabled));
+  const bySymbol = new Map(current.stocks.map((stock) => [stock.symbol, stock]));
+  if (new Set(changes.map((stock) => stock.symbol)).size !== changes.length) throw new Error("个股监控增量股票重复");
+  for (const change of changes) {
+    const old = bySymbol.get(change.symbol);
+    if (!old || old.sortOrder !== change.sortOrder || old.code !== change.code ||
+        old.market !== change.market || old.name !== change.name) {
+      throw new Error("个股监控配置变化，需要全量重同步");
+    }
+    bySymbol.set(change.symbol, change);
+  }
+  return { ...current, stateId: patch.stateId,
+    stocks: current.stocks.map((stock) => bySymbol.get(stock.symbol)!) };
 }
 
 export function shanghaiToday(now = new Date()): string {
@@ -145,7 +205,7 @@ export function shanghaiToday(now = new Date()): string {
 }
 
 export function isHistoricalStock(stock: StockMonitorStock, today = shanghaiToday()): boolean {
-  return stock.quote.tradeDate !== null && stock.quote.tradeDate !== today;
+  return stock.effectiveTradeDate !== null && stock.effectiveTradeDate !== today;
 }
 
 export function splitPriceSeries(points: StockPricePoint[], gapMilliseconds = 180_000): StockPricePoint[][] {
@@ -158,6 +218,23 @@ export function splitPriceSeries(points: StockPricePoint[], gapMilliseconds = 18
     } else {
       lastSegment!.push(point);
     }
+  }
+  return result;
+}
+
+export function splitStockFundSeries(points: StockFundPoint[], gapMilliseconds = 180_000): StockFundPoint[][] {
+  const result: StockFundPoint[][] = [];
+  let breakNext = false;
+  for (const point of points) {
+    if (point.netAmount === null) { breakNext = true; continue; }
+    const lastSegment = result.at(-1);
+    const previous = lastSegment?.at(-1);
+    if (breakNext || !previous || Date.parse(point.collectedAt) - Date.parse(previous.collectedAt) > gapMilliseconds) {
+      result.push([point]);
+    } else {
+      lastSegment!.push(point);
+    }
+    breakNext = false;
   }
   return result;
 }

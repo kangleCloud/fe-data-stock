@@ -140,7 +140,7 @@ export async function requestStream(path: string, signal: AbortSignal, publicAcc
   const isEventStream = response.headers.get("content-type")?.toLowerCase().includes("text/event-stream") ?? false;
   if (!response.ok || !isEventStream) {
     let code: number | undefined = response.ok ? undefined : response.status;
-    let message = response.status === 403 ? "无权查看市场快照" : "市场流响应格式异常";
+    let message = response.status === 403 ? "无权查看公开数据" : "事件流响应格式异常";
     try {
       const body = await response.json() as Partial<CommonResult<unknown>>;
       if (typeof body.code === "number") code = body.code;
@@ -153,7 +153,7 @@ export async function requestStream(path: string, signal: AbortSignal, publicAcc
     throw new ApiError(message, code);
   }
   if (!response.body) {
-    throw new ApiError("市场流响应格式异常");
+    throw new ApiError("事件流响应格式异常");
   }
   return response;
 }

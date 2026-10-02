@@ -4,9 +4,10 @@ import type {
   SnapshotFundPoint,
   SnapshotSectorItem,
   StockPricePoint,
+  StockFundPoint,
 } from "@/types/market";
 import { formatAmount, formatPercent, formatPlainNumber } from "@/utils/market";
-import { splitPriceSeries } from "@/utils/stockMonitor";
+import { splitPriceSeries, splitStockFundSeries } from "@/utils/stockMonitor";
 import { splitFundSeries } from "@/utils/marketSnapshot";
 
 const axisColor = "#5F718A";
@@ -95,7 +96,9 @@ export function buildSectorTreemapOption(items: SnapshotSectorItem[], lastSucces
     }));
   return {
     aria: { enabled: true },
-    tooltip: { trigger: "item", formatter: (params: { data: { sector: SnapshotSectorItem } }) => {
+    tooltip: { trigger: "item", renderMode: "html", appendToBody: true, confine: true,
+      extraCssText: "max-width:min(300px, calc(100vw - 24px));white-space:normal;overflow-wrap:anywhere;",
+      formatter: (params: { data: { sector: SnapshotSectorItem } }) => {
       const item = params.data.sector;
       const row = (label: string, value: string) => `<div>${label}：${value}</div>`;
       return [
@@ -111,7 +114,7 @@ export function buildSectorTreemapOption(items: SnapshotSectorItem[], lastSucces
         row("来源", "AKShare / 同花顺"),
         row("采集时间", collectedTime(lastSuccessAt)),
       ].join("");
-    } },
+      } },
     series: [{
       type: "treemap", data, roam: false, nodeClick: false,
       breadcrumb: { show: false },
@@ -144,6 +147,38 @@ export function buildIntradayFundOption(points: SnapshotFundPoint[]): EChartsCor
       data: segment.map((point) => [point.collectedAt, point.netAmount]),
       showSymbol: segment.length === 1, symbolSize: 5, connectNulls: false,
       lineStyle: { color: primaryColor, width: 2 }, itemStyle: { color: primaryColor },
+    })),
+  };
+}
+
+export function buildStockFundOption(points: StockFundPoint[]): EChartsCoreOption {
+  const segments = splitStockFundSeries(points);
+  return {
+    aria: { enabled: true },
+    tooltip: { trigger: "axis", backgroundColor: "#102039", borderColor: "#20334D",
+      textStyle: { color: "#F3F7FC" },
+      valueFormatter: (value: unknown) => {
+        const amount = Array.isArray(value) ? value[1] : value;
+        return typeof amount === "number" && Number.isFinite(amount) ? `${formatAmount(amount)}元` : "—";
+      } },
+    grid: { top: 20, right: 20, bottom: 35, left: 70 },
+    xAxis: { type: "time", axisLine: { lineStyle: { color: axisColor } },
+      axisLabel: { color: textColor, hideOverlap: true, formatter: (value: number) =>
+        new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) } },
+    yAxis: { type: "value", min: (range: { min: number }) => Math.min(0, range.min),
+      max: (range: { max: number }) => Math.max(0, range.max),
+      axisLabel: { color: textColor, formatter: (value: number) => formatAmount(value) },
+      splitLine: { lineStyle: { color: splitColor } } },
+    visualMap: { type: "piecewise", show: false, dimension: 1,
+      seriesIndex: segments.map((_, index) => index),
+      pieces: [{ gt: 0, color: riseColor }, { lte: 0, color: fallColor }] },
+    series: segments.map((segment, index) => ({
+      name: "个股资金净额", type: "line",
+      data: segment.map((point) => [point.collectedAt, point.netAmount]),
+      showSymbol: true, symbolSize: 5, connectNulls: false,
+      lineStyle: { width: 2 },
+      ...(index === 0 ? { markLine: { silent: true, symbol: "none", label: { formatter: "零轴" },
+        lineStyle: { color: axisColor, type: "dashed", width: 1.5 }, data: [{ yAxis: 0 }] } } : {}),
     })),
   };
 }

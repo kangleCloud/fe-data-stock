@@ -1,38 +1,6 @@
 import type { MarketDashboardSnapshot } from "@/types/market";
 import { chinaDate } from "@/utils/marketSnapshot";
 
-export interface SseFrame { event: string; data: string }
-
-export class SseParser {
-  private buffer = "";
-  private event = "message";
-  private data: string[] = [];
-
-  constructor(private readonly onFrame: (frame: SseFrame) => void) {}
-
-  push(chunk: string): void {
-    this.buffer += chunk;
-    let end = this.buffer.indexOf("\n");
-    while (end !== -1) {
-      const line = this.buffer.slice(0, end).replace(/\r$/, "");
-      this.buffer = this.buffer.slice(end + 1);
-      if (!line) {
-        if (this.data.length) this.onFrame({ event: this.event, data: this.data.join("\n") });
-        this.event = "message";
-        this.data = [];
-      } else if (!line.startsWith(":")) {
-        const colon = line.indexOf(":");
-        const name = colon < 0 ? line : line.slice(0, colon);
-        let value = colon < 0 ? "" : line.slice(colon + 1);
-        if (value.startsWith(" ")) value = value.slice(1);
-        if (name === "event") this.event = value;
-        if (name === "data") this.data.push(value);
-      }
-      end = this.buffer.indexOf("\n");
-    }
-  }
-}
-
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -60,12 +28,17 @@ function sectorItem(value: unknown, sectorType: "industry" | "concept"): boolean
 }
 
 function fundPoint(value: unknown): boolean {
-  return record(value) && timestamp(value.collectedAt) &&
-    ["inflow", "outflow", "netAmount"].every((key) => nullableNumber(value[key]));
+  if (!record(value) || !timestamp(value.collectedAt) ||
+      !["inflow", "outflow", "netAmount"].every((key) => nullableNumber(value[key]))) return false;
+  const { inflow, outflow, netAmount } = value;
+  return inflow === null || outflow === null || netAmount === null ||
+    (typeof inflow === "number" && typeof outflow === "number" && typeof netAmount === "number" &&
+      Math.abs(inflow - outflow - netAmount) <= 0.011);
 }
 
 function fundData(value: unknown, tradeDate: string): boolean {
   if (!record(value) || value.source !== "THS_INDIVIDUAL_AGGREGATE" ||
+      typeof value.reconciledFromLegacy !== "boolean" ||
       !record(value.latest) || !fundPoint(value.latest) ||
       !["riseCount", "fallCount", "flatCount", "stockCount"].every((key) => nullableNumber((value.latest as Record<string, unknown>)[key])) ||
       !Array.isArray(value.series) || !value.series.every(fundPoint)) return false;
@@ -94,38 +67,27 @@ function validModule(value: unknown, kind: "sectors" | "fund", sectorType?: "ind
 
 export function parseMarketSnapshot(value: unknown): MarketDashboardSnapshot {
   if (!record(value) || value.schemaVersion !== 1 || !timestamp(value.generatedAt) ||
+      !(value.snapshotId == null || typeof value.snapshotId === "string" && value.snapshotId.length > 0) ||
       value.provider !== "akshare" || !record(value.modules) || Object.keys(value.modules).length !== 3 ||
       !validModule(value.modules.industrySectors, "sectors", "industry") ||
       !validModule(value.modules.conceptSectors, "sectors", "concept") ||
       !validModule(value.modules.marketFundFlow, "fund")) {
     throw new Error("市场快照结构或版本无效");
   }
-  return value as unknown as MarketDashboardSnapshot;
+  return { ...value, snapshotId: value.snapshotId ?? null } as unknown as MarketDashboardSnapshot;
 }
 
-export async function readMarketStream(
-  response: Response,
-  onSnapshot: (snapshot: MarketDashboardSnapshot) => void,
-  onInvalid: (error: Error) => void,
-): Promise<void> {
-  const reader = response.body!.getReader();
-  const decoder = new TextDecoder();
-  const parser = new SseParser(({ event, data }) => {
-    if (event !== "snapshot") return;
-    try {
-      onSnapshot(parseMarketSnapshot(JSON.parse(data)));
-    } catch (error) {
-      onInvalid(error instanceof Error ? error : new Error("市场快照解析失败"));
-    }
-  });
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      parser.push(decoder.decode(value, { stream: true }));
-    }
-    parser.push(decoder.decode());
-  } finally {
-    reader.releaseLock();
+export function applyMarketPatch(current: MarketDashboardSnapshot, value: unknown): MarketDashboardSnapshot | "duplicate" {
+  if (!record(value) || !(value.baseSnapshotId === null || typeof value.baseSnapshotId === "string") ||
+      typeof value.snapshotId !== "string" || !value.snapshotId ||
+      !timestamp(value.generatedAt) || !record(value.modules)) throw new Error("市场增量结构无效");
+  if (value.snapshotId === current.snapshotId) return "duplicate";
+  if (value.baseSnapshotId !== current.snapshotId ||
+      Date.parse(value.generatedAt as string) <= Date.parse(current.generatedAt)) throw new Error("市场增量版本不连续");
+  const keys = Object.keys(value.modules);
+  if (keys.some((key) => !["industrySectors", "conceptSectors", "marketFundFlow"].includes(key))) {
+    throw new Error("市场增量模块无效");
   }
+  return parseMarketSnapshot({ ...current, snapshotId: value.snapshotId,
+    generatedAt: value.generatedAt, modules: { ...current.modules, ...value.modules } });
 }

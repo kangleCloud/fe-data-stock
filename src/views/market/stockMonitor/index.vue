@@ -1,35 +1,31 @@
 <script setup lang="ts">
 import { Refresh, Search, Setting } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { getStockMonitorDashboard } from "@/api/market";
-import { buildStockPriceOption } from "@/charts/marketOptions";
+import { buildStockFundOption, buildStockPriceOption } from "@/charts/marketOptions";
 import BaseChart from "@/components/market/BaseChart.vue";
+import { useStockMonitorStream } from "@/composables/useStockMonitorStream";
 import { useAuthStore } from "@/stores/auth";
 import { usePermissionStore } from "@/stores/permission";
-import type { StockMonitorDashboard, StockMonitorStock } from "@/types/market";
+import type { StockMonitorStock } from "@/types/market";
 import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
 import { canAccess } from "@/utils/permission";
 import { isHistoricalStock } from "@/utils/stockMonitor";
 
 const PAGE_SIZE = 4;
-const POLL_INTERVAL = 120_000;
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const permissionStore = usePermissionStore();
-const dashboard = ref<StockMonitorDashboard | null>(null);
-const loading = ref(true);
-const errorMessage = ref("");
+const { snapshot: dashboard, loading, loadError: errorMessage, manualRefresh: loadDashboard } = useStockMonitorStream();
 const pageNum = ref(1);
 const keyword = ref("");
 const highlighted = ref("");
-let pollId: ReturnType<typeof setInterval> | undefined;
 let highlightId: ReturnType<typeof setTimeout> | undefined;
-let requestInFlight = false;
 let active = false;
+let pendingInitialSymbol = route.query.symbol ?? route.query.stockCode;
 
 const canViewConfig = computed(() => canAccess(authStore.permissionCodes, "system:stock-monitor:view"));
 const stocks = computed(() => dashboard.value?.stocks ?? []);
@@ -62,43 +58,32 @@ function formatVolume(value: number | null): string {
 
 function quoteLabel(stock: StockMonitorStock): string {
   if (!dashboard.value?.xqEnabled) return "采集未开启";
-  if (stock.quote.status === "DISABLED") return "该股采集未开启";
-  if (stock.quote.status === "ERROR") return "报价缓存不可用";
-  if (stock.quote.status === "STALE" && isHistoricalStock(stock)) {
-    return `历史数据 · ${stock.quote.tradeDate} · 已过期`;
+  if (stock.dataStatus === "DISABLED") return "该股采集未开启";
+  if (stock.dataStatus === "NO_DATA") return "暂无有效数据";
+  if (stock.dataStatus === "HISTORICAL" || isHistoricalStock(stock)) {
+    return `历史数据 · ${stock.effectiveTradeDate} · 已过期`;
   }
-  if (stock.quote.status === "STALE") return "数据已过期";
-  if (isHistoricalStock(stock)) return `历史数据 · ${stock.quote.tradeDate}`;
-  return "采样数据";
+  if (stock.dataStatus === "DELAYED" || stock.quote.status === "STALE") return "数据已过期";
+  return stock.closeConfirmed ? "已确认收盘" : "当日采样数据";
 }
 
 function quoteMessage(stock: StockMonitorStock): string {
-  if (stock.quote.status === "DISABLED") return "该股暂无可用报价和曲线。";
-  if (stock.quote.status === "ERROR") return "报价或曲线缓存缺失，暂无可展示的行情。";
-  if (stock.quote.status === "STALE") return "保留最近一次有效报价，请核对源时间。";
+  if (stock.dataStatus === "DISABLED") return "该股暂无可用报价和曲线。";
+  if (stock.dataStatus === "NO_DATA") return "暂无有效报价和曲线。";
+  if (stock.dataStatus === "DELAYED" || stock.dataStatus === "HISTORICAL" || stock.quote.status === "STALE") {
+    return "保留最近一次有效报价和价格曲线，请核对源时间。";
+  }
   if (!stock.series.length) return "尚无实际价格采样点。";
   return "";
 }
 
 function hasChart(stock: StockMonitorStock): boolean {
-  return (stock.quote.status === "FRESH" || stock.quote.status === "STALE") && stock.series.length > 0;
+  return stock.dataStatus !== "NO_DATA" && stock.dataStatus !== "DISABLED" && stock.series.length > 0;
 }
 
-async function loadDashboard(): Promise<void> {
-  if (requestInFlight) return;
-  requestInFlight = true;
-  loading.value = true;
-  try {
-    dashboard.value = await getStockMonitorDashboard();
-    errorMessage.value = "";
-    pageNum.value = Math.min(pageNum.value, pageCount.value);
-  } catch (error) {
-    dashboard.value = null;
-    errorMessage.value = error instanceof Error ? error.message : "个股监控加载失败";
-  } finally {
-    loading.value = false;
-    requestInFlight = false;
-  }
+function hasFundChart(stock: StockMonitorStock): boolean {
+  return stock.dataStatus !== "NO_DATA" && stock.dataStatus !== "DISABLED" &&
+    stock.fundSeries.some((point) => point.netAmount !== null);
 }
 
 function locateStock(): void {
@@ -133,20 +118,21 @@ async function openConfig(): Promise<void> {
 
 onMounted(async () => {
   active = true;
-  await Promise.all([loadDashboard(), initializePermissions()]);
+  await initializePermissions();
   if (!active) return;
-  const initial = route.query.symbol ?? route.query.stockCode;
-  if (typeof initial === "string") {
-    keyword.value = initial;
-    locateStock();
-    await router.replace({ query: {} });
-  }
-  pollId = setInterval(() => { void loadDashboard(); }, POLL_INTERVAL);
+});
+
+watch(dashboard, async () => {
+  pageNum.value = Math.min(pageNum.value, pageCount.value);
+  if (!active || !dashboard.value || typeof pendingInitialSymbol !== "string") return;
+  keyword.value = pendingInitialSymbol;
+  pendingInitialSymbol = null;
+  locateStock();
+  await router.replace({ query: {} });
 });
 
 onBeforeUnmount(() => {
   active = false;
-  if (pollId) clearInterval(pollId);
   if (highlightId) clearTimeout(highlightId);
 });
 </script>
@@ -157,7 +143,7 @@ onBeforeUnmount(() => {
       <div>
         <p>STOCK PRICE MONITOR · V1</p>
         <h1>个股监控大屏</h1>
-        <span>最多 10 只股票，每页展示 4 只；约 2 分钟采样，曲线仅使用实际源时间点</span>
+        <span>最多 10 只股票，每页展示 4 只；曲线仅使用实际采样时间点</span>
       </div>
       <div class="monitor-tools">
         <span class="monitor-count">{{ stocks.length }} / 10 只</span>
@@ -182,11 +168,14 @@ onBeforeUnmount(() => {
       最近交易日：{{ dashboard.tradeDate }}。报价请以每张卡片的源时间和状态为准。
     </p>
     <p class="monitor-disclaimer">价格采样、涨跌幅和成交额仅供观察，不构成交易建议。</p>
+    <p v-if="errorMessage" class="monitor-notice monitor-notice--error" role="alert">
+      读取失败{{ dashboard ? "，仍显示上次有效画面，更新可能延迟" : "" }}：{{ errorMessage }}
+    </p>
 
     <div v-if="loading && !dashboard" class="monitor-skeleton-grid" aria-label="个股监控加载中">
       <div v-for="item in 4" :key="item" class="monitor-skeleton" />
     </div>
-    <div v-else-if="errorMessage" class="monitor-empty" role="alert">
+    <div v-else-if="errorMessage && !dashboard" class="monitor-empty">
       <strong>个股监控不可用</strong><span>{{ errorMessage }}</span>
       <button class="outline-button" type="button" @click="loadDashboard">重新加载</button>
     </div>
@@ -202,9 +191,11 @@ onBeforeUnmount(() => {
             <h2>{{ stock.name }} <small>{{ stock.symbol }}</small></h2>
             <span>{{ dashboard?.xqEnabled ? (stock.profile.industry || "行业未同步") : stock.market + " 市场" }}</span>
           </div>
-          <div class="stock-card__state" :class="`state-${stock.quote.status.toLowerCase()}`">
+          <div class="stock-card__state" :class="`state-${stock.dataStatus.toLowerCase()}`">
             <strong>{{ quoteLabel(stock) }}</strong>
-            <small v-if="dashboard?.xqEnabled">源时间 {{ shanghaiTime(stock.quote.sourceTime) }}</small>
+            <small v-if="dashboard?.xqEnabled && stock.quote.sourceTime">源时间 {{ shanghaiTime(stock.quote.sourceTime) }}</small>
+            <small v-else-if="dashboard?.xqEnabled">采集时间 {{ shanghaiTime(stock.quote.collectedAt) }}</small>
+            <small v-if="dashboard?.xqEnabled">有效交易日 {{ stock.effectiveTradeDate || "—" }}</small>
           </div>
         </header>
         <template v-if="dashboard?.xqEnabled">
@@ -220,17 +211,40 @@ onBeforeUnmount(() => {
             <div><small>涨跌幅</small><strong :class="`tone-${valueTone(stock.quote.changePercent)}`">{{ formatPercent(stock.quote.changePercent) }}</strong></div>
             <div><small>成交额 · 元</small><strong>{{ formatCurrency(stock.quote.amount) }}</strong></div>
             <div><small>成交量 · 股</small><strong>{{ formatVolume(stock.quote.volume) }}</strong></div>
-            <div><small>交易日</small><strong>{{ stock.quote.tradeDate || "—" }}</strong></div>
+            <div><small>交易日</small><strong>{{ stock.effectiveTradeDate || "—" }}</strong></div>
           </div>
           <div class="stock-card__chart">
             <BaseChart
               v-if="hasChart(stock)" :option="buildStockPriceOption(stock.series)"
-              :accessible-label="`${stock.name} ${stock.symbol}，${stock.quote.tradeDate} 实际源时间价格采样曲线，共 ${stock.series.length} 点`"
+              :accessible-label="`${stock.name} ${stock.symbol}，${stock.effectiveTradeDate} 实际源时间价格采样曲线，共 ${stock.series.length} 点`"
               height="240px"
             />
             <div v-else class="stock-chart-empty"><strong>{{ quoteLabel(stock) }}</strong><span>{{ quoteMessage(stock) }}</span></div>
           </div>
           <p v-if="quoteMessage(stock) && hasChart(stock)" class="stock-card__alert">{{ quoteMessage(stock) }}</p>
+          <div class="stock-card__fund">
+            <h3>资金净额采样 <small>横轴为实际采集时间 · 单位元</small></h3>
+            <BaseChart
+              v-if="hasFundChart(stock)" :option="buildStockFundOption(stock.fundSeries)"
+              :accessible-label="`${stock.name} ${stock.symbol}，${stock.effectiveTradeDate} 资金净额实际采集曲线，共 ${stock.fundSeries.length} 个采样点，零轴区分正负`"
+              height="180px"
+            />
+            <p v-else class="stock-fund-empty">暂无有效资金采样点；价格信息仍可查看。</p>
+            <details v-if="stock.fundSeries.length" class="stock-accessible-table">
+              <summary>查看资金采样表</summary>
+              <div class="stock-table-scroll">
+                <table>
+                  <thead><tr><th>实际采集时间</th><th>流入 · 元</th><th>流出 · 元</th><th>净额 · 元</th></tr></thead>
+                  <tbody>
+                    <tr v-for="point in stock.fundSeries" :key="point.collectedAt">
+                      <td>{{ shanghaiTime(point.collectedAt) }}</td><td>{{ formatCurrency(point.inflow) }}</td>
+                      <td>{{ formatCurrency(point.outflow) }}</td><td>{{ formatAmount(point.netAmount) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </div>
           <div class="stock-card__footer">
             <span>采集时间 {{ shanghaiTime(stock.quote.collectedAt) }}</span>
             <span>上市 {{ stock.profile.listingDate || "—" }}</span>
@@ -270,6 +284,7 @@ onBeforeUnmount(() => {
 .quick-search button:hover, .outline-button:hover { background: rgba(59,130,246,.24); }
 .outline-button:disabled { opacity: .5; cursor: not-allowed; }
 .monitor-notice { margin: 0; padding: 10px 14px; color: #bfdbfe; border: 1px solid rgba(59,130,246,.35); border-radius: 9px; background: rgba(59,130,246,.1); font-size: 12px; }
+.monitor-notice--error { color: #fecaca; border-color: rgba(240,82,82,.45); background: rgba(240,82,82,.1); }
 .monitor-disclaimer { margin: -5px 0 0; color: var(--market-muted); font-size: 11px; text-align: right; }
 .stock-card-grid, .monitor-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .stock-card { min-width: 0; padding: 15px; border: 1px solid var(--market-border); border-radius: 12px; background: var(--market-panel); }
@@ -280,8 +295,8 @@ onBeforeUnmount(() => {
 .stock-card__header span, .stock-card__state small { color: var(--market-muted); font-size: 11px; }
 .stock-card__state { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
 .stock-card__state strong { color: #bfdbfe; font-size: 11px; }
-.stock-card__state.state-error strong { color: #fecaca; }
-.stock-card__state.state-stale strong { color: #fcd34d; }
+.stock-card__state.state-no_data strong { color: #fecaca; }
+.stock-card__state.state-delayed strong, .stock-card__state.state-historical strong { color: #fcd34d; }
 .stock-card__metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--market-border); border-radius: 8px; background: var(--market-border); }
 .stock-card__metrics > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px; background: #091423; }
 .stock-card__metrics small { color: var(--market-muted); font-size: 11px; }
@@ -289,6 +304,10 @@ onBeforeUnmount(() => {
 .stock-card__metrics .tone-rise { color: #f87171; }
 .stock-card__metrics .tone-fall { color: #4ade80; }
 .stock-card__chart { min-height: 240px; margin-top: 12px; }
+.stock-card__fund { min-height: 180px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--market-border); }
+.stock-card__fund h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; color: var(--market-text-secondary); font-size: 13px; }
+.stock-card__fund h3 small { color: var(--market-muted); font-size: 11px; font-weight: 400; }
+.stock-fund-empty { display: grid; place-items: center; min-height: 150px; margin: 0; color: var(--market-muted); font-size: 12px; }
 .stock-chart-empty, .monitor-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 240px; color: var(--market-muted); text-align: center; font-size: 12px; }
 .stock-chart-empty strong, .monitor-empty strong { color: var(--market-text-secondary); font-size: 15px; }
 .monitor-empty { min-height: 340px; padding: 20px; border: 1px solid var(--market-border); border-radius: 12px; background: var(--market-panel); }

@@ -46,6 +46,15 @@ function formatYuan(value: number | null | undefined): string {
   return value == null ? "—" : `${formatAmount(value)}元`;
 }
 
+function formatMarketYuan(value: number | null | undefined): string {
+  if (value == null) return "—";
+  if (Math.abs(value) < 100_000_000) return formatYuan(value);
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  return `${sign}${(Math.abs(value) / 100_000_000).toLocaleString("zh-CN", {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  })}亿元`;
+}
+
 function formatCount(value: number | null | undefined): string {
   return value == null ? "—" : value.toLocaleString("zh-CN");
 }
@@ -85,7 +94,7 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
     </header>
 
     <p v-if="loadError" class="snapshot-alert" role="alert">
-      {{ snapshot ? "读取失败，仍显示上次取得的快照。" : "快照暂不可用。" }} {{ loadError }}
+      {{ snapshot ? "读取失败，仍显示上次取得的快照，更新可能延迟。" : "快照暂不可用。" }} {{ loadError }}
     </p>
     <p v-if="!snapshot && !loading" class="snapshot-empty">暂无市场快照。请等待采集或重新读取。</p>
 
@@ -132,7 +141,7 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
           </div>
           <div class="snapshot-ranking-columns">
             <div
-              v-for="ranking in [{ key: 'topRise', label: '涨幅 Top 5' }, { key: 'topFall', label: '跌幅 Top 5' }] as const"
+              v-for="ranking in [{ key: 'topRise', label: '涨幅 Top 10' }, { key: 'topFall', label: '跌幅 Top 10' }] as const"
               :key="ranking.key" class="snapshot-ranking"
             >
               <h3>{{ ranking.label }}</h3>
@@ -192,10 +201,11 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
         :message="fundModule?.message ?? loadError"
       >
         <p class="snapshot-note">由同花顺即时个股资金数据汇总；日内曲线仅连接连续成功采样，午间及采集缺口断线。</p>
+        <p v-if="fundModule?.data?.reconciledFromLegacy" class="snapshot-note" role="status">历史快照已按统一口径校正：净额 = 同批流入 − 流出。</p>
         <div class="snapshot-market-metrics">
-          <div><small>全市场净额</small><strong :class="`tone-${valueTone(fundModule?.data?.latest.netAmount)}`">{{ formatYuan(fundModule?.data?.latest.netAmount) }}</strong></div>
-          <div><small>流入</small><strong>{{ formatYuan(fundModule?.data?.latest.inflow) }}</strong></div>
-          <div><small>流出</small><strong>{{ formatYuan(fundModule?.data?.latest.outflow) }}</strong></div>
+          <div><small>全市场净额</small><strong :class="`tone-${valueTone(fundModule?.data?.latest.netAmount)}`">{{ formatMarketYuan(fundModule?.data?.latest.netAmount) }}</strong></div>
+          <div><small>流入</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.inflow) }}</strong></div>
+          <div><small>流出</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.outflow) }}</strong></div>
           <div><small>上涨 / 下跌 / 平盘</small><strong>{{ formatCount(fundModule?.data?.latest.riseCount) }} / {{ formatCount(fundModule?.data?.latest.fallCount) }} / {{ formatCount(fundModule?.data?.latest.flatCount) }}</strong></div>
           <div><small>样本股票数</small><strong>{{ formatCount(fundModule?.data?.latest.stockCount) }}</strong></div>
         </div>
@@ -251,7 +261,7 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 .snapshot-tabs button.is-active { color: #fff; background: var(--market-primary); }
 .snapshot-note { margin: 4px 0 12px; color: var(--market-muted); font-size: 12px; line-height: 1.5; }
 .snapshot-sector-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px; }
-.snapshot-treemap { min-height: 320px; border: 1px solid var(--market-border-soft); border-radius: 8px; overflow: hidden; }
+.snapshot-treemap { min-height: 320px; border: 1px solid var(--market-border-soft); border-radius: 8px; overflow: visible; }
 .snapshot-ranking-columns, .snapshot-flow-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .snapshot-ranking, .snapshot-flow-list { min-width: 0; padding: 12px; border: 1px solid var(--market-border-soft); border-radius: 8px; background: var(--market-surface); }
 .snapshot-ranking h3, .snapshot-flow-list h3 { margin: 0 0 8px; font-size: 13px; }

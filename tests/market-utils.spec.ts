@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SVGRenderer } from "echarts/renderers";
 
 import { echarts } from "@/charts/echarts";
-import { buildStockPriceOption } from "@/charts/marketOptions";
+import { buildStockFundOption, buildStockPriceOption } from "@/charts/marketOptions";
 import type { StockPricePoint } from "@/types/market";
 import {
   formatAmount,
@@ -97,5 +97,30 @@ describe("stock price chart", () => {
     expect(format([points[0]!.time, null])).toBe("—");
     expect(format([points[0]!.time, "11.62"])).toBe("—");
     expect(format(Number.NaN)).toBe("—");
+  });
+});
+
+describe("stock fund chart", () => {
+  it("uses actual collection times, a zero axis, signed colors, and broken gaps", () => {
+    const points = [
+      { collectedAt: "2026-09-30T09:30:00+08:00", inflow: 2_000_000, outflow: 1_000_000, netAmount: 1_000_000 },
+      { collectedAt: "2026-09-30T09:32:00+08:00", inflow: null, outflow: null, netAmount: null },
+      { collectedAt: "2026-09-30T13:02:00+08:00", inflow: 1_000_000, outflow: 2_000_000, netAmount: -1_000_000 },
+    ];
+    const option = buildStockFundOption(points) as {
+      xAxis: { type: string }; yAxis: { min: (value: { min: number }) => number; max: (value: { max: number }) => number };
+      visualMap: { pieces: Array<{ color: string }> };
+      tooltip: { valueFormatter: (value: unknown) => string };
+      series: Array<{ data: Array<[string, number]>; markLine?: { data: Array<{ yAxis: number }> } }>;
+    };
+    expect(option.xAxis.type).toBe("time");
+    expect(option.series.map((part) => part.data)).toEqual([
+      [[points[0]!.collectedAt, 1_000_000]], [[points[2]!.collectedAt, -1_000_000]],
+    ]);
+    expect(option.series[0]?.markLine?.data).toEqual([{ yAxis: 0 }]);
+    expect(option.yAxis.min({ min: 1_000_000 })).toBe(0);
+    expect(option.yAxis.max({ max: -1_000_000 })).toBe(0);
+    expect(option.visualMap.pieces[0]?.color).not.toBe(option.visualMap.pieces[1]?.color);
+    expect(option.tooltip.valueFormatter([points[2]!.collectedAt, -1_000_000])).toContain("−100万");
   });
 });
