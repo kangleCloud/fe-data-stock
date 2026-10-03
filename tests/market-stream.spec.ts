@@ -6,7 +6,7 @@ import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
 import { applyMarketPatch, parseMarketSnapshot } from "@/utils/marketStream";
 import { httpClient } from "@/utils/request";
 import { SseParser } from "@/utils/sse";
-import { industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
+import { coreIndexData, industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
 
 const originalAdapter = httpClient.defaults.adapter;
 const Probe = { setup: useMarketSnapshotStream,
@@ -51,6 +51,7 @@ describe("market snapshot versions and SSE", () => {
     expect(frames[1]).toEqual({ event: "resync", data: "" });
     expect(parseMarketSnapshot(snapshot).snapshotId).toBe("s1");
     expect(parseMarketSnapshot(snapshot).modules.marketFundFlow.data?.reconciledFromLegacy).toBe(true);
+    expect(parseMarketSnapshot(snapshot).modules.coreIndices?.data?.items[0]?.code).toBe("sh000001");
     const legacy = { ...snapshot } as Record<string, unknown>;
     delete legacy.snapshotId;
     expect(parseMarketSnapshot(legacy).snapshotId).toBeNull();
@@ -61,6 +62,13 @@ describe("market snapshot versions and SSE", () => {
     } })).toThrow();
     expect(() => parseMarketSnapshot({ ...snapshot, modules: {
       ...snapshot.modules, industrySectors: moduleOf({ ...industryData, source: "EM" }),
+    } })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, coreIndices: moduleOf({ ...coreIndexData, source: "EM" }),
+    } })).toThrow();
+    expect(() => parseMarketSnapshot({ ...snapshot, modules: {
+      ...snapshot.modules, coreIndices: moduleOf({ ...coreIndexData,
+        items: [coreIndexData.items[0], coreIndexData.items[0]] }),
     } })).toThrow();
   });
 
@@ -73,6 +81,7 @@ describe("market snapshot versions and SSE", () => {
     expect(next.snapshotId).toBe("s2");
     expect(next.modules.industrySectors.status).toBe("STALE");
     expect(next.modules.conceptSectors).toEqual(snapshot.modules.conceptSectors);
+    expect(next.modules.coreIndices).toEqual(snapshot.modules.coreIndices);
     expect(snapshot.modules.industrySectors.status).toBe("FRESH");
     expect(applyMarketPatch(next, patch)).toBe("duplicate");
     expect(() => applyMarketPatch(next, { ...patch, snapshotId: "s3" })).toThrow("版本不连续");

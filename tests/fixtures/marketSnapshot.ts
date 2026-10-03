@@ -1,6 +1,7 @@
 import type {
   MarketDashboardSnapshot,
   SnapshotFundFlow,
+  SnapshotCoreIndices,
   SnapshotModule,
   SnapshotSectorData,
   SnapshotSectorItem,
@@ -52,11 +53,21 @@ export const fundData: SnapshotFundFlow = {
   ],
 };
 
+export const coreIndexData: SnapshotCoreIndices = {
+  source: "SINA_INDEX", sourceTime: null,
+  items: [{ code: "sh000001", name: "上证指数", price: 3000.12, change: 5.12,
+    changePercent: 0.17, previousClose: 2995, open: 2996, high: 3001, low: 2990,
+    volume: 1000000, amount: 123456789, sourceTime: null,
+    collectedAt: "2026-09-23T10:00:00+08:00",
+    series: [{ collectedAt: "2026-09-23T10:00:00+08:00", price: 3000.12 }] }],
+};
+
 export const snapshot: MarketDashboardSnapshot = {
   schemaVersion: 1, provider: "akshare", snapshotId: "s1", generatedAt: "2026-09-23T13:02:05+08:00",
   modules: {
     industrySectors: moduleOf(industryData),
     conceptSectors: moduleOf(conceptData),
     marketFundFlow: moduleOf(fundData),
+    coreIndices: moduleOf(coreIndexData),
   },
 };

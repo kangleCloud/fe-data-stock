@@ -117,7 +117,7 @@ describe("market snapshot V1", () => {
     useSnapshotAdapter(snapshot);
     const wrapper = mount(MarketOverview, { global: { stubs: { BaseChart: true } } });
     await flushPromises();
-    expect(wrapper.findAll(".snapshot-section")).toHaveLength(3);
+    expect(wrapper.findAll(".snapshot-section")).toHaveLength(5);
     expect(wrapper.findAll(".market-panel")).toHaveLength(3);
     expect(wrapper.text()).toContain("板块行情");
     expect(wrapper.text()).toContain("板块资金流");

@@ -57,6 +57,34 @@ export interface SnapshotFundFlow {
   series: SnapshotFundPoint[];
 }
 
+export interface SnapshotCoreIndexPoint {
+  collectedAt: string;
+  price: number;
+}
+
+export interface SnapshotCoreIndex {
+  code: string;
+  name: string;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  previousClose: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  volume: number | null;
+  amount: number | null;
+  sourceTime: null;
+  collectedAt: string | null;
+  series: SnapshotCoreIndexPoint[];
+}
+
+export interface SnapshotCoreIndices {
+  source: "SINA_INDEX";
+  sourceTime: null;
+  items: SnapshotCoreIndex[];
+}
+
 export interface MarketDashboardSnapshot {
   schemaVersion: 1;
   provider: "akshare";
@@ -66,6 +94,7 @@ export interface MarketDashboardSnapshot {
     industrySectors: SnapshotModule<SnapshotSectorData>;
     conceptSectors: SnapshotModule<SnapshotSectorData>;
     marketFundFlow: SnapshotModule<SnapshotFundFlow>;
+    coreIndices?: SnapshotModule<SnapshotCoreIndices>;
   };
 }
 
@@ -172,10 +201,8 @@ export interface StockProfilePageQuery extends PageQuery {
   industry?: string;
 }
 
-export interface StockMonitorRefreshResult {
+export interface StockMonitorRefreshResult extends StockMonitorRefreshStatus {
   accepted: boolean;
-  jobId: string | null;
-  status: string;
 }
 
 export interface StockMonitorRefreshStatus {

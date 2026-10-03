@@ -180,7 +180,9 @@ async function refreshAll(): Promise<void> {
     const result = await refreshStockMonitor();
     await loadRefreshStatus();
     ElMessage[result.accepted ? "success" : "warning"](
-      result.accepted ? "整体刷新任务已提交" : "整体刷新正在进行中",
+      result.message || (result.status === "SUCCESS"
+        ? "股票字典同步完成；已启用资料按雪球总闸处理"
+        : "刷新正在进行中，请查看服务端状态"),
     );
   } finally {
     submitting.value = "";

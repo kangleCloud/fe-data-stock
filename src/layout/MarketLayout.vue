@@ -67,8 +67,9 @@ async function handleLogout(): Promise<void> {
 
         <nav class="market-view-nav" aria-label="行情视图">
           <RouterLink to="/" exact-active-class="is-active">首页</RouterLink>
-          <RouterLink to="/market/overview" active-class="is-active">板块与资金总览</RouterLink>
+          <RouterLink to="/market/overview" active-class="is-active">市场与资金总览</RouterLink>
           <RouterLink to="/market/stock-monitor" active-class="is-active">个股监控</RouterLink>
+          <RouterLink to="/market/etf-monitor" active-class="is-active">ETF 监控</RouterLink>
         </nav>
 
         <div class="market-topbar__status">

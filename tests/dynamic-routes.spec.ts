@@ -66,6 +66,27 @@ describe("dynamic routes", () => {
     expect(firstVisiblePath(routes)).toBe("/system/stockPage0");
   });
 
+  it("loads all ETF menu components under the backend System parent", async () => {
+    const pages = [
+      ["EtfMonitor", "etfMonitor"], ["EtfDictionary", "etfDictionary"],
+      ["EtfProfile", "etfProfile"], ["MarketIndexConfig", "indexConfig"],
+    ];
+    const [parent] = buildDynamicRoutes([{ routeName: "System", path: "/system",
+      hidden: false, component: "Layout", meta: { menuName: "系统管理" },
+      children: pages.map(([routeName, page]) => ({ routeName: routeName!,
+        path: `/system/${page}`, hidden: false, component: `system/${page}/index`,
+        meta: { menuName: page! } })),
+    }]);
+    const routes = parent?.children ?? [];
+    expect(routes.map((route) => route.meta?.loadError)).toEqual([undefined, undefined, undefined, undefined]);
+    expect(routes.map((route) => route.name)).toEqual(pages.map(([name]) => name));
+    expect(firstVisiblePath(parent ? [parent] : [])).toBe("/system/etfMonitor");
+    for (const route of routes) {
+      const load = route.component as () => Promise<{ default: unknown }>;
+      expect((await load()).default).toBeTruthy();
+    }
+  });
+
   it("recognizes the immersive MarketLayout component", () => {
     const routes = buildDynamicRoutes([
       {

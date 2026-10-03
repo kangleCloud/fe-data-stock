@@ -2,11 +2,11 @@
 import { Refresh } from "@element-plus/icons-vue";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
-import { buildIntradayFundOption, buildSectorTreemapOption } from "@/charts/marketOptions";
+import { buildIntradayFundOption, buildSectorTreemapOption, buildStockPriceOption } from "@/charts/marketOptions";
 import BaseChart from "@/components/market/BaseChart.vue";
 import MarketPanel from "@/components/market/MarketPanel.vue";
 import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
-import type { SnapshotModule, SnapshotSectorData, SnapshotSectorItem } from "@/types/market";
+import type { SnapshotCoreIndex, SnapshotModule, SnapshotSectorData, SnapshotSectorItem } from "@/types/market";
 import { formatAmount, formatPercent, valueTone } from "@/utils/market";
 import { sectorRankings, snapshotDateLabel, snapshotDelayLevel, snapshotGeneratedLabel,
   snapshotStatusLabel } from "@/utils/marketSnapshot";
@@ -14,9 +14,17 @@ import { sectorRankings, snapshotDateLabel, snapshotDelayLevel, snapshotGenerate
 type SectorKind = "industry" | "concept";
 const kinds = [{ key: "industry", label: "行业" }, { key: "concept", label: "概念" }] as const;
 const moduleNames = [
+  { key: "coreIndices", label: "核心指数", source: "AKShare / 新浪" },
   { key: "industrySectors", label: "行业板块", source: "AKShare / THS" },
   { key: "conceptSectors", label: "概念板块", source: "AKShare / THS" },
   { key: "marketFundFlow", label: "大盘资金流", source: "AKShare / THS_INDIVIDUAL_AGGREGATE" },
+] as const;
+const coreIndexRoles = [
+  { code: "sh000001", name: "上证指数", role: "沪市整体温度" },
+  { code: "sz399001", name: "深证成指", role: "深市整体温度" },
+  { code: "sh000300", name: "沪深300", role: "核心大盘权重" },
+  { code: "sz399006", name: "创业板指", role: "成长风险偏好" },
+  { code: "sh000688", name: "科创50", role: "科技与科创风格" },
 ] as const;
 
 const { snapshot, loading, loadError, manualRefresh } = useMarketSnapshotStream();
@@ -59,6 +67,13 @@ function formatCount(value: number | null | undefined): string {
   return value == null ? "—" : value.toLocaleString("zh-CN");
 }
 
+const coreIndices = computed(() => snapshot.value?.modules.coreIndices?.data?.items ?? []);
+function indexRole(code: string): string { return coreIndexRoles.find((item) => item.code === code.toLowerCase())?.role ?? "核心指数"; }
+
+function indexOption(item: SnapshotCoreIndex) {
+  return buildStockPriceOption(item.series.map((point) => ({ time: point.collectedAt, price: point.price })), "点");
+}
+
 const sectorData = computed(() => sectorModule(sectorKind.value)?.data);
 const flowData = computed(() => sectorModule(flowKind.value)?.data);
 const sectorRanks = computed(() => sectorRankings(sectorData.value?.items ?? []));
@@ -70,6 +85,12 @@ const treemapOption = computed(() => buildSectorTreemapOption(
 ));
 const fundModule = computed(() => snapshot.value?.modules.marketFundFlow ?? null);
 const fundOption = computed(() => buildIntradayFundOption(fundModule.value?.data?.series ?? []));
+const breadth = computed(() => fundModule.value?.data?.latest ?? null);
+const breadthMismatch = computed(() => {
+  const value = breadth.value;
+  return value && [value.riseCount, value.fallCount, value.flatCount, value.stockCount].every((count) => count !== null)
+    ? value.riseCount! + value.fallCount! + value.flatCount! !== value.stockCount : false;
+});
 
 function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string {
   const maximum = Math.max(...items.map((row) => Math.abs(row.netAmount ?? 0)), 0);
@@ -82,8 +103,8 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
     <header class="snapshot-intro">
       <div>
         <p class="snapshot-kicker">AKSHARE · MARKET SNAPSHOT V1</p>
-        <h1>板块与大盘资金总览</h1>
-        <p>板块资金流和全市场个股资金汇总；交易日期为日历参考，时间为实际采集时间。</p>
+        <h1>市场与资金总览</h1>
+        <p>核心指数、全市场资金与板块行情；请以各模块标注的数据日期和采集时间判断时效。</p>
       </div>
       <div class="snapshot-intro__actions">
         <span>{{ snapshotGeneratedLabel(snapshot) }}</span>
@@ -98,7 +119,23 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
     </p>
     <p v-if="!snapshot && !loading" class="snapshot-empty">暂无市场快照。请等待采集或重新读取。</p>
 
-    <div class="snapshot-module-status-grid" aria-label="三个采集模块状态">
+    <section class="snapshot-section" aria-labelledby="indices-title">
+      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">01 / CORE INDICES</p><h2 id="indices-title">核心指数</h2></div></div>
+      <p class="snapshot-note">新浪行情经 AKShare 采集；源站未提供可靠时间，曲线横轴为实际采集时间。</p>
+      <div class="snapshot-index-grid">
+        <article v-for="entry in coreIndices" :key="entry.code" class="snapshot-index-card">
+          <header><div><h3>{{ entry.name }}</h3><small>{{ entry.code }} · {{ indexRole(entry.code) }}</small></div><span>已采集</span></header>
+          <strong class="snapshot-index-price" :class="`tone-${valueTone(entry.changePercent)}`">{{ formatCount(entry.price) }}</strong>
+          <p><span :class="`tone-${valueTone(entry.change)}`">{{ formatCount(entry.change) }}</span> · <span :class="`tone-${valueTone(entry.changePercent)}`">{{ formatPercent(entry.changePercent) }}</span></p>
+          <dl><div><dt>成交额</dt><dd>{{ formatYuan(entry.amount) }}</dd></div><div><dt>有效交易日</dt><dd>{{ snapshot?.modules.coreIndices?.tradeDate || '—' }}</dd></div><div><dt>采集时间</dt><dd>{{ shanghaiTime(entry.collectedAt) }}</dd></div></dl>
+          <BaseChart v-if="entry.series.length" :option="indexOption(entry)" :accessible-label="`${entry.name}实际采集时间价格走势`" height="90px" />
+          <p v-else class="snapshot-index-empty">暂无实际采样走势</p>
+        </article>
+      </div>
+      <p v-if="!coreIndices.length" class="snapshot-empty">暂无已启用且有有效行情的核心指数。</p>
+    </section>
+
+    <div class="snapshot-module-status-grid" aria-label="采集模块状态">
       <div
         v-for="entry in moduleNames" :key="entry.key" class="snapshot-module-status"
         :class="[`is-${(moduleForStatus(entry.key)?.status ?? 'ERROR').toLowerCase()}`,
@@ -114,8 +151,57 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
       </div>
     </div>
 
+    <section class="snapshot-section" aria-labelledby="market-flow-title">
+      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">02 / MARKET FLOW</p><h2 id="market-flow-title">大盘资金流</h2></div></div>
+      <MarketPanel
+        title="全市场个股资金汇总" :status="fundModule?.status ?? 'ERROR'"
+        :loading="loading && !snapshot" :has-data="Boolean(fundModule?.data?.latest)"
+        :message="fundModule?.message ?? loadError"
+      >
+        <p class="snapshot-note">由同花顺即时个股资金数据汇总；日内曲线仅连接连续成功采样，午间及采集缺口断线。</p>
+        <p v-if="fundModule?.data?.reconciledFromLegacy" class="snapshot-note" role="status">历史快照已按统一口径校正：净额 = 同批流入 − 流出。</p>
+        <div class="snapshot-market-metrics">
+          <div><small>全市场净额</small><strong :class="`tone-${valueTone(fundModule?.data?.latest.netAmount)}`">{{ formatMarketYuan(fundModule?.data?.latest.netAmount) }}</strong></div>
+          <div><small>流入</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.inflow) }}</strong></div>
+          <div><small>流出</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.outflow) }}</strong></div>
+        </div>
+        <p class="snapshot-note">最近采集：{{ shanghaiTime(fundModule?.data?.latest.collectedAt) }}。这不是源站报价时间。</p>
+        <BaseChart
+          v-if="fundModule?.data?.series.length" :option="fundOption"
+          :accessible-label="`全市场资金净额当日日内曲线，共 ${fundModule.data.series.length} 个实际采样点`" height="300px"
+        />
+        <p v-else class="snapshot-no-rank">暂无当日有效资金采样点</p>
+        <details v-if="fundModule?.data?.series.length" class="snapshot-accessible-table">
+          <summary>查看实际采样数据表</summary>
+          <div>
+            <table>
+              <thead><tr><th>采集时间</th><th>流入 · 元</th><th>流出 · 元</th><th>净额 · 元</th></tr></thead>
+              <tbody>
+                <tr v-for="point in fundModule.data.series" :key="point.collectedAt">
+                  <td>{{ shanghaiTime(point.collectedAt) }}</td><td>{{ formatYuan(point.inflow) }}</td>
+                  <td>{{ formatYuan(point.outflow) }}</td><td>{{ formatYuan(point.netAmount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </MarketPanel>
+    </section>
+
+    <section class="snapshot-section" aria-labelledby="breadth-title">
+      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">03 / MARKET BREADTH</p><h2 id="breadth-title">市场宽度</h2></div></div>
+      <div class="snapshot-market-metrics snapshot-breadth-metrics">
+        <div><small>上涨</small><strong class="tone-rise">{{ formatCount(breadth?.riseCount) }}</strong></div>
+        <div><small>下跌</small><strong class="tone-fall">{{ formatCount(breadth?.fallCount) }}</strong></div>
+        <div><small>平盘</small><strong>{{ formatCount(breadth?.flatCount) }}</strong></div>
+        <div><small>样本股票数</small><strong>{{ formatCount(breadth?.stockCount) }}</strong></div>
+      </div>
+      <p v-if="breadthMismatch" class="snapshot-alert" role="alert">宽度数据质量异常：上涨、下跌、平盘之和与样本数不一致。</p>
+      <p v-else class="snapshot-note">宽度与全市场资金流来自同一批次的个股样本。</p>
+    </section>
+
     <section class="snapshot-section" aria-labelledby="sector-title">
-      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">01 / SECTOR MARKET</p><h2 id="sector-title">板块行情</h2></div></div>
+      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">04 / SECTOR MARKET</p><h2 id="sector-title">板块行情</h2></div></div>
       <MarketPanel
         title="板块热力图与涨跌榜" :status="sectorModule(sectorKind)?.status ?? 'ERROR'"
         :loading="loading && !snapshot" :has-data="Boolean(sectorData)"
@@ -158,7 +244,7 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
     </section>
 
     <section class="snapshot-section" aria-labelledby="sector-flow-title">
-      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">02 / SECTOR FLOW</p><h2 id="sector-flow-title">板块资金流</h2></div></div>
+      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">05 / SECTOR FLOW</p><h2 id="sector-flow-title">板块资金流</h2></div></div>
       <MarketPanel
         title="板块净额排行" :status="sectorModule(flowKind)?.status ?? 'ERROR'"
         :loading="loading && !snapshot" :has-data="Boolean(flowData)"
@@ -192,45 +278,6 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
         </div>
       </MarketPanel>
     </section>
-
-    <section class="snapshot-section" aria-labelledby="market-flow-title">
-      <div class="snapshot-section__heading"><div><p class="snapshot-kicker">03 / MARKET FLOW</p><h2 id="market-flow-title">大盘资金流</h2></div></div>
-      <MarketPanel
-        title="全市场个股资金汇总" :status="fundModule?.status ?? 'ERROR'"
-        :loading="loading && !snapshot" :has-data="Boolean(fundModule?.data?.latest)"
-        :message="fundModule?.message ?? loadError"
-      >
-        <p class="snapshot-note">由同花顺即时个股资金数据汇总；日内曲线仅连接连续成功采样，午间及采集缺口断线。</p>
-        <p v-if="fundModule?.data?.reconciledFromLegacy" class="snapshot-note" role="status">历史快照已按统一口径校正：净额 = 同批流入 − 流出。</p>
-        <div class="snapshot-market-metrics">
-          <div><small>全市场净额</small><strong :class="`tone-${valueTone(fundModule?.data?.latest.netAmount)}`">{{ formatMarketYuan(fundModule?.data?.latest.netAmount) }}</strong></div>
-          <div><small>流入</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.inflow) }}</strong></div>
-          <div><small>流出</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.outflow) }}</strong></div>
-          <div><small>上涨 / 下跌 / 平盘</small><strong>{{ formatCount(fundModule?.data?.latest.riseCount) }} / {{ formatCount(fundModule?.data?.latest.fallCount) }} / {{ formatCount(fundModule?.data?.latest.flatCount) }}</strong></div>
-          <div><small>样本股票数</small><strong>{{ formatCount(fundModule?.data?.latest.stockCount) }}</strong></div>
-        </div>
-        <p class="snapshot-note">最近采集：{{ shanghaiTime(fundModule?.data?.latest.collectedAt) }}。这不是源站报价时间。</p>
-        <BaseChart
-          v-if="fundModule?.data?.series.length" :option="fundOption"
-          :accessible-label="`全市场资金净额当日日内曲线，共 ${fundModule.data.series.length} 个实际采样点`" height="300px"
-        />
-        <p v-else class="snapshot-no-rank">暂无当日有效资金采样点</p>
-        <details v-if="fundModule?.data?.series.length" class="snapshot-accessible-table">
-          <summary>查看实际采样数据表</summary>
-          <div>
-            <table>
-              <thead><tr><th>采集时间</th><th>流入 · 元</th><th>流出 · 元</th><th>净额 · 元</th></tr></thead>
-              <tbody>
-                <tr v-for="point in fundModule.data.series" :key="point.collectedAt">
-                  <td>{{ shanghaiTime(point.collectedAt) }}</td><td>{{ formatYuan(point.inflow) }}</td>
-                  <td>{{ formatYuan(point.outflow) }}</td><td>{{ formatYuan(point.netAmount) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </MarketPanel>
-    </section>
   </div>
 </template>
 
@@ -246,7 +293,7 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 .snapshot-refresh-icon { width: 15px; height: 15px; }
 .snapshot-alert, .snapshot-empty { margin: 0; padding: 12px 16px; border: 1px solid var(--market-border); border-radius: 8px; color: var(--market-muted); background: var(--market-panel); font-size: 13px; }
 .snapshot-alert { color: #ffb4b4; border-color: rgb(247 101 101 / 38%); }
-.snapshot-module-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.snapshot-module-status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .snapshot-module-status { min-width: 0; display: grid; gap: 4px; padding: 12px; border: 1px solid var(--market-border); border-radius: 10px; background: var(--market-panel); font-size: 11px; }
 .snapshot-module-status strong { color: var(--market-text); font-size: 13px; }
 .snapshot-module-status span { color: var(--market-muted); overflow-wrap: anywhere; }
@@ -255,6 +302,18 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 .snapshot-module-status.is-error b, .snapshot-module-status.is-severe b { color: var(--market-rise); }
 .snapshot-module-status.is-severe { border-color: var(--market-rise); background: rgb(247 101 101 / 9%); }
 .snapshot-section { min-width: 0; display: grid; gap: 10px; }
+.snapshot-index-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.snapshot-index-card { min-width: 0; padding: 12px; border: 1px solid var(--market-border); border-radius: 10px; background: var(--market-panel); }
+.snapshot-index-card header { display: flex; justify-content: space-between; gap: 6px; }
+.snapshot-index-card h3 { margin: 0 0 3px; font-size: 14px; }
+.snapshot-index-card small, .snapshot-index-card header span, .snapshot-index-card dt { color: var(--market-muted); font-size: 11px; }
+.snapshot-index-card header span { flex: none; }
+.snapshot-index-price { display: block; margin-top: 10px; font-size: 21px; }
+.snapshot-index-card p { margin: 4px 0 8px; font-size: 12px; }
+.snapshot-index-card dl { display: grid; gap: 3px; margin: 0; }
+.snapshot-index-card dl div { display: flex; justify-content: space-between; gap: 5px; font-size: 11px; }
+.snapshot-index-card dd { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snapshot-index-card .snapshot-index-empty { display: grid; place-items: center; min-height: 90px; color: var(--market-muted); }
 .snapshot-section__heading h2 { margin: 0; font-size: 18px; }
 .snapshot-tabs { display: inline-flex; gap: 4px; margin-bottom: 10px; padding: 3px; border: 1px solid var(--market-border); border-radius: 8px; }
 .snapshot-tabs button { min-height: 38px; padding: 0 16px; color: var(--market-muted); border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
@@ -278,7 +337,8 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 .snapshot-flow-track i.tone-rise { background: var(--market-rise); }
 .snapshot-flow-track i.tone-fall { background: var(--market-fall); }
 .snapshot-flow-list small { color: var(--market-subtle); }
-.snapshot-market-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.snapshot-market-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.snapshot-breadth-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
 .snapshot-market-metrics > div { display: grid; gap: 5px; min-width: 0; padding: 12px; border: 1px solid var(--market-border-soft); border-radius: 8px; background: var(--market-surface); }
 .snapshot-market-metrics small { color: var(--market-muted); font-size: 12px; }
 .snapshot-market-metrics strong { overflow-wrap: anywhere; font-size: 16px; }
@@ -287,7 +347,8 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 .snapshot-accessible-table > div { overflow-x: auto; }
 .snapshot-accessible-table table { width: 100%; min-width: 540px; border-collapse: collapse; }
 .snapshot-accessible-table th, .snapshot-accessible-table td { padding: 7px; border-bottom: 1px solid var(--market-border); text-align: left; }
-@media (max-width: 1100px) { .snapshot-sector-layout { grid-template-columns: 1fr; } .snapshot-market-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 767px) { .snapshot-intro { align-items: flex-start; flex-direction: column; } .snapshot-intro__actions { justify-items: start; } .snapshot-module-status-grid, .snapshot-ranking-columns, .snapshot-flow-columns { grid-template-columns: 1fr; } .snapshot-market-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .snapshot-index-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .snapshot-module-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .snapshot-sector-layout { grid-template-columns: 1fr; } }
+@media (max-width: 767px) { .snapshot-intro { align-items: flex-start; flex-direction: column; } .snapshot-intro__actions { justify-items: start; } .snapshot-module-status-grid, .snapshot-ranking-columns, .snapshot-flow-columns { grid-template-columns: 1fr; } .snapshot-index-grid, .snapshot-market-metrics, .snapshot-breadth-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .snapshot-index-grid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .snapshot-intro__actions button { transition: none; } }
 </style>

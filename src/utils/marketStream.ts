@@ -49,7 +49,29 @@ function fundData(value: unknown, tradeDate: string): boolean {
     index === 0 || Date.parse(point.collectedAt) > Date.parse(series[index - 1]!.collectedAt));
 }
 
-function validModule(value: unknown, kind: "sectors" | "fund", sectorType?: "industry" | "concept"): boolean {
+function coreIndexData(value: unknown): boolean {
+  if (!record(value) || value.source !== "SINA_INDEX" || value.sourceTime !== null ||
+      !Array.isArray(value.items) || value.items.length > 5) return false;
+  const codes = new Set(["sh000001", "sz399001", "sh000300", "sz399006", "sh000688"]);
+  const seen = new Set<string>();
+  return value.items.every((raw) => {
+    if (!record(raw) || typeof raw.code !== "string" || !codes.has(raw.code) || seen.has(raw.code) ||
+        typeof raw.name !== "string" || !raw.name ||
+        raw.sourceTime !== null || !(raw.collectedAt === null || timestamp(raw.collectedAt)) ||
+        !["price", "change", "changePercent", "previousClose", "open", "high", "low", "volume", "amount"]
+          .every((key) => nullableNumber(raw[key])) || !Array.isArray(raw.series)) return false;
+    seen.add(raw.code);
+    let previous = -Infinity;
+    return raw.series.every((point) => {
+      if (!record(point) || !timestamp(point.collectedAt) || !finiteNumber(point.price) ||
+          Date.parse(point.collectedAt as string) <= previous) return false;
+      previous = Date.parse(point.collectedAt as string);
+      return true;
+    });
+  });
+}
+
+function validModule(value: unknown, kind: "sectors" | "fund" | "indices", sectorType?: "industry" | "concept"): boolean {
   if (!record(value) || !["FRESH", "STALE", "ERROR"].includes(String(value.status))) return false;
   if (!(value.tradeDate === null || typeof value.tradeDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.tradeDate))) return false;
   if (value.tradeDateBasis !== "CALENDAR") return false;
@@ -60,6 +82,7 @@ function validModule(value: unknown, kind: "sectors" | "fund", sectorType?: "ind
   if (value.status === "ERROR") return false;
   if (value.tradeDate === null || value.lastSuccessAt === null) return false;
   if (!record(value.data)) return false;
+  if (kind === "indices") return coreIndexData(value.data);
   if (kind === "fund") return fundData(value.data, value.tradeDate as string);
   return value.data.source === "THS" && value.data.period === "INTRADAY" &&
     Array.isArray(value.data.items) && value.data.items.every((item) => sectorItem(item, sectorType!));
@@ -68,10 +91,12 @@ function validModule(value: unknown, kind: "sectors" | "fund", sectorType?: "ind
 export function parseMarketSnapshot(value: unknown): MarketDashboardSnapshot {
   if (!record(value) || value.schemaVersion !== 1 || !timestamp(value.generatedAt) ||
       !(value.snapshotId == null || typeof value.snapshotId === "string" && value.snapshotId.length > 0) ||
-      value.provider !== "akshare" || !record(value.modules) || Object.keys(value.modules).length !== 3 ||
+      value.provider !== "akshare" || !record(value.modules) ||
+      Object.keys(value.modules).some((key) => !["industrySectors", "conceptSectors", "marketFundFlow", "coreIndices"].includes(key)) ||
       !validModule(value.modules.industrySectors, "sectors", "industry") ||
       !validModule(value.modules.conceptSectors, "sectors", "concept") ||
-      !validModule(value.modules.marketFundFlow, "fund")) {
+      !validModule(value.modules.marketFundFlow, "fund") ||
+      (value.modules.coreIndices !== undefined && !validModule(value.modules.coreIndices, "indices"))) {
     throw new Error("市场快照结构或版本无效");
   }
   return { ...value, snapshotId: value.snapshotId ?? null } as unknown as MarketDashboardSnapshot;
@@ -85,7 +110,7 @@ export function applyMarketPatch(current: MarketDashboardSnapshot, value: unknow
   if (value.baseSnapshotId !== current.snapshotId ||
       Date.parse(value.generatedAt as string) <= Date.parse(current.generatedAt)) throw new Error("市场增量版本不连续");
   const keys = Object.keys(value.modules);
-  if (keys.some((key) => !["industrySectors", "conceptSectors", "marketFundFlow"].includes(key))) {
+  if (keys.some((key) => !["industrySectors", "conceptSectors", "marketFundFlow", "coreIndices"].includes(key))) {
     throw new Error("市场增量模块无效");
   }
   return parseMarketSnapshot({ ...current, snapshotId: value.snapshotId,

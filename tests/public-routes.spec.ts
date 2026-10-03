@@ -26,6 +26,7 @@ describe("public routes", () => {
     const wrapper = mount(HomeView, { global: { plugins: [router] } });
     expect(wrapper.find('a[href="/market/overview"]').exists()).toBe(true);
     expect(wrapper.find('a[href="/market/stock-monitor"]').exists()).toBe(true);
+    expect(wrapper.find('a[href="/market/etf-monitor"]').exists()).toBe(true);
     expect(wrapper.find('a[href="/login"]').exists()).toBe(true);
     expect(wrapper.text()).not.toContain("实时成交");
     wrapper.unmount();
@@ -39,11 +40,16 @@ describe("public routes", () => {
     expect(layout.find('a[href="/"]').exists()).toBe(true);
     expect(layout.find('a[href="/login"]').text()).toBe("登录管理端");
     expect(layout.find('a[href="/market/stock-monitor"]').exists()).toBe(true);
+    expect(layout.find('a[href="/market/etf-monitor"]').exists()).toBe(true);
     expect(layout.find(".market-user-menu").exists()).toBe(false);
     layout.unmount();
 
     await router.push("/market/stock-monitor");
     expect(router.currentRoute.value.path).toBe("/market/stock-monitor");
+    expect(router.currentRoute.value.meta.publicAccess).toBe(true);
+
+    await router.push("/market/etf-monitor");
+    expect(router.currentRoute.value.path).toBe("/market/etf-monitor");
     expect(router.currentRoute.value.meta.publicAccess).toBe(true);
   });
 

@@ -17,12 +17,12 @@ const riseColor = "#F05252";
 const fallColor = "#22A06B";
 const primaryColor = "#3B82F6";
 
-export function buildStockPriceOption(points: StockPricePoint[]): EChartsCoreOption {
+export function buildStockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreOption {
   const segments = splitPriceSeries(points);
   const formatTooltipPrice = (value: unknown): string => {
     const price = Array.isArray(value) ? value[1] : value;
     return typeof price === "number" && Number.isFinite(price)
-      ? `${formatPlainNumber(price)} 元`
+      ? `${formatPlainNumber(price)} ${unit}`
       : "—";
   };
   return {
@@ -54,7 +54,7 @@ export function buildStockPriceOption(points: StockPricePoint[]): EChartsCoreOpt
       splitLine: { lineStyle: { color: splitColor } },
     },
     series: segments.map((segment) => ({
-      name: "采样价格",
+      name: unit === "点" ? "指数点位" : "采样价格",
       type: "line",
       data: segment.map((point) => [point.time, point.price]),
       showSymbol: segment.length === 1,

@@ -11,8 +11,9 @@ import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons
         <span>Vita Stock</span>
       </RouterLink>
       <nav class="home-nav" aria-label="主导航">
-        <RouterLink to="/market/overview">资金板块总览</RouterLink>
+        <RouterLink to="/market/overview">市场与资金总览</RouterLink>
         <RouterLink to="/market/stock-monitor">个股监控</RouterLink>
+        <RouterLink to="/market/etf-monitor">ETF 监控</RouterLink>
         <RouterLink to="/login">管理端登录</RouterLink>
       </nav>
     </header>
@@ -20,8 +21,8 @@ import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons
     <main id="home-main" class="home-main">
       <div class="home-intro">
         <p class="home-eyebrow">SECURITIES DATA PLATFORM</p>
-        <h1>看清板块资金，<br />从数据开始。</h1>
-        <p class="home-lead">公开查看同花顺板块榜单、大盘资金流向和个股监控清单。每个页面分别标注数据日期与采集状态，便于判断信息的时效性。</p>
+        <h1>看清市场脉络，<br />从可信数据开始。</h1>
+        <p class="home-lead">公开查看核心指数、全市场资金、个股与 ETF 监控。每个页面分别标注数据日期、实际采集时间和状态，便于判断信息的时效性。</p>
       </div>
 
       <div class="home-options" aria-label="选择入口">
@@ -29,8 +30,8 @@ import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons
           <span class="home-option__icon"><DataAnalysis /></span>
           <span class="home-option__copy">
             <small>公开查看</small>
-            <strong>资金板块总览</strong>
-            <span>查看行业、概念板块 Top 10 与大盘资金流。无需登录。</span>
+            <strong>市场与资金总览</strong>
+            <span>查看五大核心指数、全市场资金与板块 Top 10。无需登录。</span>
           </span>
           <ArrowRight class="home-option__arrow" />
         </RouterLink>
@@ -41,6 +42,16 @@ import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons
             <small>公开查看</small>
             <strong>个股监控</strong>
             <span>查看最多 10 只股票的价格采样、涨跌幅与成交额。采集关闭时明确显示状态。</span>
+          </span>
+          <ArrowRight class="home-option__arrow" />
+        </RouterLink>
+
+        <RouterLink class="home-option home-option--stock" to="/market/etf-monitor">
+          <span class="home-option__icon"><TrendCharts /></span>
+          <span class="home-option__copy">
+            <small>公开查看</small>
+            <strong>ETF 监控</strong>
+            <span>查看最多 10 只 ETF 的行情、实际采样走势与资产配置。</span>
           </span>
           <ArrowRight class="home-option__arrow" />
         </RouterLink>
