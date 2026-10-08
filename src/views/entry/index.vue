@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons-vue";
+import BeianFooter from "@/components/BeianFooter.vue";
 </script>
 
 <template>
@@ -69,11 +70,12 @@ import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons
 
       <p class="home-footnote">页面展示最近可用数据；具体日期、源时间与状态以对应模块标注为准。</p>
     </main>
+    <BeianFooter theme="dark" />
   </div>
 </template>
 
 <style scoped>
-.home-page { min-height: 100vh; color: #f4f7fb; background: linear-gradient(145deg, #071426 0%, #0c1f38 56%, #102c4b 100%); }
+.home-page { display: flex; flex-direction: column; min-height: 100vh; color: #f4f7fb; background: linear-gradient(145deg, #071426 0%, #0c1f38 56%, #102c4b 100%); }
 .home-skip { position: absolute; left: 12px; top: -64px; z-index: 10; padding: 10px 14px; color: #fff; background: #1e40af; border-radius: 8px; }
 .home-skip:focus { top: 12px; }
 .home-header { width: min(1200px, calc(100% - 48px)); min-height: 82px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid rgb(167 179 197 / 20%); }
@@ -83,7 +85,7 @@ import { ArrowRight, DataAnalysis, Lock, TrendCharts } from "@element-plus/icons
 .home-nav { display: flex; align-items: center; gap: 20px; color: #c4d0e1; font-size: 13px; }
 .home-nav a { min-height: 44px; display: inline-flex; align-items: center; transition: color 180ms ease; }
 .home-nav a:hover { color: #fff; }
-.home-main { width: min(1200px, calc(100% - 48px)); margin: auto; padding: clamp(64px, 10vw, 128px) 0 48px; }
+.home-main { flex: 1; width: min(1200px, calc(100% - 48px)); margin: auto; padding: clamp(64px, 10vw, 128px) 0 48px; }
 .home-intro { max-width: 770px; }
 .home-eyebrow { margin: 0 0 16px; color: #93c5fd; font-size: 12px; font-weight: 750; letter-spacing: .12em; }
 .home-intro h1 { margin: 0; font-size: clamp(38px, 6vw, 72px); line-height: 1.14; letter-spacing: -.035em; }

@@ -24,6 +24,15 @@ beforeEach(() => {
 });
 
 describe("ETF profile cached quote", () => {
+  it("displays a readable legacy source in details", async () => {
+    vi.mocked(getEtfProfileDetail).mockResolvedValue({ symbol: "SH510050", name: "50ETF",
+      source: "LEGACY_EXCHANGE", updatedAt: "2026-09-30T10:00:00+08:00" } as Awaited<ReturnType<typeof getEtfProfileDetail>>);
+    const wrapper = mountView(); await flushPromises();
+    expect(wrapper.text()).toContain("历史交易所资料");
+    expect(wrapper.text()).toContain("历史同步");
+    expect(wrapper.text()).not.toContain("LEGACY_EXCHANGE");
+    expect(wrapper.text()).not.toContain("同花顺同步"); wrapper.unmount();
+  });
   it("shows an unmonitored empty state and uses only cache GETs", async () => {
     const wrapper = mountView();
     await flushPromises();
@@ -50,6 +59,22 @@ describe("ETF profile cached quote", () => {
     const wrapper = mountView();
     await flushPromises();
     expect(wrapper.text()).toContain("已监控，暂无有效缓存行情");
+    wrapper.unmount();
+  });
+
+  it("displays THS core fields and established date without old listings or shares", async () => {
+    vi.mocked(getEtfProfileDetail).mockResolvedValue({ symbol: "SH510050", name: "50ETF", source: "THS",
+      fullName: "示例基金全称", fundType: "股票型", investmentType: "被动指数型", fundManager: "示例经理",
+      manager: "示例公司", custodian: "示例银行", performanceBenchmark: "示例基准文本",
+      establishedDate: "2020-01-02", listingDate: "2020-02-03", shareCount: 100,
+      updatedAt: "2026-10-03T10:00:00+08:00" } as Awaited<ReturnType<typeof getEtfProfileDetail>>);
+    const wrapper = mountView(); await flushPromises();
+    for (const text of ["同花顺同步", "示例基金全称", "股票型", "被动指数型", "示例经理",
+      "示例公司", "示例银行", "示例基准文本", "成立日期", "2020-01-02"]) expect(wrapper.text()).toContain(text);
+    expect(wrapper.text()).not.toContain("2020-02-03");
+    expect(wrapper.text()).not.toContain("基金份额");
+    expect(getEtfProfilePage).toHaveBeenCalledWith(expect.objectContaining({ fundType: undefined }));
+    expect(getEtfProfilePage).not.toHaveBeenCalledWith(expect.objectContaining({ etfType: expect.anything() }));
     wrapper.unmount();
   });
 });

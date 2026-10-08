@@ -1,18 +1,47 @@
 <script setup lang="ts">
-import { Refresh, Search } from "@element-plus/icons-vue";
+import { Refresh, Search, Setting } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
-import { computed, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { buildStockPriceOption } from "@/charts/marketOptions";
 import BaseChart from "@/components/market/BaseChart.vue";
 import { useEtfMonitorStream } from "@/composables/useEtfMonitorStream";
+import { useAuthStore } from "@/stores/auth";
+import { usePermissionStore } from "@/stores/permission";
+import { canAccess } from "@/utils/permission";
 import type { EtfMonitorItem } from "@/types/etf";
 import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
+import { etfProfileStatus } from "@/utils/etfProfile";
 import { shanghaiToday } from "@/utils/stockMonitor";
 
 const PAGE_SIZE = 4;
 const route = useRoute();
+const router = useRouter();
+const auth = useAuthStore();
+const permissions = usePermissionStore();
+const configOpening = ref(false);
+const canViewConfig = computed(() => auth.isAuthenticated && permissions.initialized &&
+  canAccess(auth.permissionCodes, "system:etf-monitor:view"));
+
+async function initializePermissions(): Promise<void> {
+  if (!auth.isAuthenticated || permissions.initialized) return;
+  try { await permissions.initialize(router); }
+  catch { /* 公开快照继续可读，权限未加载时隐藏配置入口。 */ }
+}
+
+async function openConfig(): Promise<void> {
+  if (!canViewConfig.value || configOpening.value) return;
+  configOpening.value = true;
+  try {
+    await permissions.initialize(router);
+    await router.push("/system/etfMonitor");
+  } catch { ElMessage.error("配置页面暂不可用，请稍后重试"); }
+  finally { configOpening.value = false; }
+}
+
+onMounted(initializePermissions);
+watch(() => auth.isAuthenticated, initializePermissions);
 const { snapshot: dashboard, loading, loadError, manualRefresh } = useEtfMonitorStream();
 const page = ref(1);
 const keyword = ref("");
@@ -66,17 +95,18 @@ function priceOption(item: EtfMonitorItem) {
         <el-input v-model="keyword" clearable placeholder="ETF 代码或名称" :prefix-icon="Search" @keyup.enter="locate" />
         <button type="button" @click="locate">定位</button>
         <button type="button" :disabled="loading" @click="manualRefresh"><Refresh />重新读取快照</button>
+        <button v-if="canViewConfig" type="button" :disabled="configOpening" @click="openConfig"><Setting />配置管理</button>
       </div>
     </header>
     <p class="etf-notice">行情无可靠源时间，价格曲线横轴和卡片时间均为实际采集时间；历史行情不代表已确认收盘。</p>
     <p v-if="dashboard && !dashboard.xqEnabled" class="etf-notice">雪球资料采集关闭，资产配置不公开；新浪 ETF 行情仍可查看。</p>
     <p v-if="loadError" class="etf-error" role="alert">{{ dashboard ? "保留上次快照，更新可能延迟：" : "ETF 快照不可用：" }}{{ loadError }}</p>
     <div v-if="loading && !dashboard" class="etf-empty">正在读取 ETF 快照…</div>
-    <div v-else-if="!etfs.length" class="etf-empty">{{ dashboard ? "尚未启用 ETF 监控" : "暂无 ETF 监控快照" }}</div>
+    <div v-else-if="!etfs.length" class="etf-empty"><span>{{ dashboard ? "尚未启用 ETF 监控" : "暂无 ETF 监控快照" }}</span><el-button v-if="canViewConfig" :icon="Setting" :loading="configOpening" @click="openConfig">配置管理</el-button></div>
     <div v-else class="etf-grid">
       <section v-for="item in visible" :key="item.symbol" class="etf-card">
         <header class="etf-card-heading">
-          <div><h2>{{ item.name }} <small>{{ item.symbol }}</small></h2><span>{{ item.profile.etfType || "ETF" }} · {{ item.profile.exchange || item.market }}</span></div>
+          <div><h2>{{ item.name }} <small>{{ item.symbol }}</small></h2><span>{{ item.profile.fundType || "—" }} · {{ item.profile.exchange || item.market }}</span></div>
           <div><strong>{{ statusLabel(item) }}</strong><small>有效交易日 {{ item.effectiveTradeDate || "—" }}</small></div>
         </header>
         <dl class="etf-metrics">
@@ -86,7 +116,7 @@ function priceOption(item: EtfMonitorItem) {
           <div><dt>成交额 · 元</dt><dd>{{ formatAmount(item.quote?.amount ?? null) }}</dd></div>
           <div><dt>成交量</dt><dd>{{ formatPlainNumber(item.quote?.volume ?? null) }}</dd></div>
           <div><dt>跟踪指数</dt><dd>{{ item.profile.trackingIndexName || "暂无可靠数据" }}<small v-if="item.profile.trackingIndexCode"> {{ item.profile.trackingIndexCode }}</small></dd></div>
-          <div><dt>基金份额</dt><dd>{{ formatPlainNumber(item.profile.shareCount) }}<small v-if="item.profile.shareDate"> · {{ item.profile.shareDate }}</small></dd></div>
+          <div><dt>管理人</dt><dd>{{ item.profile.manager || "—" }}</dd></div>
           <div><dt>采集时间</dt><dd>{{ shanghaiTime(item.quote?.collectedAt ?? null) }}</dd></div>
         </dl>
         <div class="etf-section">
@@ -104,7 +134,7 @@ function priceOption(item: EtfMonitorItem) {
           </template>
           <p v-else>{{ dashboard?.xqEnabled ? "暂无已核实的资产配置报告" : "雪球采集关闭，资产配置暂不公开" }}</p>
         </div>
-        <footer>行情来源 AKShare / 新浪 · 资料最近同步 {{ shanghaiTime(item.profile.updatedAt) }} · {{ item.closeConfirmed ? "收盘已确认" : "收盘未确认" }}</footer>
+        <footer>行情来源 AKShare / 新浪 · {{ etfProfileStatus(item.profile) }} · 资料采集 {{ shanghaiTime(item.profile.updatedAt) }} · {{ item.closeConfirmed ? "收盘已确认" : "收盘未确认" }}</footer>
       </section>
     </div>
     <el-pagination v-if="etfs.length > PAGE_SIZE" v-model:current-page="page" class="etf-pagination" background layout="prev, pager, next" :page-size="PAGE_SIZE" :total="etfs.length" />

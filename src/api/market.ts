@@ -56,7 +56,8 @@ export function sortStockMonitor(symbols: string[]): Promise<boolean> {
 }
 
 export function refreshStockMonitor(): Promise<StockMonitorRefreshResult> {
-  return request({ url: "/system/stockMonitor/refresh", method: "POST", data: {} });
+  return request({ url: "/system/stockMonitor/refresh", method: "POST", data: {}, timeout: 300000,
+    timeoutMessage: "整体刷新请求超时，结果未确认，请核实服务端结果；未自动重试", silentError: true });
 }
 
 export function getStockMonitorRefreshStatus(): Promise<StockMonitorRefreshStatus> {

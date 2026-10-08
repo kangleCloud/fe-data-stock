@@ -21,6 +21,7 @@ import type {
   StockSymbol,
 } from "@/types/market";
 import { canAccess } from "@/utils/permission";
+import { refreshFailure, refreshFeedback, refreshSummary } from "@/utils/monitorRefresh";
 import { formatShanghaiDateTime, moveEnabledSymbol } from "@/utils/stockManagement";
 import "@/styles/stockData.css";
 
@@ -176,14 +177,16 @@ async function saveSort(): Promise<void> {
 async function refreshAll(): Promise<void> {
   if (!canRefresh.value || submitting.value) return;
   submitting.value = "REFRESH";
+  refreshStatus.value = null;
   try {
     const result = await refreshStockMonitor();
-    await loadRefreshStatus();
-    ElMessage[result.accepted ? "success" : "warning"](
-      result.message || (result.status === "SUCCESS"
-        ? "股票字典同步完成；已启用资料按雪球总闸处理"
-        : "刷新正在进行中，请查看服务端状态"),
-    );
+    refreshStatus.value = result;
+    const feedback = refreshFeedback(result);
+    ElMessage[feedback.type](feedback.message);
+  } catch (cause) {
+    refreshStatus.value = refreshFailure(cause);
+    const feedback = refreshFeedback(refreshStatus.value);
+    ElMessage[feedback.type](feedback.message);
   } finally {
     submitting.value = "";
   }
@@ -202,12 +205,12 @@ onMounted(() => { void Promise.all([loadPage(), loadEnabledList(), loadRefreshSt
       <div class="stock-page-actions">
         <el-button v-if="canManage" type="primary" :icon="Plus" @click="openPicker">从字典选股</el-button>
         <el-button v-if="canManage" :icon="Sort" :disabled="!enabledLoaded || listLoading || enabledList.length < 2" @click="openSorter">调整顺序</el-button>
-        <el-button v-if="canRefresh" :icon="Refresh" :loading="submitting === 'REFRESH'" @click="refreshAll">整体刷新</el-button>
+        <el-button v-if="canRefresh" :icon="Refresh" :disabled="Boolean(submitting)" :loading="submitting === 'REFRESH'" @click="refreshAll">整体刷新</el-button>
       </div>
     </header>
 
     <p class="stock-info">已启用 {{ enabledLoaded ? enabledList.length : "—" }} / {{ LIMIT }} 只。资料为历史同步记录，最后同步时间以资料页显示为准；整体刷新遵循服务端雪球总闸。</p>
-    <p v-if="refreshStatus" class="stock-info">刷新状态：{{ refreshStatus.status }}<span v-if="refreshStatus.message"> · {{ refreshStatus.message }}</span></p>
+    <p v-if="refreshStatus" class="stock-info" role="status">{{ refreshSummary(refreshStatus) }}</p>
 
     <div class="page-panel stock-filter-panel">
       <el-form class="stock-filter-form" :model="query" inline label-position="top" @submit.prevent="search">

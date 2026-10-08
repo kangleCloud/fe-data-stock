@@ -2,7 +2,9 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string;
+  readonly VITE_OPENAPI_BASE_URL?: string;
   readonly VITE_API_PROXY_TARGET?: string;
+  readonly VITE_OPENAPI_PROXY_TARGET?: string;
 }
 
 interface ImportMeta {

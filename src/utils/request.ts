@@ -17,16 +17,19 @@ declare module "axios" {
   export interface AxiosRequestConfig {
     silentError?: boolean;
     publicAccess?: boolean;
+    timeoutMessage?: string;
   }
 
   export interface InternalAxiosRequestConfig {
     silentError?: boolean;
     publicAccess?: boolean;
+    timeoutMessage?: string;
   }
 }
 
 export const AUTH_EXPIRED_EVENT = "vita-stock-admin:auth-expired";
-export const PUBLIC_API_BASE_URL = "/openapi/api";
+const normalizeBaseUrl = (value: string): string => value.replace(/\/+$/, "");
+export const PUBLIC_API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_OPENAPI_BASE_URL || "/openapi/api");
 
 export type ApiMethod = "GET" | "POST";
 
@@ -45,7 +48,7 @@ export class ApiError extends Error {
 }
 
 export const httpClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/admin/api",
+  baseURL: normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || "/admin/api"),
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
@@ -104,8 +107,8 @@ httpClient.interceptors.response.use(
     const code = error.response?.data?.code ?? error.response?.status;
     const message =
       error.response?.data?.msg ||
-      (error.code === "ECONNABORTED"
-        ? "请求超时，请检查服务状态"
+      (["ECONNABORTED", "ETIMEDOUT"].includes(error.code ?? "")
+        ? error.config?.timeoutMessage || "请求超时，请检查服务状态"
         : "网络连接异常，请稍后重试");
 
     if (code === 401 && !error.config?.publicAccess) {
@@ -129,7 +132,7 @@ export async function requestStream(path: string, signal: AbortSignal, publicAcc
   if (credential) {
     headers.set(credential.tokenName, buildAuthorizationValue(credential));
   }
-  const base = publicAccess ? PUBLIC_API_BASE_URL : String(httpClient.defaults.baseURL || "/admin/api").replace(/\/$/, "");
+  const base = normalizeBaseUrl(publicAccess ? PUBLIC_API_BASE_URL : String(httpClient.defaults.baseURL || "/admin/api"));
   const response = await fetch(`${base}${path}`, {
     method: "GET",
     headers,

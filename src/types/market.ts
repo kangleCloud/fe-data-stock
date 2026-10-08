@@ -1,4 +1,5 @@
 import type { PageQuery } from "@/types/api";
+import type { MonitorRefreshResult } from "@/types/refresh";
 
 export type SnapshotStatus = "FRESH" | "STALE" | "ERROR";
 export type SnapshotDateBasis = "CALENDAR";
@@ -201,14 +202,5 @@ export interface StockProfilePageQuery extends PageQuery {
   industry?: string;
 }
 
-export interface StockMonitorRefreshResult extends StockMonitorRefreshStatus {
-  accepted: boolean;
-}
-
-export interface StockMonitorRefreshStatus {
-  jobId: string | null;
-  status: string;
-  startedAt: string | null;
-  finishedAt: string | null;
-  message: string | null;
-}
+export type StockMonitorRefreshResult = MonitorRefreshResult;
+export type StockMonitorRefreshStatus = MonitorRefreshResult;

@@ -43,10 +43,16 @@ function nullableTime(value: unknown): string | null {
 function profileValue(value: unknown): EtfProfile {
   const profile = record(value);
   return {
+    fullName: nullableString(profile.fullName ?? null), fundType: nullableString(profile.fundType ?? null),
+    investmentType: nullableString(profile.investmentType ?? null), fundManager: nullableString(profile.fundManager ?? null),
+    establishedDate: nullableDate(profile.establishedDate ?? null),
+    performanceBenchmark: nullableString(profile.performanceBenchmark ?? null), source: nullableString(profile.source ?? null),
     exchange: nullableString(profile.exchange), etfType: nullableString(profile.etfType),
-    listingStatus: nullableString(profile.listingStatus), listingDate: nullableDate(profile.listingDate),
+    listingStatus: profile.source === "THS" ? null : nullableString(profile.listingStatus),
+    listingDate: profile.source === "THS" ? null : nullableDate(profile.listingDate),
     manager: nullableString(profile.manager), custodian: nullableString(profile.custodian),
-    shareCount: nullableNumber(profile.shareCount), shareDate: nullableDate(profile.shareDate),
+    shareCount: profile.source === "THS" ? null : nullableNumber(profile.shareCount),
+    shareDate: profile.source === "THS" ? null : nullableDate(profile.shareDate),
     trackingIndexCode: nullableString(profile.trackingIndexCode),
     trackingIndexName: nullableString(profile.trackingIndexName), updatedAt: nullableTime(profile.updatedAt),
   };

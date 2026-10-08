@@ -9,6 +9,13 @@ export interface EtfSymbol {
 }
 
 export interface EtfProfile {
+  fullName: string | null;
+  fundType: string | null;
+  investmentType: string | null;
+  fundManager: string | null;
+  establishedDate: string | null;
+  performanceBenchmark: string | null;
+  source: string | null;
   exchange: string | null;
   etfType: string | null;
   listingStatus: string | null;
@@ -109,6 +116,6 @@ export interface EtfDictionaryQuery extends PageQuery {
 
 export interface EtfProfileQuery extends PageQuery {
   keyword?: string;
-  etfType?: string;
+  fundType?: string;
   trackingIndexCode?: string;
 }

@@ -1,0 +1,73 @@
+import { flushPromises, mount } from "@vue/test-utils";
+import { reactive, ref } from "vue";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import MonitorView from "@/views/market/etfMonitor/index.vue";
+import type { EtfMonitorDashboard } from "@/types/etf";
+import { parseEtfMonitorDashboard } from "@/utils/etfMonitor";
+
+const mocks = vi.hoisted(() => ({ initialize: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
+const auth = reactive({ isAuthenticated: false, permissionCodes: [] as string[] });
+const permissions = reactive({ initialized: false, initialize: mocks.initialize });
+const snapshot = ref<EtfMonitorDashboard>({ schemaVersion: 1, stateId: null, tradeDate: null, xqEnabled: false, etfs: [] });
+vi.mock("@/stores/auth", () => ({ useAuthStore: () => auth }));
+vi.mock("@/stores/permission", () => ({ usePermissionStore: () => permissions }));
+vi.mock("vue-router", () => ({ useRoute: () => ({ query: {} }), useRouter: () => ({ push: mocks.push }) }));
+vi.mock("@/composables/useEtfMonitorStream", () => ({ useEtfMonitorStream: () => ({
+  snapshot, loading: ref(false), loadError: ref(""), manualRefresh: mocks.refresh,
+}) }));
+
+beforeEach(() => {
+  vi.clearAllMocks(); auth.isAuthenticated = false; auth.permissionCodes = []; permissions.initialized = false;
+  snapshot.value.etfs = [];
+  mocks.initialize.mockImplementation(async () => { permissions.initialized = true; });
+});
+
+describe("ETF public configuration navigation", () => {
+  it("shows THS type and manager with XQ off, without old share data", async () => {
+    snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: null, xqEnabled: false,
+      etfs: [{ symbol: "SH510050", code: "510050", name: "50ETF", market: "SH", sortOrder: 1,
+        profile: { source: "THS", fundType: "股票型基金", etfType: "字典分类", manager: "示例基金公司",
+          exchange: null, listingStatus: null, listingDate: null, custodian: null, shareCount: 123,
+          shareDate: null, trackingIndexCode: null, trackingIndexName: null, updatedAt: "2026-10-03T10:00:00+08:00" },
+        quote: null, series: [], fundSeries: [], fundFlowStatus: "NO_RELIABLE_SOURCE",
+        effectiveTradeDate: null, dataStatus: "NO_DATA", closeConfirmed: false, assetAllocation: null }] });
+    const wrapper = mount(MonitorView); await flushPromises();
+    expect(wrapper.text()).toContain("股票型基金"); expect(wrapper.text()).toContain("示例基金公司");
+    expect(wrapper.text()).toContain("同花顺同步"); expect(wrapper.text()).not.toContain("基金份额");
+    expect(wrapper.text()).not.toContain("字典分类"); wrapper.unmount();
+  });
+  it("keeps anonymous cache access and hides config even with stale permission codes", async () => {
+    auth.permissionCodes = ["system:etf-monitor:view"];
+    const wrapper = mount(MonitorView);
+    await flushPromises();
+    expect(wrapper.text()).toContain("尚未启用 ETF 监控");
+    expect(wrapper.text()).not.toContain("配置管理");
+    expect(mocks.initialize).not.toHaveBeenCalled();
+    await wrapper.findAll("button").find((button) => button.text().includes("重新读取快照"))!.trigger("click");
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("initializes routes before offering the same config target in header and empty state", async () => {
+    auth.isAuthenticated = true; auth.permissionCodes = ["system:etf-monitor:view"];
+    const wrapper = mount(MonitorView);
+    await flushPromises();
+    expect(mocks.initialize).toHaveBeenCalledTimes(1);
+    const buttons = wrapper.findAll("button").filter((button) => button.text().includes("配置管理"));
+    expect(buttons).toHaveLength(2);
+    await buttons[1]!.trigger("click");
+    await flushPromises();
+    expect(mocks.push).toHaveBeenCalledWith("/system/etfMonitor");
+    expect(mocks.initialize.mock.invocationCallOrder[1]).toBeLessThan(mocks.push.mock.invocationCallOrder[0]!);
+    wrapper.unmount();
+  });
+
+  it("hides configuration from signed-in users without view permission", async () => {
+    auth.isAuthenticated = true;
+    const wrapper = mount(MonitorView);
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("配置管理");
+    wrapper.unmount();
+  });
+});

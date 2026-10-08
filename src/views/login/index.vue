@@ -11,6 +11,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { getCaptcha } from "@/api/auth";
+import BeianFooter from "@/components/BeianFooter.vue";
 import { useAuthStore } from "@/stores/auth";
 import { usePermissionStore } from "@/stores/permission";
 import type { CaptchaResponse } from "@/types/api";
@@ -103,130 +104,134 @@ onMounted(refreshCaptcha);
 </script>
 
 <template>
-  <main class="login-page">
-    <section class="login-visual" aria-labelledby="product-title">
-      <div class="login-visual__content">
-        <div class="login-brand">
-          <span class="login-brand__mark"><TrendCharts /></span>
-          <span>Vita Stock</span>
+  <div class="login-shell">
+    <main class="login-page">
+      <section class="login-visual" aria-labelledby="product-title">
+        <div class="login-visual__content">
+          <div class="login-brand">
+            <span class="login-brand__mark"><TrendCharts /></span>
+            <span>Vita Stock</span>
+          </div>
+          <p class="login-kicker">SECURITIES DATA OPERATIONS</p>
+          <h1 id="product-title">让每一条证券数据<br />都清晰、可信、可追踪</h1>
+          <p class="login-intro">
+            统一管理数据源、用户权限和服务状态，为后续行情与研究数据工作流提供可靠入口。
+          </p>
+
+          <div class="data-preview" aria-hidden="true">
+            <div class="data-preview__header">
+              <span>数据服务概览</span>
+              <span class="status-dot">服务正常</span>
+            </div>
+            <div class="metric-grid">
+              <div>
+                <small>数据源</small>
+                <strong>AKTools</strong>
+              </div>
+              <div>
+                <small>管理服务</small>
+                <strong>be-vita</strong>
+              </div>
+              <div>
+                <small>权限模式</small>
+                <strong>RBAC</strong>
+              </div>
+            </div>
+            <div class="sparkline">
+              <i v-for="height in [28, 43, 35, 58, 48, 72, 64, 82, 76, 94]" :key="height" :style="{ height: `${height}%` }" />
+            </div>
+          </div>
         </div>
-        <p class="login-kicker">SECURITIES DATA OPERATIONS</p>
-        <h1 id="product-title">让每一条证券数据<br />都清晰、可信、可追踪</h1>
-        <p class="login-intro">
-          统一管理数据源、用户权限和服务状态，为后续行情与研究数据工作流提供可靠入口。
-        </p>
+      </section>
 
-        <div class="data-preview" aria-hidden="true">
-          <div class="data-preview__header">
-            <span>数据服务概览</span>
-            <span class="status-dot">服务正常</span>
-          </div>
-          <div class="metric-grid">
-            <div>
-              <small>数据源</small>
-              <strong>AKTools</strong>
-            </div>
-            <div>
-              <small>管理服务</small>
-              <strong>be-vita</strong>
-            </div>
-            <div>
-              <small>权限模式</small>
-              <strong>RBAC</strong>
-            </div>
-          </div>
-          <div class="sparkline">
-            <i v-for="height in [28, 43, 35, 58, 48, 72, 64, 82, 76, 94]" :key="height" :style="{ height: `${height}%` }" />
-          </div>
-        </div>
-      </div>
-    </section>
+      <section class="login-form-section">
+        <div class="login-card">
+          <div class="login-card__icon"><DataAnalysis /></div>
+          <header>
+            <p>管理端登录</p>
+            <h2>欢迎回来</h2>
+            <span>请输入账号信息完成身份验证</span>
+          </header>
 
-    <section class="login-form-section">
-      <div class="login-card">
-        <div class="login-card__icon"><DataAnalysis /></div>
-        <header>
-          <p>管理端登录</p>
-          <h2>欢迎回来</h2>
-          <span>请输入账号信息完成身份验证</span>
-        </header>
-
-        <el-form
-          ref="formRef"
-          :model="form"
-          :rules="rules"
-          label-position="top"
-          size="large"
-          @submit.prevent="handleSubmit"
-        >
-          <el-form-item label="用户名" prop="userName">
-            <el-input
-              v-model.trim="form.userName"
-              :prefix-icon="User"
-              autocomplete="username"
-              maxlength="32"
-              placeholder="请输入用户名"
-            />
-          </el-form-item>
-          <el-form-item label="密码" prop="password">
-            <el-input
-              v-model="form.password"
-              :prefix-icon="Lock"
-              type="password"
-              show-password
-              autocomplete="current-password"
-              maxlength="64"
-              placeholder="请输入密码"
-            />
-          </el-form-item>
-          <el-form-item label="图形验证码" prop="captchaCode">
-            <div class="captcha-field">
-              <el-input
-                v-model.trim="form.captchaCode"
-                maxlength="8"
-                autocomplete="off"
-                placeholder="输入图片字符"
-              />
-              <button
-                class="captcha-image"
-                type="button"
-                aria-label="刷新图形验证码"
-                :disabled="captchaLoading"
-                @click="refreshCaptcha"
-              >
-                <img
-                  v-if="captchaImage"
-                  :src="captchaImage"
-                  alt="图形验证码，点击刷新"
-                />
-                <el-icon v-else :class="{ 'is-loading': captchaLoading }">
-                  <Refresh />
-                </el-icon>
-              </button>
-            </div>
-          </el-form-item>
-
-          <el-button
-            class="login-submit"
-            type="primary"
-            native-type="submit"
-            :loading="submitting"
+          <el-form
+            ref="formRef"
+            :model="form"
+            :rules="rules"
+            label-position="top"
+            size="large"
+            @submit.prevent="handleSubmit"
           >
-            {{ submitting ? "正在验证…" : "进入管理端" }}
-          </el-button>
-        </el-form>
+            <el-form-item label="用户名" prop="userName">
+              <el-input
+                v-model.trim="form.userName"
+                :prefix-icon="User"
+                autocomplete="username"
+                maxlength="32"
+                placeholder="请输入用户名"
+              />
+            </el-form-item>
+            <el-form-item label="密码" prop="password">
+              <el-input
+                v-model="form.password"
+                :prefix-icon="Lock"
+                type="password"
+                show-password
+                autocomplete="current-password"
+                maxlength="64"
+                placeholder="请输入密码"
+              />
+            </el-form-item>
+            <el-form-item label="图形验证码" prop="captchaCode">
+              <div class="captcha-field">
+                <el-input
+                  v-model.trim="form.captchaCode"
+                  maxlength="8"
+                  autocomplete="off"
+                  placeholder="输入图片字符"
+                />
+                <button
+                  class="captcha-image"
+                  type="button"
+                  aria-label="刷新图形验证码"
+                  :disabled="captchaLoading"
+                  @click="refreshCaptcha"
+                >
+                  <img
+                    v-if="captchaImage"
+                    :src="captchaImage"
+                    alt="图形验证码，点击刷新"
+                  />
+                  <el-icon v-else :class="{ 'is-loading': captchaLoading }">
+                    <Refresh />
+                  </el-icon>
+                </button>
+              </div>
+            </el-form-item>
 
-        <p class="login-security">
-          登录行为将记录用于安全审计，请勿共享管理账号。
-        </p>
-      </div>
-    </section>
-  </main>
+            <el-button
+              class="login-submit"
+              type="primary"
+              native-type="submit"
+              :loading="submitting"
+            >
+              {{ submitting ? "正在验证…" : "进入管理端" }}
+            </el-button>
+          </el-form>
+
+          <p class="login-security">
+            登录行为将记录用于安全审计，请勿共享管理账号。
+          </p>
+        </div>
+        <BeianFooter class="login-registration" />
+      </section>
+    </main>
+  </div>
 </template>
 
 <style scoped>
+.login-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--color-surface); }
 .login-page {
-  min-height: 100vh;
+  flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
   background: var(--color-surface);
@@ -234,7 +239,7 @@ onMounted(refreshCaptcha);
 
 .login-visual {
   position: relative;
-  min-height: 100vh;
+  min-height: 0;
   display: grid;
   place-items: center;
   padding: 64px;
@@ -381,12 +386,16 @@ onMounted(refreshCaptcha);
 }
 
 .login-form-section {
-  min-height: 100vh;
+  min-height: 0;
   display: grid;
+  grid-template-rows: minmax(min-content, 1fr) auto;
   place-items: center;
-  padding: 48px;
+  gap: 24px;
+  padding: 48px 48px 16px;
   background: #fbfdff;
 }
+
+.login-registration { width: 100%; padding-inline: 0; }
 
 .login-card {
   width: min(430px, 100%);

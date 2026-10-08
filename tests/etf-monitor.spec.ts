@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { applyEtfMonitorPatch, parseEtfMonitorDashboard } from "@/utils/etfMonitor";
+import { etfProfileSource, etfProfileStatus } from "@/utils/etfProfile";
 
 const quote = {
   source: "SINA_ETF", tradeDate: "2026-09-30", price: 2.5, change: 0.01,
@@ -20,6 +21,42 @@ const item = {
 };
 
 describe("ETF monitor public contract", () => {
+  it("labels legacy sources without exposing internal enum names or claiming THS success", () => {
+    expect(etfProfileSource("LEGACY_EXCHANGE")).toBe("历史交易所资料");
+    expect(etfProfileSource("UNKNOWN_OLD_SOURCE")).toBe("历史资料");
+    expect(etfProfileSource(null)).toBe("—");
+    expect(etfProfileSource("THS")).toBe("同花顺");
+    for (const source of ["LEGACY_EXCHANGE", "UNKNOWN_OLD_SOURCE", null]) {
+      expect(etfProfileStatus({ source, updatedAt: "2026-10-03T10:00:00+08:00" })).toContain("历史同步");
+    }
+  });
+  it("accepts old profiles with null new fields and labels their source as historical", () => {
+    const parsed = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", xqEnabled: false,
+      tradeDate: "2026-09-30", etfs: [{ ...item, profile: { ...item.profile, updatedAt: "2026-09-30T10:00:00+08:00" } }] });
+    const profile = parsed.etfs[0]!.profile;
+    expect(profile.fullName).toBeNull(); expect(profile.fundType).toBeNull();
+    expect(profile.source).toBeNull(); expect(profile.establishedDate).toBeNull();
+    expect(etfProfileStatus(profile)).toContain("历史同步");
+    expect(etfProfileStatus({ source: "THS", updatedAt: null })).toBe("资料缺失");
+    expect(etfProfileStatus({ source: "THS", updatedAt: "invalid" })).toBe("资料缺失");
+  });
+
+  it("keeps THS fields distinct and merges full profile patches with XQ off", () => {
+    const profile = { ...item.profile, source: "THS", fullName: "示例基金全称", fundType: "股票型",
+      investmentType: "被动指数型", fundManager: "基金经理", manager: "基金公司",
+      establishedDate: "2020-01-02", performanceBenchmark: "沪深300收益率",
+      updatedAt: "2026-09-30T10:00:00+08:00", listingDate: "2020-02-03", shareCount: 100 };
+    const current = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", xqEnabled: false,
+      tradeDate: "2026-09-30", etfs: [{ ...item, profile }] });
+    expect(current.etfs[0]!.profile).toMatchObject({ source: "THS", establishedDate: "2020-01-02",
+      listingDate: null, shareCount: null, fundType: "股票型", etfType: null, trackingIndexCode: null });
+    expect(etfProfileStatus(current.etfs[0]!.profile)).toContain("同花顺同步");
+    const next = applyEtfMonitorPatch(current, { baseStateId: "a", stateId: "b", etfs: [{ ...item, profile }] });
+    if (next === "duplicate") throw new Error("expected new state");
+    expect(next.etfs[0]!.profile.fundManager).toBe("基金经理");
+    expect(next.etfs[0]!.profile.manager).toBe("基金公司");
+    expect(next.etfs[0]!.quote?.source).toBe("SINA_ETF");
+  });
   it("retains Sina quotes with XQ off and does not invent fund flow", () => {
     const dashboard = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: null,
       xqEnabled: false, tradeDate: "2026-09-30", etfs: [item] });

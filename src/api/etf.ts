@@ -1,4 +1,5 @@
 import type { PageResponse } from "@/types/api";
+import type { MonitorRefreshResult } from "@/types/refresh";
 import type {
   EtfAssetAllocation, EtfDictionaryQuery, EtfDictionaryRow, EtfMonitorConfig, EtfMonitorDashboard,
   EtfProfileDetail, EtfProfileQuery, EtfProfileRow, IndexConfig,
@@ -7,6 +8,11 @@ import { PUBLIC_API_BASE_URL, request } from "@/utils/request";
 import { parseEtfMonitorDashboard } from "@/utils/etfMonitor";
 
 const silent = { silentError: true } as const;
+
+export function refreshEtfMonitor(): Promise<MonitorRefreshResult> {
+  return request({ url: "/system/etfMonitor/refresh", method: "POST", data: {}, timeout: 300000,
+    timeoutMessage: "整体刷新请求超时，结果未确认，请核实服务端结果；未自动重试", ...silent });
+}
 
 export async function getEtfMonitorDashboard(): Promise<EtfMonitorDashboard> {
   const content = await request<unknown>({ url: "/etf-monitor/v1/dashboard", method: "GET",
@@ -26,8 +32,16 @@ export async function getEtfDictionaryPage(params: EtfDictionaryQuery): Promise<
   return { ...page, list: page.list.map((item) => ({ ...item, syncedAt: shanghaiOffset(item.syncedAt) })) };
 }
 
-export function getEtfProfilePage(params: EtfProfileQuery): Promise<PageResponse<EtfProfileRow>> {
-  return request({ url: "/system/etfProfile/page", method: "GET", params, ...silent });
+export async function getEtfProfilePage(params: EtfProfileQuery): Promise<PageResponse<EtfProfileRow>> {
+  const result = await request<PageResponse<EtfProfileRow>>({ url: "/system/etfProfile/page", method: "GET", params, ...silent });
+  return { ...result, list: result.list.map((row) => ({ ...row, ...coreProfileFields(row), updatedAt: shanghaiOffset(row.updatedAt) })) };
+}
+
+function coreProfileFields(profile: Partial<EtfProfileRow> | null) {
+  return { fullName: profile?.fullName ?? null, fundType: profile?.fundType ?? null,
+    investmentType: profile?.investmentType ?? null, fundManager: profile?.fundManager ?? null,
+    establishedDate: profile?.establishedDate ?? null, performanceBenchmark: profile?.performanceBenchmark ?? null,
+    source: profile?.source ?? null };
 }
 
 interface EtfProfileDetailResponse {
@@ -41,16 +55,17 @@ export async function getEtfProfileDetail(symbol: string): Promise<EtfProfileDet
     url: "/system/etfProfile/detail", method: "GET", params: { symbol }, ...silent,
   });
   const profile = result.profile;
-  return { ...result.dictionary,
+  return { ...result.dictionary, ...coreProfileFields(profile),
     exchange: profile?.exchange ?? result.dictionary.exchange,
     etfType: profile?.etfType ?? result.dictionary.etfType,
-    listingStatus: profile?.listingStatus ?? result.dictionary.listingStatus,
-    listingDate: profile?.listingDate ?? result.dictionary.listingDate,
+    listingStatus: profile?.source === "THS" ? null : profile?.listingStatus ?? null,
+    listingDate: profile?.source === "THS" ? null : profile?.listingDate ?? null,
     manager: profile?.manager ?? null, custodian: profile?.custodian ?? null,
-    shareCount: profile?.shareCount ?? null, shareDate: profile?.shareDate ?? null,
-    trackingIndexCode: profile?.trackingIndexCode ?? result.dictionary.trackingIndexCode,
-    trackingIndexName: profile?.trackingIndexName ?? result.dictionary.trackingIndexName,
-    updatedAt: shanghaiOffset(profile?.updatedAt ?? profile?.profileUpdatedAt ?? result.dictionary.syncedAt),
+    shareCount: profile?.source === "THS" ? null : profile?.shareCount ?? null,
+    shareDate: profile?.source === "THS" ? null : profile?.shareDate ?? null,
+    trackingIndexCode: profile?.trackingIndexCode ?? null,
+    trackingIndexName: profile?.trackingIndexName ?? null,
+    updatedAt: shanghaiOffset(profile?.updatedAt ?? profile?.profileUpdatedAt),
     assetAllocation: result.assetAllocation,
   };
 }

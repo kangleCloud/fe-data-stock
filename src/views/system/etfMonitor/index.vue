@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, Plus, Search, Sort } from "@element-plus/icons-vue";
+import { ArrowDown, ArrowUp, Plus, Refresh, Search, Sort } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onMounted, ref } from "vue";
 
-import { getEtfDictionaryPage, getEtfMonitorConfig, setEtfEnabled, sortEtfMonitor } from "@/api/etf";
+import { getEtfDictionaryPage, getEtfMonitorConfig, refreshEtfMonitor, setEtfEnabled, sortEtfMonitor } from "@/api/etf";
 import { useAuthStore } from "@/stores/auth";
 import type { EtfDictionaryRow, EtfMonitorConfig } from "@/types/etf";
+import type { MonitorRefreshResult } from "@/types/refresh";
+import { refreshFailure, refreshFeedback, refreshSummary } from "@/utils/monitorRefresh";
 import { canAccess } from "@/utils/permission";
 import { moveEnabledSymbol } from "@/utils/stockManagement";
 import "@/styles/stockData.css";
@@ -13,6 +15,8 @@ import "@/styles/stockData.css";
 const LIMIT = 10;
 const auth = useAuthStore();
 const canManage = computed(() => canAccess(auth.permissionCodes, "system:etf-monitor:update"));
+const canRefresh = computed(() => canAccess(auth.permissionCodes, "system:etf-monitor:refresh"));
+const refreshResult = ref<MonitorRefreshResult | null>(null);
 const canSearchDictionary = computed(() => canAccess(auth.permissionCodes, "system:etf-dictionary:view"));
 const rows = ref<EtfMonitorConfig[]>([]);
 const loaded = ref(false);
@@ -83,6 +87,22 @@ async function saveSort(): Promise<void> {
   finally { submitting.value = ""; }
 }
 
+async function refreshAll(): Promise<void> {
+  if (!canRefresh.value || submitting.value) return;
+  submitting.value = "REFRESH";
+  refreshResult.value = null;
+  try {
+    const result = await refreshEtfMonitor();
+    refreshResult.value = result;
+    const feedback = refreshFeedback(result);
+    ElMessage[feedback.type](feedback.message);
+  } catch (cause) {
+    refreshResult.value = refreshFailure(cause);
+    const feedback = refreshFeedback(refreshResult.value);
+    ElMessage[feedback.type](feedback.message);
+  } finally { submitting.value = ""; }
+}
+
 onMounted(load);
 </script>
 
@@ -90,9 +110,10 @@ onMounted(load);
   <section class="management-page stock-admin-page" aria-labelledby="etf-monitor-admin-title">
     <header class="stock-page-heading">
       <div><h1 id="etf-monitor-admin-title" class="page-title">ETF 监控配置</h1><p class="page-description">ETF 与个股各自最多启用 10 只，完整清单独立排序。</p></div>
-      <div class="stock-page-actions"><el-button v-if="canManage && canSearchDictionary" type="primary" :icon="Plus" @click="openPicker">从字典选择</el-button><el-button v-if="canManage" :icon="Sort" :disabled="!loaded || rows.length < 2" @click="openSorter">调整顺序</el-button></div>
+      <div class="stock-page-actions"><el-button v-if="canManage && canSearchDictionary" type="primary" :icon="Plus" @click="openPicker">从字典选择</el-button><el-button v-if="canManage" :icon="Sort" :disabled="!loaded || rows.length < 2" @click="openSorter">调整顺序</el-button><el-button v-if="canRefresh" :icon="Refresh" :disabled="Boolean(submitting)" :loading="submitting === 'REFRESH'" @click="refreshAll">整体刷新</el-button></div>
     </header>
     <p class="stock-info">已启用 {{ loaded ? rows.length : "—" }} / {{ LIMIT }} 只。普通页面刷新只读取缓存；ETF 新浪行情与雪球资料分别按来源权限展示。</p>
+    <p v-if="refreshResult" class="stock-info" role="status">{{ refreshSummary(refreshResult) }}</p>
     <div class="page-panel stock-table-panel">
       <div class="stock-table-toolbar"><div><strong>完整启用清单</strong><span>共 {{ rows.length }} 条</span></div></div>
       <p v-if="error" class="stock-error" role="alert">{{ error }}</p>
