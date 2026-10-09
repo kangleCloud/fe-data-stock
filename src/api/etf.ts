@@ -9,6 +9,12 @@ import { parseEtfMonitorDashboard } from "@/utils/etfMonitor";
 
 const silent = { silentError: true } as const;
 
+export function refreshEtfAllocation(symbol: string, reportPeriod: string): Promise<MonitorRefreshResult> {
+  return request({ url: "/system/etfMonitor/allocation/refresh", method: "POST",
+    params: { symbol, reportPeriod }, timeout: 120000,
+    timeoutMessage: "资产配置同步请求超时，结果未确认，请核实服务端结果；未自动重试", ...silent });
+}
+
 export function refreshEtfMonitor(): Promise<MonitorRefreshResult> {
   return request({ url: "/system/etfMonitor/refresh", method: "POST", data: {}, timeout: 300000,
     timeoutMessage: "整体刷新请求超时，结果未确认，请核实服务端结果；未自动重试", ...silent });

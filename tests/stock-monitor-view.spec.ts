@@ -49,6 +49,17 @@ beforeEach(() => {
 afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("public stock monitor view", () => {
+  it.each(["全市场资金采集失败：分页重复", "资源不足，正在冷却", "有效日期暂无资金采样"])("shows the absent-fund cause without removing prices: %s", async (message) => {
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "a", xqEnabled: true,
+      tradeDate: "2026-09-27", stocks: [{ ...stock, fundFlowStatus: "NO_DATA", fundFlowMessage: message, fundSeries: [] }] });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises(); expect(wrapper.text()).toContain(message);
+      expect(wrapper.text()).toContain("价格 · 元10.20"); expect(wrapper.text()).toContain("2026-09-27");
+      expect(wrapper.findAllComponents({ name: "BaseChart" })).toHaveLength(1);
+      expect(wrapper.text()).not.toContain("资金采样可用");
+    } finally { wrapper.unmount(); }
+  });
   it("keeps page two and configuration order during per-stock completion bursts", async () => {
     const items = Array.from({ length: 5 }, (_, index) => ({ ...stock,
       symbol: `SH60000${index}`, code: `60000${index}`, name: `股票${index + 1}`, sortOrder: index + 1 }));

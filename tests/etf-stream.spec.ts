@@ -12,21 +12,23 @@ const item = { symbol: "SH510050", code: "510050", name: "50ETF", market: "SH", 
     trackingIndexName: null, updatedAt: null }, quote: null, series: [], fundSeries: [],
   fundFlowStatus: "NO_RELIABLE_SOURCE", effectiveTradeDate: null, dataStatus: "NO_DATA",
   closeConfirmed: false, assetAllocation: null };
-const Probe = { setup: useEtfMonitorStream, template: "<div>{{ snapshot?.stateId }} {{ snapshot?.etfs.length }} {{ snapshot?.etfs[0]?.profile.source }} {{ snapshot?.etfs[0]?.profile.establishedDate }} {{ loadError }}</div>" };
+const Probe = { setup: useEtfMonitorStream, template: "<div>{{ snapshot?.stateId }} {{ snapshot?.etfs.length }} {{ snapshot?.etfs[0]?.profile.source }} {{ snapshot?.etfs[0]?.profile.establishedDate }} {{ snapshot?.etfs[0]?.assetAllocationStatus }} {{ snapshot?.etfs[0]?.assetAllocation?.collectedAt }} {{ loadError }}</div>" };
 
 afterEach(() => { httpClient.defaults.adapter = originalAdapter; vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("ETF configuration stream resync", () => {
-  it.each(["patch", "resync", "profile-resync"])("re-GETs full state on %s and keeps reads timer-free", async (event) => {
+  it.each(["patch", "resync", "profile-resync", "allocation-resync"])("re-GETs full state on %s and keeps reads timer-free", async (event) => {
     vi.useFakeTimers();
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     let gets = 0;
     httpClient.defaults.adapter = async (config) => {
       gets++;
-      const content = { schemaVersion: 1, stateId: gets === 1 ? "q1" : "q2", xqEnabled: false,
+      const content = { schemaVersion: 1, stateId: gets === 1 ? "q1" : "q2", xqEnabled: event === "allocation-resync",
         tradeDate: null, etfs: gets === 1 ? [item] : event === "profile-resync" ? [{ ...item,
           profile: { ...item.profile, source: "THS", establishedDate: "2020-01-02",
-            fullName: "示例基金全称", updatedAt: "2026-10-03T10:00:00+08:00" } }] : [] };
+            fullName: "示例基金全称", updatedAt: "2026-10-03T10:00:00+08:00" } }] : event === "allocation-resync" ? [{ ...item,
+          assetAllocationStatus: "AVAILABLE", assetAllocation: { source: "XQ_DANJUAN", requestedReportPeriod: "2026-06-30",
+            collectedAt: "2026-10-09T10:00:00+08:00", categories: [{ category: "股票", percent: 90 }] } }] : [] };
       return { data: { success: true, content }, status: 200, statusText: "OK", headers: new AxiosHeaders(), config };
     };
     let streams = 0;
@@ -46,7 +48,8 @@ describe("ETF configuration stream resync", () => {
       await flushPromises(); expect(gets).toBe(1);
       await vi.advanceTimersByTimeAsync(1000); await flushPromises();
       expect(gets).toBe(2);
-      expect(wrapper.text()).toContain(event === "profile-resync" ? "q2 1 THS 2020-01-02" : "q2 0");
+      expect(wrapper.text()).toContain(event === "profile-resync" ? "q2 1 THS 2020-01-02" : event === "allocation-resync" ? "q2 1" : "q2 0");
+      if (event === "allocation-resync") expect(wrapper.text()).toContain("AVAILABLE 2026-10-09T10:00:00+08:00");
       expect(fetch.mock.calls[0]?.[0]).toBe("/openapi/api/etf-monitor/v1/stream");
       await vi.advanceTimersByTimeAsync(10000); expect(gets).toBe(2);
     } finally { wrapper.unmount(); }

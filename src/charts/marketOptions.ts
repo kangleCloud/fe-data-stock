@@ -17,7 +17,7 @@ const riseColor = "#F05252";
 const fallColor = "#22A06B";
 const primaryColor = "#3B82F6";
 
-export function buildStockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreOption {
+function stockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreOption {
   const segments = splitPriceSeries(points);
   const formatTooltipPrice = (value: unknown): string => {
     const price = Array.isArray(value) ? value[1] : value;
@@ -53,7 +53,8 @@ export function buildStockPriceOption(points: StockPricePoint[], unit = "元"): 
       axisLabel: { color: textColor, formatter: (value: number) => formatPlainNumber(value) },
       splitLine: { lineStyle: { color: splitColor } },
     },
-    series: segments.map((segment) => ({
+    series: segments.map((segment, index) => ({
+      id: `segment-${index}`,
       name: unit === "点" ? "指数点位" : "采样价格",
       type: "line",
       data: segment.map((point) => [point.time, point.price]),
@@ -84,7 +85,7 @@ function amountYuan(value: number | null): string {
   return value === null ? "—" : `${formatAmount(value)}元`;
 }
 
-export function buildSectorTreemapOption(items: SnapshotSectorItem[], lastSuccessAt: string | null = null): EChartsCoreOption {
+function sectorTreemapOption(items: SnapshotSectorItem[], lastSuccessAt: string | null = null): EChartsCoreOption {
   const data = items.filter((item) => item.companyCount !== null && item.companyCount > 0)
     .map((item) => ({
       name: item.name,
@@ -115,7 +116,7 @@ export function buildSectorTreemapOption(items: SnapshotSectorItem[], lastSucces
         row("采集时间", collectedTime(lastSuccessAt)),
       ].join("");
       } },
-    series: [{
+    series: [{ id: "sector-treemap",
       type: "treemap", data, roam: false, nodeClick: false,
       breadcrumb: { show: false },
       label: { show: true, color: "#fff", fontSize: 12,
@@ -126,7 +127,7 @@ export function buildSectorTreemapOption(items: SnapshotSectorItem[], lastSucces
   };
 }
 
-export function buildIntradayFundOption(points: SnapshotFundPoint[]): EChartsCoreOption {
+function intradayFundOption(points: SnapshotFundPoint[]): EChartsCoreOption {
   const segments = splitFundSeries(points);
   return {
     aria: { enabled: true },
@@ -142,7 +143,8 @@ export function buildIntradayFundOption(points: SnapshotFundPoint[]): EChartsCor
     yAxis: { type: "value", scale: true, splitNumber: 4,
       axisLabel: { color: textColor, formatter: (value: number) => formatAmount(value) },
       splitLine: { lineStyle: { color: splitColor } } },
-    series: segments.map((segment) => ({
+    series: segments.map((segment, index) => ({
+      id: `segment-${index}`,
       name: "全市场资金净额", type: "line",
       data: segment.map((point) => [point.collectedAt, point.netAmount]),
       showSymbol: segment.length === 1, symbolSize: 5, connectNulls: false,
@@ -151,7 +153,7 @@ export function buildIntradayFundOption(points: SnapshotFundPoint[]): EChartsCor
   };
 }
 
-export function buildStockFundOption(points: StockFundPoint[]): EChartsCoreOption {
+function stockFundOption(points: StockFundPoint[]): EChartsCoreOption {
   const segments = splitStockFundSeries(points);
   return {
     aria: { enabled: true },
@@ -173,6 +175,7 @@ export function buildStockFundOption(points: StockFundPoint[]): EChartsCoreOptio
       seriesIndex: segments.map((_, index) => index),
       pieces: [{ gt: 0, color: riseColor }, { lte: 0, color: fallColor }] },
     series: segments.map((segment, index) => ({
+      id: `segment-${index}`,
       name: "个股资金净额", type: "line",
       data: segment.map((point) => [point.collectedAt, point.netAmount]),
       showSymbol: true, symbolSize: 5, connectNulls: false,
@@ -181,4 +184,29 @@ export function buildStockFundOption(points: StockFundPoint[]): EChartsCoreOptio
         lineStyle: { color: axisColor, type: "dashed", width: 1.5 }, data: [{ yAxis: 0 }] } } : {}),
     })),
   };
+}
+
+const optionsByData = new WeakMap<object, Map<string, EChartsCoreOption>>();
+function cachedOption(data: object, key: string, build: () => EChartsCoreOption): EChartsCoreOption {
+  let cache = optionsByData.get(data);
+  if (!cache) { cache = new Map(); optionsByData.set(data, cache); }
+  let option = cache.get(key);
+  if (!option) { option = build(); cache.set(key, option); }
+  return option;
+}
+
+export function buildStockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreOption {
+  return cachedOption(points, `price-${unit}`, () => stockPriceOption(points, unit));
+}
+export function buildCollectedPriceOption(points: Array<{ collectedAt: string; price: number }>, unit = "元"): EChartsCoreOption {
+  return cachedOption(points, `collected-price-${unit}`, () => stockPriceOption(points.map((point) => ({ time: point.collectedAt, price: point.price })), unit));
+}
+export function buildSectorTreemapOption(items: SnapshotSectorItem[], lastSuccessAt: string | null = null): EChartsCoreOption {
+  return cachedOption(items, `treemap-${lastSuccessAt}`, () => sectorTreemapOption(items, lastSuccessAt));
+}
+export function buildIntradayFundOption(points: SnapshotFundPoint[]): EChartsCoreOption {
+  return cachedOption(points, "intraday-fund", () => intradayFundOption(points));
+}
+export function buildStockFundOption(points: StockFundPoint[]): EChartsCoreOption {
+  return cachedOption(points, "stock-fund", () => stockFundOption(points));
 }

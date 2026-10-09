@@ -136,7 +136,7 @@ describe("market snapshot versions and SSE", () => {
     try {
       await flushPromises();
       expect(gets).toBe(1);
-      expect(wrapper.text()).toContain("版本不一致");
+      expect(wrapper.text()).not.toContain("版本不一致");
       await vi.advanceTimersByTimeAsync(1_000);
       await flushPromises();
       expect(gets).toBe(2);

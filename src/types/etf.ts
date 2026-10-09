@@ -69,6 +69,7 @@ export interface EtfMonitorItem extends EtfSymbol {
   dataStatus: Exclude<StockDataStatus, "DISABLED">;
   closeConfirmed: boolean;
   assetAllocation: EtfAssetAllocation | null;
+  assetAllocationStatus: "AVAILABLE" | "NOT_SYNCED" | "DISABLED" | null;
 }
 
 export interface EtfMonitorDashboard {

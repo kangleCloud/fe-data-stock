@@ -2,7 +2,7 @@
 import { Refresh } from "@element-plus/icons-vue";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
-import { buildIntradayFundOption, buildSectorTreemapOption, buildStockPriceOption } from "@/charts/marketOptions";
+import { buildIntradayFundOption, buildSectorTreemapOption, buildCollectedPriceOption } from "@/charts/marketOptions";
 import BaseChart from "@/components/market/BaseChart.vue";
 import MarketPanel from "@/components/market/MarketPanel.vue";
 import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
@@ -71,7 +71,7 @@ const coreIndices = computed(() => snapshot.value?.modules.coreIndices?.data?.it
 function indexRole(code: string): string { return coreIndexRoles.find((item) => item.code === code.toLowerCase())?.role ?? "核心指数"; }
 
 function indexOption(item: SnapshotCoreIndex) {
-  return buildStockPriceOption(item.series.map((point) => ({ time: point.collectedAt, price: point.price })), "点");
+  return buildCollectedPriceOption(item.series, "点");
 }
 
 const sectorData = computed(() => sectorModule(sectorKind.value)?.data);
@@ -114,8 +114,10 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
       </div>
     </header>
 
-    <p v-if="loadError" class="snapshot-alert" role="alert">
-      {{ snapshot ? "读取失败，仍显示上次取得的快照，更新可能延迟。" : "快照暂不可用。" }} {{ loadError }}
+    <p class="snapshot-alert snapshot-connection-status" :class="{ 'has-error': loadError }" :role="loadError ? 'alert' : 'status'">
+      <template v-if="loadError">
+        {{ snapshot ? "读取失败，仍显示上次取得的快照，更新可能延迟。" : "快照暂不可用。" }} {{ loadError }}
+      </template><span v-else>{{ loading ? "正在读取快照…" : "" }}</span>
     </p>
     <p v-if="!snapshot && !loading" class="snapshot-empty">暂无市场快照。请等待采集或重新读取。</p>
 
@@ -146,8 +148,8 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
         <span>{{ snapshotDateLabel(moduleForStatus(entry.key)) }}</span>
         <span>采集时间 {{ shanghaiTime(moduleForStatus(entry.key)?.lastSuccessAt) }}</span>
         <b>{{ moduleForStatus(entry.key)?.status ?? "ERROR" }} · {{ snapshotStatusLabel(moduleForStatus(entry.key)) }}</b>
-        <b v-if="snapshotDelayLevel(moduleForStatus(entry.key), now) === 'delayed'">采集延迟超过 120 秒</b>
-        <b v-if="snapshotDelayLevel(moduleForStatus(entry.key), now) === 'severe'">采集显著延迟超过 300 秒</b>
+        <b class="snapshot-delay-line">{{ snapshotDelayLevel(moduleForStatus(entry.key), now) === "severe" ? "采集显著延迟超过 300 秒" : snapshotDelayLevel(moduleForStatus(entry.key), now) === "delayed" ? "采集延迟超过 120 秒" : "" }}</b>
+        <span class="snapshot-module-message">{{ moduleForStatus(entry.key)?.message || "" }}</span>
       </div>
     </div>
 
@@ -282,6 +284,11 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 </template>
 
 <style scoped>
+.snapshot-connection-status { height: 56px; box-sizing: border-box; overflow: auto; }
+.snapshot-connection-status:not(.has-error) { color: var(--market-muted); background: transparent; border-color: transparent; }
+.snapshot-module-status { grid-template-rows: repeat(6, minmax(18px, auto)) 36px; }
+.snapshot-delay-line { min-height: 18px; }
+.snapshot-module-message { height: 36px; overflow: auto; }
 .snapshot-dashboard { display: grid; gap: 20px; }
 .snapshot-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 14px 2px 4px; }
 .snapshot-kicker { margin: 0 0 5px; color: var(--market-primary); font-size: 12px; font-weight: 700; letter-spacing: .08em; }

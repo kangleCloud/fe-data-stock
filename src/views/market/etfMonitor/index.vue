@@ -4,7 +4,7 @@ import { ElMessage } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { buildStockPriceOption } from "@/charts/marketOptions";
+import { buildCollectedPriceOption } from "@/charts/marketOptions";
 import BaseChart from "@/components/market/BaseChart.vue";
 import { useEtfMonitorStream } from "@/composables/useEtfMonitorStream";
 import { useAuthStore } from "@/stores/auth";
@@ -13,6 +13,7 @@ import { canAccess } from "@/utils/permission";
 import type { EtfMonitorItem } from "@/types/etf";
 import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
 import { etfProfileStatus } from "@/utils/etfProfile";
+import { etfAllocationMessage } from "@/utils/etfMonitor";
 import { shanghaiToday } from "@/utils/stockMonitor";
 
 const PAGE_SIZE = 4;
@@ -82,7 +83,7 @@ function locate(): void {
 }
 
 function priceOption(item: EtfMonitorItem) {
-  return buildStockPriceOption(item.series.map((point) => ({ time: point.collectedAt, price: point.price })));
+  return buildCollectedPriceOption(item.series);
 }
 </script>
 
@@ -100,7 +101,7 @@ function priceOption(item: EtfMonitorItem) {
     </header>
     <p class="etf-notice">行情无可靠源时间，价格曲线横轴和卡片时间均为实际采集时间；历史行情不代表已确认收盘。</p>
     <p v-if="dashboard && !dashboard.xqEnabled" class="etf-notice">雪球资料采集关闭，资产配置不公开；新浪 ETF 行情仍可查看。</p>
-    <p v-if="loadError" class="etf-error" role="alert">{{ dashboard ? "保留上次快照，更新可能延迟：" : "ETF 快照不可用：" }}{{ loadError }}</p>
+    <p class="etf-error stream-status-slot" :class="{ 'has-error': loadError }" role="alert"><template v-if="loadError">{{ dashboard ? "保留上次快照，更新可能延迟：" : "ETF 快照不可用：" }}{{ loadError }}</template></p>
     <div v-if="loading && !dashboard" class="etf-empty">正在读取 ETF 快照…</div>
     <div v-else-if="!etfs.length" class="etf-empty"><span>{{ dashboard ? "尚未启用 ETF 监控" : "暂无 ETF 监控快照" }}</span><el-button v-if="canViewConfig" :icon="Setting" :loading="configOpening" @click="openConfig">配置管理</el-button></div>
     <div v-else class="etf-grid">
@@ -125,14 +126,14 @@ function priceOption(item: EtfMonitorItem) {
           <p v-else>暂无实际价格采样点</p>
           <details v-if="item.series.length"><summary>查看价格采样表</summary><div class="etf-table-scroll"><table><thead><tr><th>采集时间</th><th>交易价格 · 元</th></tr></thead><tbody><tr v-for="point in item.series" :key="point.collectedAt"><td>{{ shanghaiTime(point.collectedAt) }}</td><td>{{ formatPlainNumber(point.price) }}</td></tr></tbody></table></div></details>
         </div>
-        <div class="etf-section"><h3>ETF 资金净流入走势</h3><p>暂无可靠数据。当前没有已验证的非东方财富 ETF 资金净流入来源。</p></div>
+        <div class="etf-section"><h3>ETF 资金净流入走势</h3><p>资金流暂未支持，暂无可靠非东财来源。</p></div>
         <div class="etf-section">
           <h3>资产配置 <small>类别占比，不是成分股持仓</small></h3>
-          <template v-if="item.assetAllocation">
+          <p class="etf-allocation-status" role="status">{{ etfAllocationMessage(item) }}</p>
+          <template v-if="item.assetAllocation && item.assetAllocationStatus !== 'DISABLED'">
             <p>请求报告期 {{ item.assetAllocation.requestedReportPeriod }} · 来源 雪球基金 · 采集 {{ shanghaiTime(item.assetAllocation.collectedAt) }}</p>
             <div class="etf-table-scroll"><table><thead><tr><th>资产类别</th><th>占比</th></tr></thead><tbody><tr v-for="category in item.assetAllocation.categories" :key="category.category"><td>{{ category.category }}</td><td>{{ formatPercent(category.percent) }}</td></tr></tbody></table></div>
           </template>
-          <p v-else>{{ dashboard?.xqEnabled ? "暂无已核实的资产配置报告" : "雪球采集关闭，资产配置暂不公开" }}</p>
         </div>
         <footer>行情来源 AKShare / 新浪 · {{ etfProfileStatus(item.profile) }} · 资料采集 {{ shanghaiTime(item.profile.updatedAt) }} · {{ item.closeConfirmed ? "收盘已确认" : "收盘未确认" }}</footer>
       </section>
@@ -142,6 +143,9 @@ function priceOption(item: EtfMonitorItem) {
 </template>
 
 <style scoped>
+.etf-allocation-status { height: 40px; overflow: auto; }
+.stream-status-slot { height: 56px; box-sizing: border-box; overflow: auto; }
+.stream-status-slot:not(.has-error) { visibility: hidden; }
 .etf-monitor-page { display: grid; gap: 14px; color: var(--market-text); }
 .etf-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .etf-heading p { margin: 0 0 4px; color: var(--market-primary); font-size: 11px; font-weight: 700; letter-spacing: .12em; }

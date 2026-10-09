@@ -1,6 +1,7 @@
 import { onBeforeUnmount, onMounted, shallowRef, ref } from "vue";
 
-import { requestStream } from "@/utils/request";
+import { ApiError, requestStream, StreamResponseError } from "@/utils/request";
+import { shareSnapshot } from "@/utils/snapshotSharing";
 import { readEventStream } from "@/utils/sse";
 
 const RETRY_DELAYS = [1_000, 2_000, 5_000, 10_000, 15_000];
@@ -31,10 +32,41 @@ export function useSnapshotSse<T>(options: SnapshotSseOptions<T>) {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let resolveDelay: (() => void) | null = null;
   let getTask: Promise<T> | null = null;
+  let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  let pendingError = "";
+  let deniedGeneration: number | null = null;
+
+  const denied = (error: unknown): boolean => error instanceof ApiError && (
+    [401, 403].includes(error.code ?? 0) ||
+    error instanceof StreamResponseError && [401, 403].includes(error.httpStatus)
+  );
 
   const active = (current: number): boolean => mounted && generation === current && document.visibilityState === "visible";
 
+  function clearRecovery(): void {
+    if (recoveryTimer) clearTimeout(recoveryTimer);
+    recoveryTimer = null;
+    pendingError = "";
+    loadError.value = "";
+  }
+
+  function reportError(current: number, message: string, error?: unknown): void {
+    if (!active(current)) return;
+    pendingError = message;
+    if (!snapshot.value || error instanceof StreamResponseError || error instanceof ApiError && [401, 403].includes(error.code ?? 0)) {
+      if (recoveryTimer) clearTimeout(recoveryTimer);
+      recoveryTimer = null;
+      loadError.value = message;
+    } else if (loadError.value) loadError.value = message;
+    else if (!recoveryTimer) recoveryTimer = setTimeout(() => {
+      recoveryTimer = null;
+      if (active(current)) loadError.value = pendingError;
+    }, 10000);
+  }
+
   function stop(): void {
+    if (recoveryTimer) clearTimeout(recoveryTimer);
+    recoveryTimer = null;
     generation += 1;
     controller?.abort();
     controller = null;
@@ -58,11 +90,11 @@ export function useSnapshotSse<T>(options: SnapshotSseOptions<T>) {
     try {
       const next = await task;
       if (!active(current)) return false;
-      snapshot.value = next;
-      loadError.value = "";
+      snapshot.value = snapshot.value ? shareSnapshot(snapshot.value, next) : next;
       return true;
     } catch (error) {
-      if (active(current)) loadError.value = error instanceof Error ? error.message : `${options.label}读取失败`;
+      if (active(current) && denied(error)) deniedGeneration = current;
+      reportError(current, error instanceof Error ? error.message : `${options.label}读取失败`, error);
       return false;
     } finally {
       if (getTask === task) getTask = null;
@@ -84,7 +116,7 @@ export function useSnapshotSse<T>(options: SnapshotSseOptions<T>) {
   async function lifecycle(current: number, first: Promise<boolean>): Promise<void> {
     let aligned = await first;
     let retries = 0;
-    while (active(current)) {
+    while (active(current) && deniedGeneration !== current) {
       if (!aligned) {
         await delay(RETRY_DELAYS[Math.min(retries++, RETRY_DELAYS.length - 1)]!);
         if (!active(current)) return;
@@ -119,21 +151,22 @@ export function useSnapshotSse<T>(options: SnapshotSseOptions<T>) {
             }
             ready = true;
             retries = 0;
-            loadError.value = "";
+            clearRecovery();
             return;
           }
           if (!ready || !snapshot.value) throw new Error(`${options.label}缺少就绪事件`);
           const next = options.apply(snapshot.value, payload);
           if (next !== "duplicate") {
-            snapshot.value = next;
-            loadError.value = "";
+            snapshot.value = shareSnapshot(snapshot.value, next);
+            clearRecovery();
           }
         }, resetIdle);
-        throw new Error(`${options.label}事件流已断开`);
+        reportError(current, `${options.label}连接已结束，正在重同步`);
       } catch (error) {
         if (!active(current)) return;
-        loadError.value = timedOut ? `${options.label}事件流超时，正在重同步` :
-          error instanceof Error ? error.message : `${options.label}事件流中断`;
+        reportError(current, timedOut ? `${options.label}事件流超时，正在重同步` :
+          error instanceof Error ? error.message : `${options.label}事件流中断`, error);
+        if (denied(error)) return;
       } finally {
         streamController.abort();
         if (controller === streamController) {

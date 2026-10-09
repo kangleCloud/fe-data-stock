@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isHistoricalStock, parseStockMonitorDashboard, splitPriceSeries, splitStockFundSeries } from "@/utils/stockMonitor";
+import { applyStockMonitorPatch, isHistoricalStock, parseStockMonitorDashboard, splitPriceSeries, splitStockFundSeries, stockFundFlowLabel, stockFundFlowMessage } from "@/utils/stockMonitor";
 
 const stock = {
   symbol: "SH600000", code: "600000", name: "浦发银行", market: "SH", sortOrder: 1,
@@ -25,6 +25,38 @@ const stock = {
 };
 
 describe("stock monitor V1", () => {
+  it.each(["AVAILABLE", "STALE", "NO_DATA", "DISABLED"])("consumes fund status %s through GET and SSE without inventing points", (fundFlowStatus) => {
+    const enabled = fundFlowStatus !== "DISABLED";
+    const raw = { ...stock, fundFlowStatus, fundFlowMessage: fundFlowStatus === "STALE" ? "全市场资金分页重复，校验失败" : null,
+      fundSeries: fundFlowStatus === "NO_DATA" ? [] : stock.fundSeries };
+    const dashboard = parseStockMonitorDashboard({ schemaVersion: 1, stateId: "a", xqEnabled: enabled,
+      tradeDate: "2026-09-28", stocks: [raw] });
+    const next = applyStockMonitorPatch(dashboard, { baseStateId: "a", stateId: "b", stocks: [raw] });
+    if (next === "duplicate") throw new Error("expected change");
+    expect(next.stocks[0]?.fundFlowStatus).toBe(fundFlowStatus);
+    expect(next.stocks[0]?.fundFlowMessage).toBe(raw.fundFlowMessage);
+    expect(next.stocks[0]?.series).toEqual(enabled ? stock.series : []);
+    expect(next.stocks[0]?.fundSeries).toEqual(enabled ? raw.fundSeries : []);
+  });
+
+  it.each(["全市场资金采集失败：分页重复", "资源不足，资金源正在冷却", "对应有效日期无资金点"])("explains absent points: %s", (message) => {
+    const parsed = parseStockMonitorDashboard({ schemaVersion: 1, xqEnabled: true, tradeDate: "2026-09-28",
+      stocks: [{ ...stock, fundSeries: [], fundFlowStatus: "NO_DATA", fundFlowMessage: message }] }).stocks[0]!;
+    expect(stockFundFlowMessage(parsed)).toBe(message);
+    expect(parsed.fundSeries).toEqual([]); expect(parsed.series).toEqual(stock.series);
+  });
+
+  it("uses unknown for missing states, distinguishes disabled and stale, and rejects invalid explicit states", () => {
+    const parse = (extra: Record<string, unknown>, xqEnabled = true) => parseStockMonitorDashboard({
+      schemaVersion: 1, xqEnabled, tradeDate: "2026-09-28", stocks: [{ ...stock, ...extra }] }).stocks[0]!;
+    expect(parse({}).fundFlowStatus).toBeNull(); expect(stockFundFlowLabel(parse({}))).toContain("未知");
+    expect(stockFundFlowMessage(parse({ fundFlowStatus: "STALE" }))).toContain("保留");
+    expect(stockFundFlowMessage(parse({ fundFlowStatus: "AVAILABLE" }, false))).toContain("授权关闭");
+    expect(parse({ fundFlowStatus: "STALE" }).fundSeries).toEqual(stock.fundSeries);
+    expect(() => parse({ fundFlowStatus: "FRESH" })).toThrow("资金状态无效");
+    expect(() => parse({ fundFlowMessage: 42 })).toThrow("资金说明无效");
+    expect(() => parse({ fundFlowStatus: "AVAILABLE", fundSeries: [] })).toThrow("缺少有效采样点");
+  });
   it("keeps actual sampling times and labels prior trading days as historical", () => {
     const dashboard = parseStockMonitorDashboard({
       schemaVersion: 1, xqEnabled: true, tradeDate: "2026-09-28", stocks: [stock],

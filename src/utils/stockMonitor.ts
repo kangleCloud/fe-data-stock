@@ -6,6 +6,7 @@ import type {
   StockQuote,
   StockQuoteStatus,
   StockDataStatus,
+  StockFundFlowStatus,
 } from "@/types/market";
 
 const SYMBOL = /^(SH|SZ|BJ)\d{6}$/;
@@ -13,6 +14,7 @@ const TRADE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHANGHAI_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?\+08:00$/;
 const QUOTE_STATUSES = new Set<StockQuoteStatus>(["DISABLED", "FRESH", "STALE", "ERROR"]);
 const DATA_STATUSES = new Set<StockDataStatus>(["CURRENT", "DELAYED", "HISTORICAL", "NO_DATA", "DISABLED"]);
+const FUND_STATUSES = new Set<StockFundFlowStatus>(["AVAILABLE", "STALE", "NO_DATA", "DISABLED"]);
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -72,6 +74,12 @@ function parseQuote(value: unknown): StockQuote {
 
 function parseStock(value: unknown, xqEnabled: boolean): StockMonitorStock {
   const stock = record(value);
+  if (stock.fundFlowStatus != null && !FUND_STATUSES.has(stock.fundFlowStatus as StockFundFlowStatus)) {
+    throw new Error("个股监控资金状态无效");
+  }
+  if (stock.fundFlowMessage != null && typeof stock.fundFlowMessage !== "string") {
+    throw new Error("个股监控资金说明无效");
+  }
   const profile = xqEnabled ? record(stock.profile) : null;
   const symbol = stock.symbol;
   const market = stock.market;
@@ -122,6 +130,9 @@ function parseStock(value: unknown, xqEnabled: boolean): StockMonitorStock {
       outflow: nullableNumber(point.outflow), netAmount: nullableNumber(point.netAmount) };
   });
   const quote = xqEnabled ? parseQuote(stock.quote) : disabledQuote;
+  if (xqEnabled && stock.fundFlowStatus === "AVAILABLE" && !fundSeries.some((point) => point.netAmount !== null)) {
+    throw new Error("个股监控资金可用状态缺少有效采样点");
+  }
   const unavailable = !xqEnabled || dataStatus === "NO_DATA" || dataStatus === "DISABLED";
   if (!unavailable && effectiveTradeDate === null) throw new Error("个股监控有效交易日缺失");
   if (!unavailable && quote.tradeDate !== null && quote.tradeDate !== effectiveTradeDate) {
@@ -145,6 +156,8 @@ function parseStock(value: unknown, xqEnabled: boolean): StockMonitorStock {
     quote: unavailable ? { ...disabledQuote, status: quote.status } : quote,
     series: unavailable ? [] : series,
     fundSeries: unavailable ? [] : fundSeries,
+    fundFlowStatus: xqEnabled ? (stock.fundFlowStatus as StockFundFlowStatus | undefined) ?? null : "DISABLED",
+    fundFlowMessage: (stock.fundFlowMessage as string | null | undefined) ?? null,
   };
 }
 
@@ -206,6 +219,25 @@ export function shanghaiToday(now = new Date()): string {
 
 export function isHistoricalStock(stock: StockMonitorStock, today = shanghaiToday()): boolean {
   return stock.effectiveTradeDate !== null && stock.effectiveTradeDate !== today;
+}
+
+export function stockFundFlowLabel(stock: StockMonitorStock): string {
+  switch (stock.fundFlowStatus) {
+    case "AVAILABLE": return "资金采样可用";
+    case "STALE": return "资金数据已过期";
+    case "NO_DATA": return "该有效日期无资金采样";
+    case "DISABLED": return "个股资金展示授权关闭";
+    default: return "资金状态未知";
+  }
+}
+
+export function stockFundFlowMessage(stock: StockMonitorStock): string {
+  if (stock.fundFlowStatus === "DISABLED") return "雪球采集授权关闭，个股资金数据暂不公开。";
+  if (stock.fundFlowMessage) return stock.fundFlowMessage;
+  if (stock.fundFlowStatus === "STALE") return "当前资金模块不可用，保留最近有效采样；请核对实际采集时间。";
+  if (stock.fundFlowStatus === "NO_DATA") return `有效交易日 ${stock.effectiveTradeDate || "未确定"} 暂无资金采样点；不补零。`;
+  if (stock.fundFlowStatus == null) return "服务未提供资金状态，暂无可确认的资金更新信息。";
+  return "仅展示实际采样，不补点；横轴为实际采集时间。";
 }
 
 export function splitPriceSeries(points: StockPricePoint[], gapMilliseconds = 180_000): StockPricePoint[][] {

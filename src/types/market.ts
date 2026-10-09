@@ -148,6 +148,8 @@ export interface StockFundPoint {
   netAmount: number | null;
 }
 
+export type StockFundFlowStatus = "AVAILABLE" | "STALE" | "NO_DATA" | "DISABLED";
+
 export interface StockMonitorStock extends StockSymbol {
   sortOrder: number;
   effectiveTradeDate: string | null;
@@ -157,6 +159,8 @@ export interface StockMonitorStock extends StockSymbol {
   quote: StockQuote;
   series: StockPricePoint[];
   fundSeries: StockFundPoint[];
+  fundFlowStatus: StockFundFlowStatus | null;
+  fundFlowMessage: string | null;
 }
 
 export interface StockMonitorDashboard {

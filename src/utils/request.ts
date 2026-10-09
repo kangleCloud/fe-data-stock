@@ -47,6 +47,14 @@ export class ApiError extends Error {
   }
 }
 
+export class StreamResponseError extends ApiError {
+  constructor(message: string, code: number | undefined, public readonly httpStatus: number,
+    public readonly contentType: string, public readonly classification: "http" | "html" | "json" | "non-sse" | "missing-body") {
+    super(`${message}（HTTP ${httpStatus}，${classification}，Content-Type: ${contentType || "缺失"}）`, code);
+    this.name = "StreamResponseError";
+  }
+}
+
 export const httpClient = axios.create({
   baseURL: normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || "/admin/api"),
   timeout: 15000,
@@ -141,6 +149,7 @@ export async function requestStream(path: string, signal: AbortSignal, publicAcc
     credentials: publicAccess ? "omit" : "same-origin",
   });
   const isEventStream = response.headers.get("content-type")?.toLowerCase().includes("text/event-stream") ?? false;
+  const contentType = (response.headers.get("content-type") || "").split(";")[0]!.trim().toLowerCase().slice(0, 120);
   if (!response.ok || !isEventStream) {
     let code: number | undefined = response.ok ? undefined : response.status;
     let message = response.status === 403 ? "无权查看公开数据" : "事件流响应格式异常";
@@ -151,12 +160,13 @@ export async function requestStream(path: string, signal: AbortSignal, publicAcc
     } catch { /* Error responses may not contain JSON. */ }
     if (code === 401 && !publicAccess) {
       expireSession();
-      throw new ApiError(message, 401);
+      throw new StreamResponseError(message, 401, response.status, contentType, "http");
     }
-    throw new ApiError(message, code);
+    const classification = contentType.includes("html") ? "html" : contentType.includes("json") ? "json" : response.ok ? "non-sse" : "http";
+    throw new StreamResponseError(message, code, response.status, contentType, classification);
   }
   if (!response.body) {
-    throw new ApiError("事件流响应格式异常");
+    throw new StreamResponseError("事件流响应缺少 body", undefined, response.status, contentType, "missing-body");
   }
   return response;
 }

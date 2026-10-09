@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyEtfMonitorPatch, parseEtfMonitorDashboard } from "@/utils/etfMonitor";
+import { applyEtfMonitorPatch, etfAllocationMessage, parseEtfMonitorDashboard } from "@/utils/etfMonitor";
 import { etfProfileSource, etfProfileStatus } from "@/utils/etfProfile";
 
 const quote = {
@@ -21,6 +21,33 @@ const item = {
 };
 
 describe("ETF monitor public contract", () => {
+  it("distinguishes absent, unsynced and disabled allocation states and rejects illegal states", () => {
+    const parse = (extra: Record<string, unknown>, xqEnabled = true) => parseEtfMonitorDashboard({
+      schemaVersion: 1, stateId: "a", xqEnabled, tradeDate: "2026-09-30", etfs: [{ ...item, ...extra }] });
+    expect(parse({}).etfs[0]?.assetAllocationStatus).toBeNull();
+    expect(etfAllocationMessage(parse({}).etfs[0]!)).toContain("未知");
+    expect(etfAllocationMessage(parse({ assetAllocationStatus: "NOT_SYNCED" }).etfs[0]!)).toContain("尚未同步");
+    expect(parse({}, false).etfs[0]?.assetAllocationStatus).toBe("DISABLED");
+    expect(etfAllocationMessage(parse({}, false).etfs[0]!)).toContain("授权关闭");
+    expect(() => parse({ assetAllocationStatus: "FRESH" })).toThrow("资产配置状态无效");
+    expect(() => parse({ assetAllocationStatus: "AVAILABLE" })).toThrow("缺少有效报告");
+  });
+
+  it("retains reports and allocation status while quote patches omit the report", () => {
+    const allocation = { source: "XQ_DANJUAN", requestedReportPeriod: "2026-06-30",
+      collectedAt: "2026-09-30T10:00:00+08:00", categories: [{ category: "股票", percent: 90 }] };
+    const current = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", xqEnabled: true,
+      tradeDate: "2026-09-30", etfs: [{ ...item, assetAllocationStatus: "AVAILABLE", assetAllocation: allocation }] });
+    const { assetAllocation: _report, ...raw } = item;
+    expect(_report).toBeNull();
+    const next = applyEtfMonitorPatch(current, { baseStateId: "a", stateId: "b",
+      etfs: [{ ...raw, assetAllocationStatus: "AVAILABLE", quote: { ...quote, price: 2.6 } }] });
+    if (next === "duplicate") throw new Error("expected change");
+    expect(next.etfs[0]?.assetAllocationStatus).toBe("AVAILABLE");
+    expect(next.etfs[0]?.assetAllocation).toEqual(allocation);
+    expect(next.etfs[0]?.fundFlowStatus).toBe("NO_RELIABLE_SOURCE");
+    expect(next.etfs[0]?.fundSeries).toEqual([]);
+  });
   it("labels legacy sources without exposing internal enum names or claiming THS success", () => {
     expect(etfProfileSource("LEGACY_EXCHANGE")).toBe("历史交易所资料");
     expect(etfProfileSource("UNKNOWN_OLD_SOURCE")).toBe("历史资料");

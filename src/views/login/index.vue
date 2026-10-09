@@ -221,8 +221,8 @@ onMounted(refreshCaptcha);
           <p class="login-security">
             登录行为将记录用于安全审计，请勿共享管理账号。
           </p>
+          <BeianFooter class="login-registration" />
         </div>
-        <BeianFooter class="login-registration" />
       </section>
     </main>
   </div>
@@ -388,14 +388,18 @@ onMounted(refreshCaptcha);
 .login-form-section {
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(min-content, 1fr) auto;
   place-items: center;
-  gap: 24px;
-  padding: 48px 48px 16px;
+  padding: 48px;
   background: #fbfdff;
 }
 
-.login-registration { width: 100%; padding-inline: 0; }
+.login-registration {
+  width: 100%;
+  margin-top: 12px;
+  padding: 0;
+  gap: 0 16px;
+  background: transparent;
+}
 
 .login-card {
   width: min(430px, 100%);

@@ -8,6 +8,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?\+08:00$/;
 const DATA_STATUSES = new Set(["CURRENT", "DELAYED", "HISTORICAL", "NO_DATA"]);
 const QUOTE_STATUSES = new Set(["FRESH", "STALE", "ERROR"]);
+const ALLOCATION_STATUSES = new Set(["AVAILABLE", "NOT_SYNCED", "DISABLED"]);
 
 function record(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("ETF 监控响应格式异常");
@@ -93,6 +94,9 @@ function allocationValue(value: unknown): EtfAssetAllocation | null {
 
 function parseItem(value: unknown, xqEnabled: boolean, previous?: EtfMonitorItem): EtfMonitorItem {
   const item = record(value);
+  if (item.assetAllocationStatus != null && (typeof item.assetAllocationStatus !== "string" || !ALLOCATION_STATUSES.has(item.assetAllocationStatus))) {
+    throw new Error("ETF 资产配置状态无效");
+  }
   const symbol = item.symbol;
   if (typeof symbol !== "string" || !SYMBOL.test(symbol) || item.code !== symbol.slice(2) ||
       item.market !== symbol.slice(0, 2) || typeof item.name !== "string" || !item.name.trim() ||
@@ -117,8 +121,11 @@ function parseItem(value: unknown, xqEnabled: boolean, previous?: EtfMonitorItem
   });
   // 行情补丁不重复发送静态资产配置；资料变化由 resync 重新读取全量。
   const allocation = item.assetAllocation === undefined && previous
-    ? previous.assetAllocation : allocationValue(item.assetAllocation);
+    ? previous.assetAllocation : allocationValue(item.assetAllocation ?? null);
   if (!xqEnabled && allocation) throw new Error("雪球关闭时 ETF 资产配置必须隐藏");
+  if (xqEnabled && item.assetAllocationStatus === "AVAILABLE" && !allocation?.categories.length) {
+    throw new Error("ETF 资产配置可用状态缺少有效报告");
+  }
   return {
     symbol, code: item.code as string, name: item.name as string,
     market: item.market as EtfMonitorItem["market"], sortOrder: item.sortOrder,
@@ -126,7 +133,16 @@ function parseItem(value: unknown, xqEnabled: boolean, previous?: EtfMonitorItem
     fundFlowStatus: "NO_RELIABLE_SOURCE", effectiveTradeDate,
     dataStatus: item.dataStatus as EtfMonitorItem["dataStatus"], closeConfirmed: item.closeConfirmed,
     assetAllocation: allocation,
+    assetAllocationStatus: !xqEnabled ? "DISABLED" : item.assetAllocationStatus === undefined
+      ? previous?.assetAllocationStatus ?? null : item.assetAllocationStatus as EtfMonitorItem["assetAllocationStatus"],
   };
+}
+
+export function etfAllocationMessage(item: EtfMonitorItem): string {
+  if (item.assetAllocationStatus === "DISABLED") return "雪球采集授权关闭，资产配置暂不公开。";
+  if (item.assetAllocationStatus === "NOT_SYNCED") return "资产配置尚未同步，暂无有效报告。";
+  if (item.assetAllocationStatus == null) return "资产配置状态未知，请核对已有报告的实际采集时间。";
+  return "已取得有效资产配置报告。";
 }
 
 export function parseEtfMonitorDashboard(value: unknown): EtfMonitorDashboard {

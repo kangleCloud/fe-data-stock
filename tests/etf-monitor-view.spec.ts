@@ -35,6 +35,8 @@ describe("ETF public configuration navigation", () => {
     const wrapper = mount(MonitorView); await flushPromises();
     expect(wrapper.text()).toContain("股票型基金"); expect(wrapper.text()).toContain("示例基金公司");
     expect(wrapper.text()).toContain("同花顺同步"); expect(wrapper.text()).not.toContain("基金份额");
+    expect(wrapper.text()).toContain("资金流暂未支持，暂无可靠非东财来源");
+    expect(wrapper.text()).toContain("授权关闭");
     expect(wrapper.text()).not.toContain("字典分类"); wrapper.unmount();
   });
   it("keeps anonymous cache access and hides config even with stale permission codes", async () => {

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Refresh, Search } from "@element-plus/icons-vue";
-import { onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { getEtfMonitorDashboard, getEtfProfileDetail, getEtfProfilePage } from "@/api/etf";
+import { getEtfMonitorDashboard, getEtfProfileDetail, getEtfProfilePage, refreshEtfAllocation } from "@/api/etf";
+import { useAuthStore } from "@/stores/auth";
+import { canAccess } from "@/utils/permission";
+import { ApiError } from "@/utils/request";
 import type { EtfMonitorItem, EtfProfileDetail, EtfProfileQuery, EtfProfileRow } from "@/types/etf";
 import { dataStatusLabels, formatAmount, formatPercent, formatPlainNumber } from "@/utils/market";
 import { etfProfileSource, etfProfileStatus } from "@/utils/etfProfile";
@@ -11,6 +14,8 @@ import { formatShanghaiDateTime } from "@/utils/stockManagement";
 import "@/styles/stockData.css";
 
 const route = useRoute();
+const auth = useAuthStore();
+const canRefreshAllocation = computed(() => auth.isAuthenticated && canAccess(auth.permissionCodes, "system:etf-monitor:refresh"));
 const query = reactive<EtfProfileQuery>({ pageNum: 1, pageSize: 10, keyword: "", fundType: "", trackingIndexCode: "" });
 const rows = ref<EtfProfileRow[]>([]);
 const total = ref(0);
@@ -22,6 +27,17 @@ const detailError = ref("");
 const detail = ref<EtfProfileDetail | null>(null);
 const publicQuote = ref<EtfMonitorItem | null>(null);
 const publicQuoteError = ref(false);
+const xqEnabled = ref<boolean | null>(null);
+const reportPeriod = ref("");
+const allocationSyncing = ref(false);
+const allocationFeedback = ref("");
+const allocationFailed = ref(false);
+const allocationDisabledReason = computed(() => {
+  if (xqEnabled.value === false) return "雪球采集总闸已关闭，不能同步；已有报告仍可查看。";
+  if (xqEnabled.value === null) return "无法确认采集总闸和启用状态，请重新读取详情。";
+  if (!publicQuote.value) return "该 ETF 未启用监控，启用后才能同步资产配置。";
+  return "";
+});
 let detailRequestId = 0;
 
 async function load(): Promise<void> {
@@ -38,6 +54,7 @@ async function load(): Promise<void> {
 }
 
 async function openDetail(symbol: string): Promise<void> {
+  if (allocationSyncing.value) return;
   const requestId = ++detailRequestId;
   detailOpen.value = true;
   detailLoading.value = true;
@@ -45,6 +62,10 @@ async function openDetail(symbol: string): Promise<void> {
   detail.value = null;
   publicQuote.value = null;
   publicQuoteError.value = false;
+  xqEnabled.value = null;
+  reportPeriod.value = "";
+  allocationFeedback.value = "";
+  allocationFailed.value = false;
   const [profileResult, dashboardResult] = await Promise.allSettled([
     getEtfProfileDetail(symbol), getEtfMonitorDashboard(),
   ]);
@@ -52,9 +73,45 @@ async function openDetail(symbol: string): Promise<void> {
   if (profileResult.status === "fulfilled") detail.value = profileResult.value;
   else detailError.value = profileResult.reason instanceof Error ? profileResult.reason.message : "ETF 详情读取失败";
   if (dashboardResult.status === "fulfilled") {
+    xqEnabled.value = dashboardResult.value.xqEnabled;
     publicQuote.value = dashboardResult.value.etfs.find((item) => item.symbol === symbol) ?? null;
   } else publicQuoteError.value = true;
   detailLoading.value = false;
+}
+
+async function syncAllocation(): Promise<void> {
+  if (allocationSyncing.value || !canRefreshAllocation.value || !detail.value || allocationDisabledReason.value) return;
+  allocationFailed.value = false;
+  // 日历日期由管理员指定，只请求一期；既不推测可用季度，也不扫描报告。
+  const period = reportPeriod.value;
+  const isoDate = /^\d{8}$/.test(period) ? `${period.slice(0, 4)}-${period.slice(4, 6)}-${period.slice(6, 8)}` : "";
+  const parsedDate = new Date(`${isoDate}T00:00:00Z`);
+  if (!isoDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== isoDate) {
+    allocationFailed.value = true;
+    allocationFeedback.value = "请选择有效的请求报告期（日历日期），再同步资产配置。";
+    return;
+  }
+  const symbol = detail.value.symbol;
+  const requestId = detailRequestId;
+  allocationSyncing.value = true;
+  allocationFeedback.value = "正在同步所选报告期，请等待；不会自动重试。";
+  let synchronized = false;
+  try {
+    const result = await refreshEtfAllocation(symbol, period);
+    if (result.status !== "SUCCESS") throw new Error(result.message || `资产配置同步未成功（${result.status}），保留已有报告。`);
+    synchronized = true;
+    allocationFeedback.value = "资产配置同步成功，正在重新读取详情。";
+    const refreshed = await getEtfProfileDetail(symbol);
+    if (requestId === detailRequestId) {
+      detail.value = refreshed;
+      allocationFeedback.value = `同步成功 · 报告实际采集时间 ${formatShanghaiDateTime(refreshed.assetAllocation?.collectedAt ?? null)}`;
+    }
+  } catch (cause) {
+    if (requestId === detailRequestId) {
+      allocationFailed.value = true;
+      allocationFeedback.value = `${synchronized ? "同步已成功，但详情重新读取失败：" : ""}${cause instanceof Error ? cause.message : "资产配置同步失败"}${cause instanceof ApiError && cause.code ? `（${cause.code}）` : ""}；保留已有详情。`;
+    }
+  } finally { allocationSyncing.value = false; }
 }
 
 function search(): void { query.pageNum = 1; void load(); }
@@ -126,6 +183,15 @@ watch(() => route.query.symbol, (symbol) => {
             <dl><div><dt>最新价 / 涨跌额</dt><dd>{{ formatPlainNumber(publicQuote.quote.price) }} / {{ formatPlainNumber(publicQuote.quote.change) }}</dd></div><div><dt>涨跌幅</dt><dd>{{ formatPercent(publicQuote.quote.changePercent) }}</dd></div><div><dt>成交额 / 成交量</dt><dd>{{ formatAmount(publicQuote.quote.amount) }} / {{ formatPlainNumber(publicQuote.quote.volume) }}</dd></div></dl>
           </template>
           <h3>资产配置</h3>
+          <el-form v-if="canRefreshAllocation" class="allocation-sync-form" label-position="top" @submit.prevent="syncAllocation">
+            <el-form-item label="请求报告期（日历日期，必填）">
+              <el-date-picker v-model="reportPeriod" type="date" value-format="YYYYMMDD" format="YYYY-MM-DD" placeholder="请选择请求报告期" :disabled="allocationSyncing || !!allocationDisabledReason" />
+            </el-form-item>
+            <el-button type="primary" native-type="submit" :loading="allocationSyncing" :disabled="allocationSyncing || !!allocationDisabledReason">同步资产配置</el-button>
+            <p v-if="allocationDisabledReason" role="status">{{ allocationDisabledReason }}</p>
+            <p>仅请求所选一期，不保证源站存在该期报告；同步等待最多 120 秒，超时结果未确认。</p>
+            <p v-if="allocationFeedback" :class="{ 'stock-error': allocationFailed }" :role="allocationFailed ? 'alert' : 'status'">{{ allocationFeedback }}</p>
+          </el-form>
           <template v-if="detail.assetAllocation"><p>来源 雪球基金 · 请求报告期 {{ detail.assetAllocation.requestedReportPeriod }} · 采集 {{ formatShanghaiDateTime(detail.assetAllocation.collectedAt) }}</p><el-table :data="detail.assetAllocation.categories" stripe><el-table-column prop="category" label="资产类别" /><el-table-column label="占比"><template #default="{ row }">{{ row.percent }}%</template></el-table-column></el-table></template>
           <p v-else>暂无已获取的资产配置报告。</p>
         </template>
@@ -145,4 +211,8 @@ watch(() => route.query.symbol, (symbol) => {
 .etf-detail dt { color: var(--color-text-secondary); }
 .etf-detail dd { margin: 0; overflow-wrap: anywhere; }
 .etf-detail p { margin: 0; color: var(--color-text-secondary); line-height: 1.6; }
+.allocation-sync-form { display: grid; gap: 12px; }
+.allocation-sync-form :deep(.el-form-item) { margin-bottom: 0; }
+.allocation-sync-form :deep(.el-button) { width: fit-content; margin-left: 0; }
+.allocation-sync-form .stock-error { color: var(--color-danger); }
 </style>

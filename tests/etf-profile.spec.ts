@@ -2,12 +2,15 @@ import { flushPromises, shallowMount } from "@vue/test-utils";
 import { reactive } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getEtfMonitorDashboard, getEtfProfileDetail, getEtfProfilePage } from "@/api/etf";
+import { getEtfMonitorDashboard, getEtfProfileDetail, getEtfProfilePage, refreshEtfAllocation } from "@/api/etf";
 import ProfileView from "@/views/system/etfProfile/index.vue";
+import { ApiError } from "@/utils/request";
 
 const route = reactive({ query: { symbol: "SH510050" } });
+const auth = reactive({ isAuthenticated: true, permissionCodes: [] as string[] });
+vi.mock("@/stores/auth", () => ({ useAuthStore: () => auth }));
 vi.mock("vue-router", () => ({ useRoute: () => route }));
-vi.mock("@/api/etf", () => ({ getEtfMonitorDashboard: vi.fn(), getEtfProfileDetail: vi.fn(), getEtfProfilePage: vi.fn() }));
+vi.mock("@/api/etf", () => ({ getEtfMonitorDashboard: vi.fn(), getEtfProfileDetail: vi.fn(), getEtfProfilePage: vi.fn(), refreshEtfAllocation: vi.fn() }));
 
 function mountView() {
   return shallowMount(ProfileView, { global: { renderStubDefaultSlot: true,
@@ -18,6 +21,7 @@ function mountView() {
 beforeEach(() => {
   vi.resetAllMocks();
   route.query.symbol = "SH510050";
+  auth.isAuthenticated = true; auth.permissionCodes = [];
   vi.mocked(getEtfProfilePage).mockResolvedValue({ list: [], total: 0 });
   vi.mocked(getEtfProfileDetail).mockResolvedValue({ symbol: "SH510050", name: "50ETF" } as Awaited<ReturnType<typeof getEtfProfileDetail>>);
   vi.mocked(getEtfMonitorDashboard).mockResolvedValue({ schemaVersion: 1, stateId: null, xqEnabled: false, tradeDate: null, etfs: [] });
@@ -76,5 +80,112 @@ describe("ETF profile cached quote", () => {
     expect(getEtfProfilePage).toHaveBeenCalledWith(expect.objectContaining({ fundType: undefined }));
     expect(getEtfProfilePage).not.toHaveBeenCalledWith(expect.objectContaining({ etfType: expect.anything() }));
     wrapper.unmount();
+  });
+});
+
+describe("ETF asset allocation synchronization", () => {
+  const report = { source: "XQ_DANJUAN", requestedReportPeriod: "2026-06-30", collectedAt: "2026-10-09T10:00:00+08:00",
+    categories: [{ category: "股票", percent: 90 }] };
+
+  function allowSync(xqEnabled = true, enabled = true): void {
+    auth.permissionCodes = ["system:etf-monitor:refresh"];
+    vi.mocked(getEtfMonitorDashboard).mockResolvedValue({ schemaVersion: 1, stateId: "a", xqEnabled,
+      tradeDate: null, etfs: enabled ? [{ symbol: "SH510050", quote: null }] : [] } as Awaited<ReturnType<typeof getEtfMonitorDashboard>>);
+    vi.mocked(getEtfProfileDetail).mockResolvedValue({ symbol: "SH510050", name: "50ETF",
+      assetAllocation: report } as Awaited<ReturnType<typeof getEtfProfileDetail>>);
+  }
+
+  async function selectDate(wrapper: ReturnType<typeof mountView>, period = "20260630"): Promise<void> {
+    wrapper.findComponent({ name: "ElDatePicker" }).vm.$emit("update:modelValue", period);
+    await flushPromises();
+  }
+
+  it("hides synchronization without permission, including stale permissions for an unauthenticated user", async () => {
+    let wrapper = mountView(); await flushPromises();
+    expect(wrapper.find(".allocation-sync-form").exists()).toBe(false); wrapper.unmount();
+    allowSync(); auth.isAuthenticated = false;
+    wrapper = mountView(); await flushPromises();
+    expect(wrapper.find(".allocation-sync-form").exists()).toBe(false);
+    expect(refreshEtfAllocation).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+
+  it.each([[false, true, "总闸已关闭"], [true, false, "未启用监控"]] as const)("disables actions when xq=%s enabled=%s and keeps historical report", async (xq, enabled, reason) => {
+    allowSync(xq, enabled); const wrapper = mountView();
+    try {
+      await flushPromises(); expect(wrapper.text()).toContain(reason);
+      expect(wrapper.text()).toContain("2026-06-30");
+      expect(wrapper.get(".allocation-sync-form el-button-stub").attributes("disabled")).toBeDefined();
+      await wrapper.get(".allocation-sync-form").trigger("submit");
+      expect(refreshEtfAllocation).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
+  });
+
+  it("keeps synchronization disabled when the cache cannot confirm the gate", async () => {
+    allowSync(); vi.mocked(getEtfMonitorDashboard).mockRejectedValue(new Error("offline"));
+    const wrapper = mountView();
+    try { await flushPromises(); expect(wrapper.text()).toContain("无法确认采集总闸");
+      await wrapper.get(".allocation-sync-form").trigger("submit"); expect(refreshEtfAllocation).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
+  });
+
+  it("requires an actual calendar date without defaulting or scanning periods", async () => {
+    allowSync(); const wrapper = mountView();
+    try {
+      await flushPromises(); expect(wrapper.findComponent({ name: "ElDatePicker" }).props("modelValue")).toBe("");
+      await wrapper.get(".allocation-sync-form").trigger("submit"); expect(wrapper.text()).toContain("请选择有效");
+      await selectDate(wrapper, "20260230"); await wrapper.get(".allocation-sync-form").trigger("submit");
+      expect(refreshEtfAllocation).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
+  });
+
+  it("submits one period once, prevents duplicates, and rereads the detail on success", async () => {
+    allowSync(); let resolve!: (value: Awaited<ReturnType<typeof refreshEtfAllocation>>) => void;
+    vi.mocked(refreshEtfAllocation).mockImplementation(() => new Promise((done) => { resolve = done; }));
+    const wrapper = mountView();
+    try {
+      await flushPromises(); await selectDate(wrapper);
+      await wrapper.get(".allocation-sync-form").trigger("submit");
+      await wrapper.get(".allocation-sync-form").trigger("submit");
+      expect(refreshEtfAllocation).toHaveBeenCalledExactlyOnceWith("SH510050", "20260630");
+      expect(wrapper.get(".allocation-sync-form el-button-stub").attributes("disabled")).toBeDefined();
+      vi.mocked(getEtfProfileDetail).mockResolvedValue({ symbol: "SH510050", name: "50ETF",
+        assetAllocation: { ...report, collectedAt: "2026-10-09T11:00:00+08:00" } } as Awaited<ReturnType<typeof getEtfProfileDetail>>);
+      resolve({ status: "SUCCESS", startedAt: null, finishedAt: null, message: null }); await flushPromises();
+      expect(getEtfProfileDetail).toHaveBeenCalledTimes(2);
+      expect(wrapper.text()).toContain("同步成功"); expect(wrapper.text()).toContain("11:00");
+      expect(getEtfMonitorDashboard).toHaveBeenCalledTimes(1);
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each([[409, "该报告期无源数据"], [429, "资源不足"], [503, "总闸已关闭"], [423, "同步正在执行"]])("retains the detail on %s and displays the cause", async (code, message) => {
+    allowSync(); vi.mocked(refreshEtfAllocation).mockRejectedValue(new ApiError(String(message), Number(code)));
+    const wrapper = mountView();
+    try {
+      await flushPromises(); await selectDate(wrapper); await wrapper.get(".allocation-sync-form").trigger("submit"); await flushPromises();
+      expect(wrapper.text()).toContain(String(message)); expect(wrapper.text()).toContain(`（${code}）`);
+      expect(wrapper.text()).toContain("2026-06-30"); expect(getEtfProfileDetail).toHaveBeenCalledTimes(1);
+      expect(refreshEtfAllocation).toHaveBeenCalledTimes(1);
+    } finally { wrapper.unmount(); }
+  });
+
+  it("does not retry an unconfirmed timeout or erase the existing report", async () => {
+    allowSync(); vi.mocked(refreshEtfAllocation).mockRejectedValue(new ApiError("同步请求超时，结果未确认；未自动重试"));
+    const wrapper = mountView();
+    try {
+      await flushPromises(); await selectDate(wrapper); await wrapper.get(".allocation-sync-form").trigger("submit"); await flushPromises();
+      expect(wrapper.text()).toContain("结果未确认"); expect(wrapper.text()).toContain("2026-06-30");
+      expect(refreshEtfAllocation).toHaveBeenCalledTimes(1); expect(getEtfProfileDetail).toHaveBeenCalledTimes(1);
+    } finally { wrapper.unmount(); }
+  });
+
+  it("keeps the previous report if a successful synchronization cannot reread the detail", async () => {
+    allowSync(); vi.mocked(refreshEtfAllocation).mockResolvedValue({ status: "SUCCESS", startedAt: null, finishedAt: null, message: null });
+    const wrapper = mountView();
+    try {
+      await flushPromises(); vi.mocked(getEtfProfileDetail).mockRejectedValue(new Error("缓存读取失败"));
+      await selectDate(wrapper); await wrapper.get(".allocation-sync-form").trigger("submit"); await flushPromises();
+      expect(wrapper.text()).toContain("同步已成功，但详情重新读取失败"); expect(wrapper.text()).toContain("2026-06-30");
+      expect(refreshEtfAllocation).toHaveBeenCalledTimes(1);
+    } finally { wrapper.unmount(); }
   });
 });

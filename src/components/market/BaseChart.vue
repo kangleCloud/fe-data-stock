@@ -33,16 +33,13 @@ function render(): void {
   if (!chart.value) {
     return;
   }
-  const reduceMotion = window.matchMedia(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
   chart.value.setOption(
     {
       ...props.option,
-      animation: !reduceMotion,
-      animationDurationUpdate: reduceMotion ? 0 : 180,
+      animation: false,
+      animationDurationUpdate: 0,
     },
-    { notMerge: true, lazyUpdate: true },
+    { notMerge: false, replaceMerge: ["series"], lazyUpdate: true },
   );
 }
 
@@ -60,7 +57,7 @@ onMounted(async () => {
   render();
 });
 
-watch(() => props.option, render, { deep: true });
+watch(() => props.option, render);
 
 onBeforeUnmount(() => {
   observer?.disconnect();

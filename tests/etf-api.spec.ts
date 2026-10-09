@@ -9,6 +9,17 @@ const originalAdapter = httpClient.defaults.adapter;
 afterEach(() => { httpClient.defaults.adapter = originalAdapter; });
 
 describe("ETF API contract", () => {
+  it("uses query params and a dedicated 120-second budget for asset allocation", async () => {
+    let called!: InternalAxiosRequestConfig;
+    httpClient.defaults.adapter = async (config) => {
+      called = config;
+      return { data: { success: true, content: { status: "SUCCESS" } }, status: 200, statusText: "OK", headers: new AxiosHeaders(), config };
+    };
+    await etfApi.refreshEtfAllocation("SH510050", "20260630");
+    expect(called).toMatchObject({ method: "post", url: "/system/etfMonitor/allocation/refresh",
+      params: { symbol: "SH510050", reportPeriod: "20260630" }, timeout: 120000, silentError: true });
+    expect(called.timeoutMessage).toContain("结果未确认"); expect(called.timeoutMessage).toContain("未自动重试");
+  });
   it("uses public cache GET and authenticated management GET/POST paths", async () => {
     const calls: Array<{ method: string; url: string; baseURL?: string; params?: unknown; data?: unknown }> = [];
     const adapter: AxiosAdapter = async (config: InternalAxiosRequestConfig) => {

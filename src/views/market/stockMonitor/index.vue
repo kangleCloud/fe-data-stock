@@ -12,7 +12,7 @@ import { usePermissionStore } from "@/stores/permission";
 import type { StockMonitorStock } from "@/types/market";
 import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
 import { canAccess } from "@/utils/permission";
-import { isHistoricalStock } from "@/utils/stockMonitor";
+import { isHistoricalStock, stockFundFlowLabel, stockFundFlowMessage } from "@/utils/stockMonitor";
 
 const PAGE_SIZE = 4;
 const route = useRoute();
@@ -168,8 +168,10 @@ onBeforeUnmount(() => {
       最近交易日：{{ dashboard.tradeDate }}。报价请以每张卡片的源时间和状态为准。
     </p>
     <p class="monitor-disclaimer">价格采样、涨跌幅和成交额仅供观察，不构成交易建议。</p>
-    <p v-if="errorMessage" class="monitor-notice monitor-notice--error" role="alert">
-      读取失败{{ dashboard ? "，仍显示上次有效画面，更新可能延迟" : "" }}：{{ errorMessage }}
+    <p class="monitor-notice monitor-notice--error stream-status-slot" :class="{ 'has-error': errorMessage }" role="alert">
+      <template v-if="errorMessage">
+        读取失败{{ dashboard ? "，仍显示上次有效画面，更新可能延迟" : "" }}：{{ errorMessage }}
+      </template>
     </p>
 
     <div v-if="loading && !dashboard" class="monitor-skeleton-grid" aria-label="个股监控加载中">
@@ -224,6 +226,7 @@ onBeforeUnmount(() => {
           <p v-if="quoteMessage(stock) && hasChart(stock)" class="stock-card__alert">{{ quoteMessage(stock) }}</p>
           <div class="stock-card__fund">
             <h3>资金净额采样 <small>横轴为实际采集时间 · 单位元</small></h3>
+            <p class="stock-fund-status" role="status">{{ stockFundFlowLabel(stock) }} · {{ stockFundFlowMessage(stock) }}</p>
             <BaseChart
               v-if="hasFundChart(stock)" :option="buildStockFundOption(stock.fundSeries)"
               :accessible-label="`${stock.name} ${stock.symbol}，${stock.effectiveTradeDate} 资金净额实际采集曲线，共 ${stock.fundSeries.length} 个采样点，零轴区分正负`"
@@ -260,7 +263,7 @@ onBeforeUnmount(() => {
             </div>
           </details>
         </template>
-        <p v-else class="stock-card__disabled">仅展示监控清单；报价、曲线和雪球资料暂不公开。</p>
+        <p v-else class="stock-card__disabled">仅展示监控清单；报价、曲线和雪球资料暂不公开。{{ stockFundFlowMessage(stock) }}</p>
       </section>
     </div>
     <el-pagination
@@ -271,6 +274,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.stock-fund-status { height: 48px; overflow: auto; margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); }
+.stream-status-slot { height: 56px; box-sizing: border-box; overflow: auto; }
+.stream-status-slot:not(.has-error) { visibility: hidden; }
 .stock-monitor-page { display: grid; gap: 14px; color: var(--market-text); }
 .monitor-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .monitor-heading p { margin: 0 0 3px; color: var(--market-primary); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
