@@ -95,6 +95,7 @@ export function useSnapshotSse<T>(options: SnapshotSseOptions<T>) {
       controller = streamController;
       let timedOut = false;
       const resetIdle = (): void => {
+        if (!active(current)) return;
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => { timedOut = true; streamController.abort(); }, IDLE_TIMEOUT);
       };
@@ -102,6 +103,10 @@ export function useSnapshotSse<T>(options: SnapshotSseOptions<T>) {
       try {
         resetIdle();
         const response = await requestStream(options.path, streamController.signal, true);
+        if (!active(current) || streamController.signal.aborted) {
+          await response.body?.cancel();
+          return;
+        }
         await readEventStream(response, ({ event, data }) => {
           if (!active(current)) return;
           if (event === "resync") throw new Error(`${options.label}需要全量重同步`);
@@ -131,9 +136,11 @@ export function useSnapshotSse<T>(options: SnapshotSseOptions<T>) {
           error instanceof Error ? error.message : `${options.label}事件流中断`;
       } finally {
         streamController.abort();
-        if (controller === streamController) controller = null;
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = null;
+        if (controller === streamController) {
+          controller = null;
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = null;
+        }
       }
       await delay(RETRY_DELAYS[Math.min(retries++, RETRY_DELAYS.length - 1)]!);
       if (!active(current)) return;

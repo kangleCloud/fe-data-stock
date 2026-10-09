@@ -49,6 +49,37 @@ beforeEach(() => {
 afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("public stock monitor view", () => {
+  it("keeps page two and configuration order during per-stock completion bursts", async () => {
+    const items = Array.from({ length: 5 }, (_, index) => ({ ...stock,
+      symbol: `SH60000${index}`, code: `60000${index}`, name: `股票${index + 1}`, sortOrder: index + 1 }));
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "q1", xqEnabled: true,
+      tradeDate: "2026-09-27", stocks: items });
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({ start(controller) {
+        stream = controller;
+        controller.enqueue(new TextEncoder().encode('event: ready\ndata: {"stateId":"q1"}\n\n'));
+        options.signal?.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")), { once: true });
+      } }), { headers: { "Content-Type": "text/event-stream" } },
+    ))));
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises();
+      await wrapper.get(".monitor-tools input").setValue("600004");
+      await wrapper.get(".monitor-tools input").trigger("keyup.enter"); await flushPromises();
+      expect(wrapper.text()).toContain("第 2 / 2 页");
+      const changed = { ...items[4]!, quote: { ...stock.quote, price: 14.2 },
+        series: [...stock.series, { time: "2026-09-27T14:30:05+08:00", price: 14.2 }] };
+      const patches = [{ baseStateId: "q1", stateId: "q2", stocks: [changed] },
+        { baseStateId: "q2", stateId: "q3", stocks: [{ ...items[0]!, quote: { ...stock.quote, price: 11 } }] }];
+      const frames = [...patches, patches[1]].map((patch) => `event: patch\ndata: ${JSON.stringify(patch)}\n\n`).join("");
+      stream.enqueue(new TextEncoder().encode(frames)); await flushPromises();
+      expect(wrapper.text()).toContain("第 2 / 2 页");
+      expect(wrapper.findAll(".stock-card")).toHaveLength(1);
+      expect(wrapper.text()).toContain("股票5"); expect(wrapper.text()).not.toContain("股票1");
+      expect(wrapper.text()).toContain("14.20");
+    } finally { wrapper.unmount(); }
+  });
   it("shows disabled collection without quotes or management actions to visitors", async () => {
     mocks.getStockMonitorDashboard.mockResolvedValue({
       schemaVersion: 1, xqEnabled: false, tradeDate: null,

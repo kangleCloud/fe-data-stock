@@ -6,7 +6,7 @@ import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
 import { applyMarketPatch, parseMarketSnapshot } from "@/utils/marketStream";
 import { httpClient } from "@/utils/request";
 import { SseParser } from "@/utils/sse";
-import { coreIndexData, industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
+import { conceptData, coreIndexData, industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
 
 const originalAdapter = httpClient.defaults.adapter;
 const Probe = { setup: useMarketSnapshotStream,
@@ -41,6 +41,34 @@ afterEach(() => {
 });
 
 describe("market snapshot versions and SSE", () => {
+  it("merges module completions within one timestamp without losing independent times or curves", () => {
+    let current = snapshot;
+    const fund = snapshot.modules.marketFundFlow.data!;
+    const point = { ...fund.latest, collectedAt: "2026-09-23T13:02:04+08:00" };
+    const indices = { ...coreIndexData, items: coreIndexData.items.map((item) => ({ ...item,
+      collectedAt: "2026-09-23T13:02:05+08:00", price: 3001,
+      series: [...item.series, { collectedAt: "2026-09-23T13:02:05+08:00", price: 3001 }] })) };
+    const changes = [
+      { industrySectors: { ...moduleOf(industryData), lastSuccessAt: "2026-09-23T13:02:03+08:00" } },
+      { conceptSectors: { ...moduleOf(conceptData), lastSuccessAt: "2026-09-23T13:02:04+08:00" } },
+      { marketFundFlow: { ...moduleOf({ ...fund, latest: point, series: [...fund.series, point] }),
+        lastSuccessAt: "2026-09-23T13:02:04+08:00" } },
+      { coreIndices: { ...moduleOf(indices), lastSuccessAt: "2026-09-23T13:02:05+08:00" } },
+    ];
+    for (const [index, modules] of changes.entries()) {
+      const next = applyMarketPatch(current, { baseSnapshotId: current.snapshotId,
+        snapshotId: `s${index + 2}`, generatedAt: snapshot.generatedAt, modules });
+      if (next === "duplicate") throw new Error("unexpected duplicate");
+      expect(applyMarketPatch(next, { baseSnapshotId: current.snapshotId,
+        snapshotId: `s${index + 2}`, generatedAt: snapshot.generatedAt, modules })).toBe("duplicate");
+      current = next;
+    }
+    expect(current.snapshotId).toBe("s5");
+    expect(current.modules.industrySectors.lastSuccessAt).toBe("2026-09-23T13:02:03+08:00");
+    expect(current.modules.conceptSectors.lastSuccessAt).toBe("2026-09-23T13:02:04+08:00");
+    expect(current.modules.marketFundFlow.data?.series).toEqual([...fund.series, point]);
+    expect(current.modules.coreIndices?.data?.items[0]?.series).toEqual(indices.items[0]?.series);
+  });
   it("parses split SSE frames and validates old snapshots plus reconciled net amounts", () => {
     const frames: Array<{ event: string; data: string }> = [];
     const parser = new SseParser((item) => frames.push(item));

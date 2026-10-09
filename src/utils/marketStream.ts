@@ -107,8 +107,9 @@ export function applyMarketPatch(current: MarketDashboardSnapshot, value: unknow
       typeof value.snapshotId !== "string" || !value.snapshotId ||
       !timestamp(value.generatedAt) || !record(value.modules)) throw new Error("市场增量结构无效");
   if (value.snapshotId === current.snapshotId) return "duplicate";
+  // 同轮模块可共享秒级生成时间，连续性仍以 baseSnapshotId 为准。
   if (value.baseSnapshotId !== current.snapshotId ||
-      Date.parse(value.generatedAt as string) <= Date.parse(current.generatedAt)) throw new Error("市场增量版本不连续");
+      Date.parse(value.generatedAt as string) < Date.parse(current.generatedAt)) throw new Error("市场增量版本不连续");
   const keys = Object.keys(value.modules);
   if (keys.some((key) => !["industrySectors", "conceptSectors", "marketFundFlow", "coreIndices"].includes(key))) {
     throw new Error("市场增量模块无效");
