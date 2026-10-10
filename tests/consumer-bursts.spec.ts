@@ -8,7 +8,7 @@ import { httpClient } from "@/utils/request";
 import { parseMarketSnapshot } from "@/utils/marketStream";
 import { parseStockMonitorDashboard } from "@/utils/stockMonitor";
 import { parseEtfMonitorDashboard } from "@/utils/etfMonitor";
-import { conceptData, industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
+import { conceptData, fundData, industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
 
 const at = "2026-09-30T14:56:00+08:00";
 const later = "2026-09-30T14:56:05+08:00";
@@ -55,6 +55,98 @@ const originalAdapter = httpClient.defaults.adapter;
 afterEach(() => {
   httpClient.defaults.adapter = originalAdapter; vi.unstubAllGlobals(); vi.useRealTimers();
   Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+});
+
+describe("interleaved fund and quote completion notifications", () => {
+  it("keeps module and stock references across 48 interleaved patches, deduplicates, then aligns a gap", async () => {
+    vi.useFakeTimers();
+    const initialStocks = parseStockMonitorDashboard({ ...stocks, stocks: [stock, { ...stock2,
+      fundFlowStatus: "STALE", fundFlowMessage: "历史资金采样", fundSeries: [{ collectedAt: at,
+        inflow: 2, outflow: 1, netAmount: 1 }] }] });
+    let marketValue = snapshot;
+    const gets = { market: 0, stock: 0 };
+    httpClient.defaults.adapter = async (config) => {
+      const market = config.url === "/market/dashboard/snapshot";
+      if (market) gets.market++; else gets.stock++;
+      return { data: { success: true, content: market ? marketValue : initialStocks },
+        status: 200, statusText: "OK", headers: new AxiosHeaders(), config };
+    };
+    const streams = new Map<string, ReadableStreamDefaultController<Uint8Array>>();
+    vi.stubGlobal("fetch", vi.fn((url: string, options: RequestInit) => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({ start(controller) {
+        const key = url.includes("/market/") ? "market" : "stock";
+        streams.set(key, controller);
+        controller.enqueue(new TextEncoder().encode(frame("ready", { [key === "market" ? "snapshotId" : "stateId"]:
+          key === "market" ? marketValue.snapshotId : initialStocks.stateId })));
+        options.signal?.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")), { once: true });
+      } }), { headers: { "Content-Type": "text/event-stream" } },
+    ))));
+    const Probe = { setup: () => ({ market: useMarketSnapshotStream(), stock: useStockMonitorStream() }), template: "<div />" };
+    const wrapper = mount(Probe);
+    const vm = wrapper.vm as unknown as { market: ReturnType<typeof useMarketSnapshotStream>; stock: ReturnType<typeof useStockMonitorStream> };
+    const send = (key: string, data: unknown): void => {
+      const encoded = frame("patch", data);
+      streams.get(key)!.enqueue(new TextEncoder().encode(encoded + encoded));
+    };
+    try {
+      await flushPromises();
+      for (let index = 0; index < 24; index++) {
+        const beforeMarket = vm.market.snapshot.value!;
+        const beforeStock = vm.stock.snapshot.value!;
+        const fundTurn = index % 2 === 0;
+        const moduleKey = fundTurn ? "marketFundFlow" : "coreIndices";
+        const sampleTime = `2026-09-23T13:02:${String(6 + index).padStart(2, "0")}+08:00`;
+        const oldFund = beforeMarket.modules.marketFundFlow;
+        const nextFund = { ...oldFund, lastSuccessAt: sampleTime, data: { ...oldFund.data!,
+          latest: { ...fundData.latest, collectedAt: sampleTime },
+          series: [...oldFund.data!.series, { ...fundData.series[2]!, collectedAt: sampleTime }] } };
+        const oldIndices = beforeMarket.modules.coreIndices!;
+        const indexItem = oldIndices.data!.items[0]!;
+        const nextIndices = { ...oldIndices, lastSuccessAt: sampleTime, data: { ...oldIndices.data!,
+          items: [{ ...indexItem, price: 3000 + index, collectedAt: sampleTime,
+            series: [...indexItem.series, { collectedAt: sampleTime, price: 3000 + index }] }] } };
+        send("market", { baseSnapshotId: beforeMarket.snapshotId, snapshotId: `mix-${index}`,
+          generatedAt: "2026-09-23T13:03:00+08:00", modules: { [moduleKey]: fundTurn ? nextFund : nextIndices } });
+        const target = fundTurn ? 1 : 0;
+        const changedStock = beforeStock.stocks[target]!;
+        const quoteTime = `2026-09-30T14:56:${String(6 + index).padStart(2, "0")}+08:00`;
+        send("stock", { baseStateId: beforeStock.stateId, stateId: `fund-quote-${index}`, stocks: [fundTurn
+          ? { ...changedStock, fundFlowStatus: "STALE", fundFlowMessage: `资金冷却 ${index}` }
+          : { ...changedStock, quote: { ...changedStock.quote, price: 11 + index },
+            series: [...changedStock.series, { time: quoteTime, price: 11 + index }] }] });
+        await flushPromises();
+        const nextMarket = vm.market.snapshot.value!;
+        const nextStock = vm.stock.snapshot.value!;
+        expect(nextMarket.snapshotId).toBe(`mix-${index}`);
+        expect(nextMarket.modules.industrySectors).toBe(beforeMarket.modules.industrySectors);
+        expect(nextMarket.modules.conceptSectors).toBe(beforeMarket.modules.conceptSectors);
+        expect(nextMarket.modules[fundTurn ? "coreIndices" : "marketFundFlow"]).toBe(beforeMarket.modules[fundTurn ? "coreIndices" : "marketFundFlow"]);
+        expect(nextStock.stocks[1 - target]).toBe(beforeStock.stocks[1 - target]);
+        expect(nextStock.stocks[target]!.fundSeries).toBe(changedStock.fundSeries);
+        if (fundTurn) {
+          expect(nextStock.stocks[target]!.series).toBe(changedStock.series);
+          expect(nextStock.stocks[target]!.fundFlowStatus).toBe("STALE");
+        } else expect(nextStock.stocks[target]!.series).toHaveLength(changedStock.series.length + 1);
+        expect(nextStock.stocks[1]!.fundSeries[0]!.collectedAt.slice(0, 10)).toBe(nextStock.stocks[1]!.effectiveTradeDate);
+      }
+      // 心跳保持连接；超过 120 秒的数据年龄不得触发 GET 或源刷新。
+      for (let index = 0; index < 6; index++) {
+        for (const stream of streams.values()) stream.enqueue(new TextEncoder().encode(": heartbeat\n\n"));
+        await flushPromises(); await vi.advanceTimersByTimeAsync(25000);
+      }
+      expect(gets).toEqual({ market: 1, stock: 1 });
+      const beforeGap = vm.market.snapshot.value!;
+      marketValue = { ...beforeGap, snapshotId: "aligned", modules: { ...beforeGap.modules,
+        conceptSectors: moduleOf({ ...conceptData, items: [{ ...conceptData.items[0]!, name: "重新对齐的概念" }] }) } };
+      send("market", { baseSnapshotId: "missing", snapshotId: "gap", generatedAt: beforeGap.generatedAt, modules: {} });
+      await flushPromises(); expect(vm.market.snapshot.value).toBe(beforeGap);
+      await vi.advanceTimersByTimeAsync(1000); await flushPromises();
+      expect(gets).toEqual({ market: 2, stock: 1 });
+      expect(vm.market.snapshot.value!.snapshotId).toBe("aligned");
+      expect(vm.market.snapshot.value!.modules.marketFundFlow).toBe(beforeGap.modules.marketFundFlow);
+      expect(vm.market.snapshot.value!.modules.coreIndices).toBe(beforeGap.modules.coreIndices);
+    } finally { wrapper.unmount(); }
+  });
 });
 const frame = (event: string, data: unknown) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 

@@ -24,6 +24,23 @@ beforeEach(() => {
 });
 
 describe("ETF public configuration navigation", () => {
+  it("renders ETF names and asset categories as source text without executable markup", async () => {
+    const text = '<svg onload="alert(1)">基金 & "股票" < 100%</svg>';
+    snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: null, xqEnabled: true,
+      etfs: [{ symbol: "SH510050", code: "510050", name: text, market: "SH", sortOrder: 1,
+        profile: { exchange: null, etfType: null, listingStatus: null, listingDate: null, manager: text,
+          custodian: null, shareCount: null, shareDate: null, trackingIndexCode: null, trackingIndexName: null, updatedAt: null },
+        quote: null, series: [], fundSeries: [], fundFlowStatus: "NO_RELIABLE_SOURCE", effectiveTradeDate: null,
+        dataStatus: "NO_DATA", closeConfirmed: false, assetAllocationStatus: "AVAILABLE",
+        assetAllocation: { source: "XQ_DANJUAN", requestedReportPeriod: "2026-06-30", collectedAt: "2026-10-09T10:00:00+08:00",
+          categories: [{ category: text, percent: 90 }] } }] });
+    const wrapper = mount(MonitorView);
+    try {
+      await flushPromises(); expect(wrapper.get(".etf-table-scroll tbody td").text()).toBe(text);
+      expect(wrapper.text()).toContain(text);
+      expect(wrapper.findAll("script,svg[onload],img[onerror],[onload],[onerror]")).toHaveLength(0);
+    } finally { wrapper.unmount(); }
+  });
   it("shows THS type and manager with XQ off, without old share data", async () => {
     snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: null, xqEnabled: false,
       etfs: [{ symbol: "SH510050", code: "510050", name: "50ETF", market: "SH", sortOrder: 1,

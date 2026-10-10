@@ -113,6 +113,36 @@ describe("market snapshot V1", () => {
     expect(html).toContain("采集时间：09/23 10:00:00");
   });
 
+  it.each([
+    '<img src=x onerror="alert(1)"><svg onload="alert(2)"><script>alert(3)</script>',
+    '中文 & "双引号" / \'单引号\' <比较> ＞ ≥ &amp;',
+  ])("renders tooltip source text once without executable nodes: %s", (text) => {
+    const item = sectorItem({ name: text, leader: text });
+    const option = buildSectorTreemapOption([item]) as {
+      tooltip: { formatter: (params: { data: { sector: typeof item } }) => string };
+      series: Array<{ label: { formatter: (params: { name: string }) => string } }>;
+    };
+    const output = document.createElement("div");
+    output.innerHTML = option.tooltip.formatter({ data: { sector: item } });
+    expect(output.querySelector("strong")!.textContent).toBe(text);
+    expect(output.textContent).toContain(`领涨股：${text}`);
+    expect(output.querySelectorAll("script,img,svg,iframe,[onerror],[onload]")).toHaveLength(0);
+    expect(option.series[0]!.label.formatter({ name: text })).toContain(text);
+    expect(item.name).toBe(text); expect(item.leader).toBe(text);
+  });
+
+  it("renders sector names, leaders and module failures as literal source text", async () => {
+    const text = '<img src=x onerror="alert(1)">行业 & "领涨" < 100';
+    useSnapshotAdapter({ ...snapshot, modules: { ...snapshot.modules,
+      industrySectors: { ...moduleOf({ ...industryData, items: [sectorItem({ name: text, leader: text })] }, "STALE"), message: text } } });
+    const wrapper = mount(MarketOverview, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises(); expect(wrapper.findAll(".snapshot-module-message").map((node) => node.text())).toContain(text);
+      expect(wrapper.text()).toContain(text);
+      expect(wrapper.findAll("script,img[onerror],svg[onload],iframe,[onerror],[onload]")).toHaveLength(0);
+    } finally { wrapper.unmount(); }
+  });
+
   it("renders three sections with independent industry and concept switches", async () => {
     useSnapshotAdapter(snapshot);
     const wrapper = mount(MarketOverview, { global: { stubs: { BaseChart: true } } });

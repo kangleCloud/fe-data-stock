@@ -32,7 +32,7 @@ export function formatPlainNumber(
   });
 }
 
-export function formatSignedNumber(
+function formatSignedNumber(
   value: number | null | undefined,
   digits = 2,
 ): string {

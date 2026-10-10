@@ -21,10 +21,6 @@ const props = withDefaults(
   { height: "300px" },
 );
 
-const emit = defineEmits<{
-  chartClick: [params: unknown];
-}>();
-
 const container = ref<HTMLElement>();
 const chart = shallowRef<EChartsType>();
 let observer: ResizeObserver | undefined;
@@ -51,7 +47,6 @@ onMounted(async () => {
   chart.value = markRaw(echarts.init(container.value, undefined, {
     renderer: "canvas",
   }));
-  chart.value.on("click", (params) => emit("chartClick", params));
   observer = new ResizeObserver(() => chart.value?.resize());
   observer.observe(container.value);
   render();

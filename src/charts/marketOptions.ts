@@ -69,6 +69,7 @@ function stockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreO
 }
 
 function escapeHtml(value: string): string {
+  // 仅在 HTML Tooltip 输出边界转义；原始数据与 Canvas 标签保持原文，避免二次编码。
   return value.replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[character]!);

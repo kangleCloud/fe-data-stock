@@ -49,6 +49,29 @@ beforeEach(() => {
 afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("public stock monitor view", () => {
+  it("renders stock, industry and funding messages as literal text", async () => {
+    const text = '<img src=x onerror="alert(1)">中文 & "报价" < 10';
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "a", xqEnabled: true,
+      tradeDate: "2026-09-27", stocks: [{ ...stock, name: text, profile: { ...stock.profile, industry: text },
+        fundFlowStatus: "STALE", fundFlowMessage: text }] });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises(); expect(wrapper.get(".stock-card h2").text()).toBe(`${text} SH600000`);
+      expect(wrapper.text()).toContain(text);
+      expect(wrapper.get(".stock-fund-status").text()).toContain(text);
+      expect(wrapper.findAll("script,img[onerror],svg[onload],iframe,[onerror]")).toHaveLength(0);
+    } finally { wrapper.unmount(); }
+  });
+
+  it("renders untrusted API errors as literal text", async () => {
+    const text = '<svg onload="alert(1)">失败 & "原因"</svg>';
+    mocks.getStockMonitorDashboard.mockRejectedValue(new Error(text));
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises(); expect(wrapper.get(".stream-status-slot").text()).toContain(text);
+      expect(wrapper.findAll("script,svg[onload],[onerror],[onload]")).toHaveLength(0);
+    } finally { wrapper.unmount(); }
+  });
   it.each(["全市场资金采集失败：分页重复", "资源不足，正在冷却", "有效日期暂无资金采样"])("shows the absent-fund cause without removing prices: %s", async (message) => {
     mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "a", xqEnabled: true,
       tradeDate: "2026-09-27", stocks: [{ ...stock, fundFlowStatus: "NO_DATA", fundFlowMessage: message, fundSeries: [] }] });

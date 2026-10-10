@@ -28,6 +28,23 @@ beforeEach(() => {
 });
 
 describe("ETF profile cached quote", () => {
+  it("renders fund profile fields and failure messages as literal text", async () => {
+    const text = '<img src=x onerror="alert(1)">基金 & "经理" <测试>';
+    vi.mocked(getEtfProfileDetail).mockResolvedValue({ symbol: "SH510050", name: text,
+      fullName: text, fundManager: text, performanceBenchmark: text } as Awaited<ReturnType<typeof getEtfProfileDetail>>);
+    const wrapper = mountView();
+    try {
+      await flushPromises(); expect(wrapper.get("h2").text()).toContain(text);
+      expect(wrapper.get(".etf-detail dl").text()).toContain(text);
+      expect(wrapper.findAll("script,img[onerror],[onerror],svg[onload]")).toHaveLength(0);
+    } finally { wrapper.unmount(); }
+    vi.mocked(getEtfProfileDetail).mockRejectedValue(new Error(text));
+    const failed = mountView();
+    try {
+      await flushPromises(); expect(failed.get('[role="alert"]').text()).toBe(text);
+      expect(failed.findAll("script,img[onerror],[onerror],svg[onload]")).toHaveLength(0);
+    } finally { failed.unmount(); }
+  });
   it("displays a readable legacy source in details", async () => {
     vi.mocked(getEtfProfileDetail).mockResolvedValue({ symbol: "SH510050", name: "50ETF",
       source: "LEGACY_EXCHANGE", updatedAt: "2026-09-30T10:00:00+08:00" } as Awaited<ReturnType<typeof getEtfProfileDetail>>);
