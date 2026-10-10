@@ -24,6 +24,39 @@ beforeEach(() => {
 });
 
 describe("ETF public configuration navigation", () => {
+  it.each([
+    { price: 1.234, change: 0.001, expectedPrice: "1.234", expectedChange: "+0.001" },
+    { price: 1.2, change: -0.02, expectedPrice: "1.200", expectedChange: "-0.020" },
+    { price: 0, change: 0, expectedPrice: "0.000", expectedChange: "0.000" },
+    { price: null, change: null, expectedPrice: "—", expectedChange: "—" },
+    { price: 1.23456, change: 0.01256, expectedPrice: "1.235", expectedChange: "+0.013" },
+  ])("shows price $price and change $change with three display decimals only", async ({ price, change, expectedPrice, expectedChange }) => {
+    const collectedAt = "2026-10-09T10:00:00+08:00";
+    const series = price === null ? [] : [{ collectedAt, price }];
+    snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: "2026-10-09", xqEnabled: false,
+      etfs: [{ symbol: "SH510050", code: "510050", name: "50ETF", market: "SH", sortOrder: 1,
+        profile: { exchange: null, etfType: null, listingStatus: null, listingDate: null, manager: null, custodian: null,
+          shareCount: null, shareDate: null, trackingIndexCode: null, trackingIndexName: null, updatedAt: null },
+        quote: { source: "SINA_ETF", sourceTime: null, tradeDate: "2026-10-09", price, change, changePercent: 1.25,
+          previousClose: null, open: null, high: null, low: null, volume: 123, amount: 10000, collectedAt, status: "FRESH" },
+        series, fundSeries: [], fundFlowStatus: "NO_RELIABLE_SOURCE", effectiveTradeDate: "2026-10-09",
+        dataStatus: "HISTORICAL", closeConfirmed: false, assetAllocation: null }] });
+    const wrapper = mount(MonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises();
+      const values = wrapper.findAll(".etf-metrics dd");
+      expect(values[0]!.text()).toBe(expectedPrice); expect(values[1]!.text()).toBe(expectedChange);
+      expect(values[2]!.text()).toBe("+1.25%"); expect(values[3]!.text()).toBe("+1万"); expect(values[4]!.text()).toBe("123.00");
+      expect(snapshot.value.etfs[0]!.quote!.price).toBe(price); expect(snapshot.value.etfs[0]!.quote!.change).toBe(change);
+      if (price !== null) {
+        expect(wrapper.get(".etf-table-scroll tbody td:nth-child(2)").text()).toBe(expectedPrice);
+        const chart = wrapper.findComponent({ name: "BaseChart" });
+        const option = chart.props("option") as { tooltip: { valueFormatter: (value: unknown) => string }; series: Array<{ data: Array<[string, number]> }> };
+        expect(option.tooltip.valueFormatter([collectedAt, price])).toBe(`${expectedPrice} 元`);
+        expect(option.series[0]!.data).toEqual([[collectedAt, price]]);
+      } else expect(wrapper.findComponent({ name: "BaseChart" }).exists()).toBe(false);
+    } finally { wrapper.unmount(); }
+  });
   it("shows undated valid ETF quotes as delayed without claiming current or confirmed-close data", async () => {
     snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: null, xqEnabled: false,
       etfs: [{ symbol: "SH510050", code: "510050", name: "50ETF", market: "SH", sortOrder: 1,

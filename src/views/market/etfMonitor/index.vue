@@ -83,7 +83,12 @@ function locate(): void {
 }
 
 function priceOption(item: EtfMonitorItem) {
-  return buildCollectedPriceOption(item.series);
+  return buildCollectedPriceOption(item.series, "元", 3);
+}
+
+function formatPrice(value: number | null | undefined, signed = false): string {
+  const text = formatPlainNumber(value, 3);
+  return signed && value != null && value > 0 && text !== "—" ? `+${text}` : text;
 }
 </script>
 
@@ -99,9 +104,11 @@ function priceOption(item: EtfMonitorItem) {
         <button v-if="canViewConfig" type="button" :disabled="configOpening" @click="openConfig"><Setting />配置管理</button>
       </div>
     </header>
-    <p class="etf-notice">行情无可靠源时间，价格曲线横轴和卡片时间均为实际采集时间；历史行情不代表已确认收盘。</p>
+    <div class="etf-summary" :class="{ 'has-error': loadError }">
+      <p class="etf-notice" :aria-hidden="!!loadError">行情无可靠源时间，价格曲线横轴和卡片时间均为实际采集时间；历史行情不代表已确认收盘。</p>
+      <p class="etf-error stream-status-slot" :class="{ 'has-error': loadError }" role="alert" :tabindex="loadError ? 0 : -1"><template v-if="loadError">{{ dashboard ? "保留上次快照，更新可能延迟：" : "ETF 快照不可用：" }}{{ loadError }}</template></p>
+    </div>
     <p v-if="dashboard && !dashboard.xqEnabled" class="etf-notice">雪球资料采集关闭，资产配置不公开；新浪 ETF 行情仍可查看。</p>
-    <p class="etf-error stream-status-slot" :class="{ 'has-error': loadError }" role="alert"><template v-if="loadError">{{ dashboard ? "保留上次快照，更新可能延迟：" : "ETF 快照不可用：" }}{{ loadError }}</template></p>
     <div v-if="loading && !dashboard" class="etf-empty">正在读取 ETF 快照…</div>
     <div v-else-if="!etfs.length" class="etf-empty"><span>{{ dashboard ? "尚未启用 ETF 监控" : "暂无 ETF 监控快照" }}</span><el-button v-if="canViewConfig" :icon="Setting" :loading="configOpening" @click="openConfig">配置管理</el-button></div>
     <div v-else class="etf-grid">
@@ -111,8 +118,8 @@ function priceOption(item: EtfMonitorItem) {
           <div><strong>{{ statusLabel(item) }}</strong><small>有效交易日 {{ item.effectiveTradeDate || "—" }}</small></div>
         </header>
         <dl class="etf-metrics">
-          <div><dt>交易价格 · 元</dt><dd>{{ formatPlainNumber(item.quote?.price ?? null) }}</dd></div>
-          <div><dt>涨跌额 · 元</dt><dd :class="`tone-${valueTone(item.quote?.change)}`">{{ formatPlainNumber(item.quote?.change ?? null) }}</dd></div>
+          <div><dt>交易价格 · 元</dt><dd>{{ formatPrice(item.quote?.price) }}</dd></div>
+          <div><dt>涨跌额 · 元</dt><dd :class="`tone-${valueTone(item.quote?.change)}`">{{ formatPrice(item.quote?.change, true) }}</dd></div>
           <div><dt>涨跌幅</dt><dd :class="`tone-${valueTone(item.quote?.changePercent)}`">{{ formatPercent(item.quote?.changePercent ?? null) }}</dd></div>
           <div><dt>成交额 · 元</dt><dd>{{ formatAmount(item.quote?.amount ?? null) }}</dd></div>
           <div><dt>成交量</dt><dd>{{ formatPlainNumber(item.quote?.volume ?? null) }}</dd></div>
@@ -124,7 +131,7 @@ function priceOption(item: EtfMonitorItem) {
           <h3>日内交易价格 <small>实际采集时间 · {{ item.effectiveTradeDate || "—" }}</small></h3>
           <BaseChart v-if="item.series.length" :option="priceOption(item)" :accessible-label="`${item.name}实际采集时间价格走势，共 ${item.series.length} 点`" height="190px" />
           <p v-else>暂无实际价格采样点</p>
-          <details v-if="item.series.length"><summary>查看价格采样表</summary><div class="etf-table-scroll"><table><thead><tr><th>采集时间</th><th>交易价格 · 元</th></tr></thead><tbody><tr v-for="point in item.series" :key="point.collectedAt"><td>{{ shanghaiTime(point.collectedAt) }}</td><td>{{ formatPlainNumber(point.price) }}</td></tr></tbody></table></div></details>
+          <details v-if="item.series.length"><summary>查看价格采样表</summary><div class="etf-table-scroll"><table><thead><tr><th>采集时间</th><th>交易价格 · 元</th></tr></thead><tbody><tr v-for="point in item.series" :key="point.collectedAt"><td>{{ shanghaiTime(point.collectedAt) }}</td><td>{{ formatPrice(point.price) }}</td></tr></tbody></table></div></details>
         </div>
         <div class="etf-section"><h3>ETF 资金净流入走势</h3><p>资金流暂未支持，暂无可靠非东财来源。</p></div>
         <div class="etf-section">
@@ -144,7 +151,9 @@ function priceOption(item: EtfMonitorItem) {
 
 <style scoped>
 .etf-allocation-status { height: 40px; overflow: auto; }
-.stream-status-slot { height: 56px; box-sizing: border-box; overflow: auto; }
+.etf-summary { position: relative; }
+.etf-summary.has-error > .etf-notice { visibility: hidden; }
+.stream-status-slot { position: absolute; inset: 0; box-sizing: border-box; overflow: auto; overflow-wrap: anywhere; }
 .stream-status-slot:not(.has-error) { visibility: hidden; }
 .etf-monitor-page { display: grid; gap: 14px; color: var(--market-text); }
 .etf-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }

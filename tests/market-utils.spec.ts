@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SVGRenderer } from "echarts/renderers";
 
 import { echarts } from "@/charts/echarts";
-import { buildStockFundOption, buildStockPriceOption } from "@/charts/marketOptions";
+import { buildCollectedPriceOption, buildStockFundOption, buildStockPriceOption } from "@/charts/marketOptions";
 import type { StockPricePoint } from "@/types/market";
 import {
   formatAmount,
@@ -122,5 +122,39 @@ describe("stock fund chart", () => {
     expect(option.yAxis.max({ max: -1_000_000 })).toBe(0);
     expect(option.visualMap.pieces[0]?.color).not.toBe(option.visualMap.pieces[1]?.color);
     expect(option.tooltip.valueFormatter([points[2]!.collectedAt, -1_000_000])).toContain("−100万");
+  });
+});
+
+describe("ETF price chart precision", () => {
+  it.each([{ prices: [1.234, 1.2345, 1.2349] }, { prices: [1.2, 1.2, 1.2] }, { prices: [1.234, 2.5, 11.8] }])("keeps distinct three-decimal axis labels for $prices without rounding samples", ({ prices }) => {
+    echarts.use(SVGRenderer);
+    const points = prices.map((price, index) => ({ collectedAt: `2026-10-09T10:0${index}:00+08:00`, price }));
+    const option = buildCollectedPriceOption(points, "元", 3) as {
+      tooltip: { valueFormatter: (value: unknown) => string };
+      yAxis: { minInterval: number; axisLabel: { formatter: (value: number) => string } };
+      series: Array<{ data: Array<[string, number]> }>;
+    };
+    expect(option.yAxis.minInterval).toBe(0.001);
+    expect(option.series.flatMap((part) => part.data)).toEqual(points.map((point) => [point.collectedAt, point.price]));
+    expect(option.tooltip.valueFormatter(null)).toBe("—");
+    expect(option.tooltip.valueFormatter(Number.NaN)).toBe("—");
+    expect(option.tooltip.valueFormatter(1.2)).toBe("1.200 元");
+    expect(buildCollectedPriceOption(points, "元", 3)).toBe(option);
+    const indexOption = buildCollectedPriceOption(points, "点") as typeof option;
+    expect(indexOption.yAxis.minInterval).toBe(0.01);
+    expect(indexOption.tooltip.valueFormatter(1.2)).toBe("1.20 点");
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => ({
+      measureText: (text: string) => ({ width: text.length * 7 }),
+    }) as unknown as CanvasRenderingContext2D);
+    const chart = echarts.init(null, undefined, { renderer: "svg", ssr: true, width: 640, height: 280 });
+    try {
+      chart.setOption(option);
+      const ticks = (chart as unknown as { getModel: () => { getComponent: (type: string, index: number) => {
+        axis: { scale: { getTicks: () => Array<{ value: number }> } };
+      } } }).getModel().getComponent("yAxis", 0).axis.scale.getTicks().map((tick) => tick.value);
+      const labels = ticks.map(option.yAxis.axisLabel.formatter);
+      expect(labels.length).toBeGreaterThan(1); expect(new Set(labels).size).toBe(labels.length);
+      expect(labels.every((label) => /^\d+\.\d{3}$/.test(label))).toBe(true);
+    } finally { chart.dispose(); getContext.mockRestore(); }
   });
 });

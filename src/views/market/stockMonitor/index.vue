@@ -161,18 +161,17 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <p v-if="dashboard && !dashboard.xqEnabled" class="monitor-notice" role="status">
-      雪球采集开关未开启，仅展示监控清单。
-    </p>
-    <p v-else-if="dashboard?.tradeDate" class="monitor-notice" role="status">
-      最近交易日：{{ dashboard.tradeDate }}。报价请以每张卡片的源时间和状态为准。
-    </p>
+    <div class="monitor-summary" :class="{ 'has-error': errorMessage }">
+      <p class="monitor-notice" role="status" :aria-hidden="!!errorMessage">
+        <template v-if="dashboard && !dashboard.xqEnabled">雪球采集开关未开启，仅展示监控清单。</template>
+        <template v-else-if="dashboard?.tradeDate">最近交易日：{{ dashboard.tradeDate }}。报价请以每张卡片的源时间和状态为准。</template>
+        <template v-else>报价请以每张卡片的源时间和状态为准。</template>
+      </p>
+      <p class="monitor-notice monitor-notice--error stream-status-slot" :class="{ 'has-error': errorMessage }" role="alert" :tabindex="errorMessage ? 0 : -1">
+        <template v-if="errorMessage">读取失败{{ dashboard ? "，仍显示上次有效画面，更新可能延迟" : "" }}：{{ errorMessage }}</template>
+      </p>
+    </div>
     <p class="monitor-disclaimer">价格采样、涨跌幅和成交额仅供观察，不构成交易建议。</p>
-    <p class="monitor-notice monitor-notice--error stream-status-slot" :class="{ 'has-error': errorMessage }" role="alert">
-      <template v-if="errorMessage">
-        读取失败{{ dashboard ? "，仍显示上次有效画面，更新可能延迟" : "" }}：{{ errorMessage }}
-      </template>
-    </p>
 
     <div v-if="loading && !dashboard" class="monitor-skeleton-grid" aria-label="个股监控加载中">
       <div v-for="item in 4" :key="item" class="monitor-skeleton" />
@@ -275,7 +274,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .stock-fund-status { height: 48px; overflow: auto; margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); }
-.stream-status-slot { height: 56px; box-sizing: border-box; overflow: auto; }
+.monitor-summary { position: relative; }
+.monitor-summary.has-error > .monitor-notice:first-child { visibility: hidden; }
+.stream-status-slot { position: absolute; inset: 0; box-sizing: border-box; overflow: auto; overflow-wrap: anywhere; }
 .stream-status-slot:not(.has-error) { visibility: hidden; }
 .stock-monitor-page { display: grid; gap: 14px; color: var(--market-text); }
 .monitor-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }

@@ -17,12 +17,12 @@ const riseColor = "#F05252";
 const fallColor = "#22A06B";
 const primaryColor = "#3B82F6";
 
-function stockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreOption {
+function stockPriceOption(points: StockPricePoint[], unit = "元", digits = 2): EChartsCoreOption {
   const segments = splitPriceSeries(points);
   const formatTooltipPrice = (value: unknown): string => {
     const price = Array.isArray(value) ? value[1] : value;
     return typeof price === "number" && Number.isFinite(price)
-      ? `${formatPlainNumber(price)} ${unit}`
+      ? `${formatPlainNumber(price, digits)} ${unit}`
       : "—";
   };
   return {
@@ -48,9 +48,9 @@ function stockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreO
     yAxis: {
       type: "value",
       scale: true,
-      minInterval: 0.01,
+      minInterval: 10 ** -digits,
       splitNumber: 4,
-      axisLabel: { color: textColor, formatter: (value: number) => formatPlainNumber(value) },
+      axisLabel: { color: textColor, formatter: (value: number) => formatPlainNumber(value, digits) },
       splitLine: { lineStyle: { color: splitColor } },
     },
     series: segments.map((segment, index) => ({
@@ -199,8 +199,8 @@ function cachedOption(data: object, key: string, build: () => EChartsCoreOption)
 export function buildStockPriceOption(points: StockPricePoint[], unit = "元"): EChartsCoreOption {
   return cachedOption(points, `price-${unit}`, () => stockPriceOption(points, unit));
 }
-export function buildCollectedPriceOption(points: Array<{ collectedAt: string; price: number }>, unit = "元"): EChartsCoreOption {
-  return cachedOption(points, `collected-price-${unit}`, () => stockPriceOption(points.map((point) => ({ time: point.collectedAt, price: point.price })), unit));
+export function buildCollectedPriceOption(points: Array<{ collectedAt: string; price: number }>, unit = "元", digits = 2): EChartsCoreOption {
+  return cachedOption(points, `collected-price-${unit}-${digits}`, () => stockPriceOption(points.map((point) => ({ time: point.collectedAt, price: point.price })), unit, digits));
 }
 export function buildSectorTreemapOption(items: SnapshotSectorItem[], lastSuccessAt: string | null = null): EChartsCoreOption {
   return cachedOption(items, `treemap-${lastSuccessAt}`, () => sectorTreemapOption(items, lastSuccessAt));

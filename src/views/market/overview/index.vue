@@ -104,7 +104,12 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
       <div>
         <p class="snapshot-kicker">AKSHARE · MARKET SNAPSHOT V1</p>
         <h1>市场与资金总览</h1>
-        <p>核心指数、全市场资金与板块行情；请以各模块标注的数据日期和采集时间判断时效。</p>
+        <div class="snapshot-summary" :class="{ 'has-error': loadError }">
+          <p :aria-hidden="!!loadError">核心指数、全市场资金与板块行情；请以各模块标注的数据日期和采集时间判断时效。</p>
+          <p class="snapshot-connection-status" :class="{ 'has-error': loadError }" :role="loadError ? 'alert' : 'status'" :tabindex="loadError ? 0 : -1">
+            <template v-if="loadError">{{ snapshot ? "读取失败，仍显示上次取得的快照，更新可能延迟。" : "快照暂不可用。" }} {{ loadError }}</template>
+          </p>
+        </div>
       </div>
       <div class="snapshot-intro__actions">
         <span>{{ snapshotGeneratedLabel(snapshot) }}</span>
@@ -114,11 +119,6 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
       </div>
     </header>
 
-    <p class="snapshot-alert snapshot-connection-status" :class="{ 'has-error': loadError }" :role="loadError ? 'alert' : 'status'">
-      <template v-if="loadError">
-        {{ snapshot ? "读取失败，仍显示上次取得的快照，更新可能延迟。" : "快照暂不可用。" }} {{ loadError }}
-      </template><span v-else>{{ loading ? "正在读取快照…" : "" }}</span>
-    </p>
     <p v-if="!snapshot && !loading" class="snapshot-empty">暂无市场快照。请等待采集或重新读取。</p>
 
     <section class="snapshot-section" aria-labelledby="indices-title">
@@ -284,12 +284,14 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 </template>
 
 <style scoped>
-.snapshot-connection-status { height: 56px; box-sizing: border-box; overflow: auto; }
-.snapshot-connection-status:not(.has-error) { color: var(--market-muted); background: transparent; border-color: transparent; }
+.snapshot-summary { position: relative; }
+.snapshot-summary.has-error > p:first-child { visibility: hidden; }
+.snapshot-intro .snapshot-connection-status { position: absolute; inset: 0; overflow: auto; overflow-wrap: anywhere; color: #ffb4b4; background: var(--market-panel); border-radius: 4px; }
+.snapshot-connection-status:not(.has-error) { visibility: hidden; }
 .snapshot-module-status { grid-template-rows: repeat(6, minmax(18px, auto)) 36px; }
 .snapshot-delay-line { min-height: 18px; }
 .snapshot-module-message { height: 36px; overflow: auto; }
-.snapshot-dashboard { display: grid; gap: 20px; }
+.snapshot-dashboard { display: grid; gap: 16px; }
 .snapshot-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 14px 2px 4px; }
 .snapshot-kicker { margin: 0 0 5px; color: var(--market-primary); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
 .snapshot-intro h1 { margin: 0 0 8px; font-size: clamp(22px, 2.4vw, 30px); }
