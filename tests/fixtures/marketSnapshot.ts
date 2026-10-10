@@ -71,3 +71,15 @@ export const snapshot: MarketDashboardSnapshot = {
     coreIndices: moduleOf(coreIndexData),
   },
 };
+
+export function unknownDateSnapshot(status: "FRESH" | "STALE" = "FRESH"): MarketDashboardSnapshot {
+  const collectedAt = "2026-10-10T10:00:00+08:00";
+  const unknownModule = <T>(data: T): SnapshotModule<T> => ({
+    ...moduleOf(data, status), tradeDate: null, lastSuccessAt: collectedAt, lastAttemptAt: collectedAt,
+  });
+  return { ...snapshot, snapshotId: "u1", generatedAt: collectedAt, modules: {
+    industrySectors: unknownModule(industryData), conceptSectors: unknownModule(conceptData),
+    marketFundFlow: unknownModule({ ...fundData, latest: { ...fundData.latest, collectedAt }, series: [] }),
+    coreIndices: unknownModule({ ...coreIndexData, items: coreIndexData.items.map((item) => ({ ...item, collectedAt, series: [] })) }),
+  } };
+}

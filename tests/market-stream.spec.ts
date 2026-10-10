@@ -6,7 +6,7 @@ import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
 import { applyMarketPatch, parseMarketSnapshot } from "@/utils/marketStream";
 import { httpClient } from "@/utils/request";
 import { SseParser } from "@/utils/sse";
-import { conceptData, coreIndexData, industryData, moduleOf, snapshot } from "./fixtures/marketSnapshot";
+import { conceptData, coreIndexData, fundData, industryData, moduleOf, snapshot, unknownDateSnapshot } from "./fixtures/marketSnapshot";
 
 const originalAdapter = httpClient.defaults.adapter;
 const Probe = { setup: useMarketSnapshotStream,
@@ -41,6 +41,90 @@ afterEach(() => {
 });
 
 describe("market snapshot versions and SSE", () => {
+  it.each(["FRESH", "STALE"] as const)("accepts %s source values with unknown dates and empty curves", (status) => {
+    const parsed = parseMarketSnapshot(unknownDateSnapshot(status));
+    expect(parsed.modules.marketFundFlow.tradeDate).toBeNull();
+    expect(parsed.modules.marketFundFlow.data!.latest).toMatchObject({ collectedAt: "2026-10-10T10:00:00+08:00", netAmount: 123_000_000 });
+    expect(parsed.modules.marketFundFlow.data!.series).toEqual([]);
+    expect(parsed.modules.coreIndices!.data!.items[0]).toMatchObject({ price: 3000.12, collectedAt: "2026-10-10T10:00:00+08:00", series: [] });
+    expect(parsed.modules.industrySectors.tradeDate).toBeNull();
+    expect(parsed.modules.conceptSectors.tradeDate).toBeNull();
+  });
+
+  it.each(["marketFundFlow", "coreIndices"] as const)("rejects %s points without a confirmed date", (key) => {
+    const value = unknownDateSnapshot();
+    if (key === "marketFundFlow") value.modules.marketFundFlow = { ...snapshot.modules.marketFundFlow, tradeDate: null };
+    else value.modules.coreIndices = { ...snapshot.modules.coreIndices!, tradeDate: null };
+    expect(() => parseMarketSnapshot(value)).toThrow("市场快照结构或版本无效");
+    expect(() => applyMarketPatch(unknownDateSnapshot(), { baseSnapshotId: "u1", snapshotId: "u2",
+      generatedAt: value.generatedAt, modules: { [key]: value.modules[key] } })).toThrow();
+  });
+
+  it.each(["marketFundFlow", "coreIndices"] as const)("retains known-date same-day checks for %s", (key) => {
+    const value = structuredClone(snapshot);
+    if (key === "marketFundFlow") value.modules.marketFundFlow.data!.series[0]!.collectedAt = "2026-09-22T09:30:00+08:00";
+    else value.modules.coreIndices!.data!.items[0]!.series[0]!.collectedAt = "2026-09-22T10:00:00+08:00";
+    expect(() => parseMarketSnapshot(value)).toThrow();
+    expect(parseMarketSnapshot(snapshot).modules.marketFundFlow.data!.series).toEqual(fundData.series);
+  });
+
+  it("retains source, reconciliation, time and ERROR validation for unknown dates", () => {
+    const invalid = [
+      (value: ReturnType<typeof unknownDateSnapshot>) => { value.modules.marketFundFlow.lastSuccessAt = null; },
+      (value: ReturnType<typeof unknownDateSnapshot>) => { value.modules.marketFundFlow.data!.latest.netAmount = 1; },
+      (value: ReturnType<typeof unknownDateSnapshot>) => { value.modules.marketFundFlow.data!.latest.collectedAt = "invalid"; },
+      (value: ReturnType<typeof unknownDateSnapshot>) => { value.modules.coreIndices!.data!.items[0]!.collectedAt = "invalid"; },
+      (value: ReturnType<typeof unknownDateSnapshot>) => { value.modules.marketFundFlow.status = "ERROR"; },
+    ];
+    for (const invalidate of invalid) {
+      const value = structuredClone(unknownDateSnapshot()); invalidate(value);
+      expect(() => parseMarketSnapshot(value)).toThrow();
+    }
+    const value = unknownDateSnapshot(); value.modules.marketFundFlow = moduleOf<typeof fundData>(null, "ERROR");
+    expect(parseMarketSnapshot(value).modules.marketFundFlow.status).toBe("ERROR");
+  });
+
+  it.each(["resync", "invalid-null-curve"])("consumes unknown-date GET/patch and realigns on %s without stitching old curves", async (event) => {
+    vi.useFakeTimers();
+    const unknown = unknownDateSnapshot();
+    const historical = { ...snapshot, snapshotId: "u3", generatedAt: "2026-10-10T10:00:02+08:00" };
+    let gets = 0; const adapter = adapterFor([unknown, historical]);
+    httpClient.defaults.adapter = async (config) => { gets++; return adapter(config); };
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    let connections = 0;
+    vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => {
+      connections++;
+      return Promise.resolve(new Response(new ReadableStream<Uint8Array>({ start(controller) {
+        stream = controller;
+        controller.enqueue(new TextEncoder().encode(frame("ready", { snapshotId: connections === 1 ? "u1" : "u3" })));
+        options.signal?.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")), { once: true });
+      } }), { headers: { "Content-Type": "text/event-stream" } }));
+    }));
+    const wrapper = mount(Probe);
+    const vm = wrapper.vm as unknown as { snapshot: ReturnType<typeof parseMarketSnapshot> };
+    try {
+      await flushPromises(); expect(gets).toBe(1); expect(vm.snapshot.modules.marketFundFlow.data!.series).toEqual([]);
+      const before = vm.snapshot;
+      const patch = { baseSnapshotId: "u1", snapshotId: "u2", generatedAt: "2026-10-10T10:00:01+08:00",
+        modules: { marketFundFlow: { ...unknown.modules.marketFundFlow, data: { ...unknown.modules.marketFundFlow.data!,
+          latest: { ...unknown.modules.marketFundFlow.data!.latest, inflow: 400_000_000, netAmount: 223_000_000 } } } } };
+      stream.enqueue(new TextEncoder().encode(frame("patch", patch) + frame("patch", patch))); await flushPromises();
+      expect(vm.snapshot.snapshotId).toBe("u2"); expect(vm.snapshot.modules.marketFundFlow.data!.series).toEqual([]);
+      expect(vm.snapshot.modules.industrySectors).toBe(before.modules.industrySectors);
+      expect(() => applyMarketPatch(vm.snapshot, { ...patch, baseSnapshotId: "missing", snapshotId: "gap" })).toThrow("版本不连续");
+      const recovery = event === "resync" ? frame("resync", {}) : frame("patch", {
+        baseSnapshotId: "u2", snapshotId: "bad", generatedAt: patch.generatedAt,
+        modules: { coreIndices: { ...snapshot.modules.coreIndices!, tradeDate: null } },
+      });
+      stream.enqueue(new TextEncoder().encode(recovery)); await flushPromises();
+      expect(vm.snapshot.snapshotId).toBe("u2");
+      await vi.advanceTimersByTimeAsync(1000); await flushPromises();
+      expect(gets).toBe(2); expect(vm.snapshot.snapshotId).toBe("u3");
+      expect(vm.snapshot.modules.marketFundFlow.data!.series).toEqual(fundData.series);
+      expect(vm.snapshot.modules.coreIndices!.data!.items[0]!.series).toEqual(coreIndexData.items[0]!.series);
+      expect(wrapper.text()).not.toContain("结构或版本无效");
+    } finally { wrapper.unmount(); }
+  });
   it("merges module completions within one timestamp without losing independent times or curves", () => {
     let current = snapshot;
     const fund = snapshot.modules.marketFundFlow.data!;

@@ -21,6 +21,17 @@ const item = {
 };
 
 describe("ETF monitor public contract", () => {
+  it("accepts delayed undated quote values and clears historical curves in full-item patches", () => {
+    const undated = { ...item, effectiveTradeDate: null, dataStatus: "DELAYED", series: [],
+      quote: { ...quote, tradeDate: null, collectedAt: "2026-10-10T10:00:00+08:00", price: 2.6 } };
+    const parsed = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", xqEnabled: false, tradeDate: null, etfs: [undated] });
+    expect(parsed.etfs[0]).toMatchObject({ effectiveTradeDate: null, dataStatus: "DELAYED", series: [], quote: { price: 2.6, tradeDate: null } });
+    const historical = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "old", xqEnabled: false, tradeDate: "2026-09-30", etfs: [item] });
+    const updated = applyEtfMonitorPatch(historical, { baseStateId: "old", stateId: "new", etfs: [undated] });
+    if (updated === "duplicate") throw new Error("expected change");
+    expect(updated.etfs[0]!.series).toEqual([]); expect(updated.etfs[0]!.effectiveTradeDate).toBeNull();
+    expect(() => parseEtfMonitorDashboard({ ...parsed, etfs: [{ ...undated, series: item.series }] })).toThrow("采样点无效");
+  });
   it("distinguishes absent, unsynced and disabled allocation states and rejects illegal states", () => {
     const parse = (extra: Record<string, unknown>, xqEnabled = true) => parseEtfMonitorDashboard({
       schemaVersion: 1, stateId: "a", xqEnabled, tradeDate: "2026-09-30", etfs: [{ ...item, ...extra }] });

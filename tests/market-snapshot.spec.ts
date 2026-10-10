@@ -9,7 +9,7 @@ import type { MarketDashboardSnapshot, SnapshotSectorData } from "@/types/market
 import { sectorRankings, snapshotDateLabel, snapshotDelayLevel, snapshotStatusLabel, splitFundSeries } from "@/utils/marketSnapshot";
 import { httpClient } from "@/utils/request";
 import MarketOverview from "@/views/market/overview/index.vue";
-import { conceptData, fundData, industryData, moduleOf, sectorItem, snapshot } from "./fixtures/marketSnapshot";
+import { conceptData, fundData, industryData, moduleOf, sectorItem, snapshot, unknownDateSnapshot } from "./fixtures/marketSnapshot";
 
 const originalAdapter = httpClient.defaults.adapter;
 
@@ -34,6 +34,16 @@ afterEach(() => {
 });
 
 describe("market snapshot V1", () => {
+  it("shows unknown reference dates and source values without drawing manual-sample curves", async () => {
+    useSnapshotAdapter(unknownDateSnapshot());
+    const wrapper = mount(MarketOverview, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises(); expect(wrapper.text()).toContain("参考交易日待确认");
+      expect(wrapper.text()).toContain("本轮采集成功"); expect(wrapper.text()).toContain("+1.23亿元");
+      expect(wrapper.findAll(".snapshot-index-card base-chart-stub")).toHaveLength(0);
+      expect(wrapper.text()).not.toContain("当日实时");
+    } finally { wrapper.unmount(); }
+  });
   it("GETs the public snapshot endpoint and unwraps CommonResult", async () => {
     const requests: Array<{ method: string; url: string; baseURL: string; publicAccess?: boolean }> = [];
     useSnapshotAdapter(snapshot);

@@ -36,20 +36,22 @@ function fundPoint(value: unknown): boolean {
       Math.abs(inflow - outflow - netAmount) <= 0.011);
 }
 
-function fundData(value: unknown, tradeDate: string): boolean {
+function fundData(value: unknown, tradeDate: string | null): boolean {
   if (!record(value) || value.source !== "THS_INDIVIDUAL_AGGREGATE" ||
       typeof value.reconciledFromLegacy !== "boolean" ||
       !record(value.latest) || !fundPoint(value.latest) ||
       !["riseCount", "fallCount", "flatCount", "stockCount"].every((key) => nullableNumber((value.latest as Record<string, unknown>)[key])) ||
       !Array.isArray(value.series) || !value.series.every(fundPoint)) return false;
   const series = value.series as Array<{ collectedAt: string }>;
+  // 交易日未确认时仅保留实际源值，不将采集日期猜作交易日或拼接曲线。
+  if (tradeDate === null) return series.length === 0;
   if (chinaDate(new Date(value.latest.collectedAt as string)) !== tradeDate ||
       series.some((point) => chinaDate(new Date(point.collectedAt)) !== tradeDate)) return false;
   return series.every((point, index) =>
     index === 0 || Date.parse(point.collectedAt) > Date.parse(series[index - 1]!.collectedAt));
 }
 
-function coreIndexData(value: unknown): boolean {
+function coreIndexData(value: unknown, tradeDate: string | null): boolean {
   if (!record(value) || value.source !== "SINA_INDEX" || value.sourceTime !== null ||
       !Array.isArray(value.items) || value.items.length > 5) return false;
   const codes = new Set(["sh000001", "sz399001", "sh000300", "sz399006", "sh000688"]);
@@ -61,10 +63,12 @@ function coreIndexData(value: unknown): boolean {
         !["price", "change", "changePercent", "previousClose", "open", "high", "low", "volume", "amount"]
           .every((key) => nullableNumber(raw[key])) || !Array.isArray(raw.series)) return false;
     seen.add(raw.code);
+    if (tradeDate === null) return raw.series.length === 0;
     let previous = -Infinity;
     return raw.series.every((point) => {
       if (!record(point) || !timestamp(point.collectedAt) || !finiteNumber(point.price) ||
-          Date.parse(point.collectedAt as string) <= previous) return false;
+          Date.parse(point.collectedAt as string) <= previous ||
+          chinaDate(new Date(point.collectedAt as string)) !== tradeDate) return false;
       previous = Date.parse(point.collectedAt as string);
       return true;
     });
@@ -80,10 +84,10 @@ function validModule(value: unknown, kind: "sectors" | "fund" | "indices", secto
   if (!(value.message === null || typeof value.message === "string")) return false;
   if (value.data === null) return value.status === "ERROR";
   if (value.status === "ERROR") return false;
-  if (value.tradeDate === null || value.lastSuccessAt === null) return false;
+  if (value.lastSuccessAt === null) return false;
   if (!record(value.data)) return false;
-  if (kind === "indices") return coreIndexData(value.data);
-  if (kind === "fund") return fundData(value.data, value.tradeDate as string);
+  if (kind === "indices") return coreIndexData(value.data, value.tradeDate as string | null);
+  if (kind === "fund") return fundData(value.data, value.tradeDate as string | null);
   return value.data.source === "THS" && value.data.period === "INTRADAY" &&
     Array.isArray(value.data.items) && value.data.items.every((item) => sectorItem(item, sectorType!));
 }

@@ -24,6 +24,22 @@ beforeEach(() => {
 });
 
 describe("ETF public configuration navigation", () => {
+  it("shows undated valid ETF quotes as delayed without claiming current or confirmed-close data", async () => {
+    snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: null, xqEnabled: false,
+      etfs: [{ symbol: "SH510050", code: "510050", name: "50ETF", market: "SH", sortOrder: 1,
+        profile: { exchange: null, etfType: null, listingStatus: null, listingDate: null, manager: null, custodian: null,
+          shareCount: null, shareDate: null, trackingIndexCode: null, trackingIndexName: null, updatedAt: null },
+        quote: { source: "SINA_ETF", sourceTime: null, tradeDate: null, price: 2.5, change: null, changePercent: null,
+          previousClose: null, open: null, high: null, low: null, volume: null, amount: null,
+          collectedAt: "2026-10-10T10:00:00+08:00", status: "FRESH" }, series: [], fundSeries: [],
+        fundFlowStatus: "NO_RELIABLE_SOURCE", effectiveTradeDate: null, dataStatus: "DELAYED", closeConfirmed: false, assetAllocation: null }] });
+    const wrapper = mount(MonitorView);
+    try {
+      await flushPromises(); expect(wrapper.text()).toContain("采样已延迟"); expect(wrapper.text()).toContain("有效交易日 —");
+      expect(wrapper.text()).toContain("2.50"); expect(wrapper.text()).toContain("暂无实际价格采样点");
+      expect(wrapper.text()).not.toContain("当日采样"); expect(wrapper.text()).not.toContain("收盘已确认");
+    } finally { wrapper.unmount(); }
+  });
   it("renders ETF names and asset categories as source text without executable markup", async () => {
     const text = '<svg onload="alert(1)">基金 & "股票" < 100%</svg>';
     snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: null, xqEnabled: true,
