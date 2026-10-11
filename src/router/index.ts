@@ -9,7 +9,7 @@ import {
 import { pinia } from "@/stores";
 import { useAuthStore } from "@/stores/auth";
 import { usePermissionStore } from "@/stores/permission";
-import { AUTH_EXPIRED_EVENT } from "@/utils/request";
+import { AUTH_EXPIRED_EVENT, PERMISSION_DENIED_EVENT } from "@/utils/request";
 
 const staticRoutes: RouteRecordRaw[] = [
   {
@@ -71,7 +71,8 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 });
 
-router.beforeEach(async (to) => {
+let rematchPath: string | null = null;
+router.beforeEach(async (to, from) => {
   if (to.meta.publicAccess) return true;
   const authStore = useAuthStore(pinia);
   const permissionStore = usePermissionStore(pinia);
@@ -98,6 +99,17 @@ router.beforeEach(async (to) => {
     };
   }
 
+  if (rematchPath === to.fullPath) { rematchPath = null; return true; }
+  if (permissionStore.initialized && !permissionStore.reconciling && to.path !== from.path && to.path !== "/403") {
+    try {
+      await permissionStore.refresh(router);
+      const resolved = router.resolve(to.fullPath);
+      if (resolved.name === "NotFound" || resolved.meta.externalUrl || resolved.meta.directory && !resolved.matched.at(-1)?.redirect) return { path: permissionStore.firstPath, replace: true };
+      rematchPath = to.fullPath;
+      return { path: to.fullPath, replace: true };
+    } catch { return { path: "/403", replace: true }; }
+  }
+
   if (!permissionStore.initialized) {
     try {
       await permissionStore.initialize(router);
@@ -114,6 +126,8 @@ router.beforeEach(async (to) => {
     if (to.path === "/") {
       return { path: permissionStore.firstPath, replace: true };
     }
+    if (router.resolve(to.fullPath).name === "NotFound" || router.resolve(to.fullPath).meta.externalUrl) return { path: permissionStore.firstPath, replace: true };
+    rematchPath = to.fullPath;
     return { path: to.fullPath, replace: true };
   }
 
@@ -124,6 +138,14 @@ router.beforeEach(async (to) => {
 });
 
 if (typeof window !== "undefined") {
+  let eventRefresh: Promise<void> | null = null;
+  const refreshCurrent = (): void => {
+    const auth = useAuthStore(pinia); const permission = usePermissionStore(pinia);
+    if (eventRefresh || !auth.isAuthenticated || !permission.initialized) return;
+    eventRefresh = permission.refresh(router, true).catch(() => { ElMessage.warning("权限刷新失败，请稍后重试"); }).finally(() => { eventRefresh = null; });
+  };
+  window.addEventListener(PERMISSION_DENIED_EVENT, refreshCurrent);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshCurrent(); });
   window.addEventListener(AUTH_EXPIRED_EVENT, () => {
     const authStore = useAuthStore(pinia);
     const permissionStore = usePermissionStore(pinia);

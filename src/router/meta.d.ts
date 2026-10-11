@@ -10,5 +10,8 @@ declare module "vue-router" {
     keepAlive?: boolean;
     loadError?: string;
     publicAccess?: boolean;
+    directory?: boolean;
+    externalUrl?: string;
+    componentPath?: string;
   }
 }

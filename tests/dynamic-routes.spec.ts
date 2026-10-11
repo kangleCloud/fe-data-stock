@@ -126,3 +126,28 @@ describe("dynamic routes", () => {
     expect(firstVisiblePath(route ? [route] : [])).toBe("/market");
   });
 });
+
+describe("classified navigation", () => {
+  it("uses one shell and lightweight nested Layout while preserving old absolute page URLs", async () => {
+    const [root] = buildDynamicRoutes([{ routeName: "Stocks", path: "/stock-management", hidden: false, component: "Layout", meta: { menuName: "股票" }, children: [{ routeName: "Data", path: "data", hidden: false, component: "Layout", meta: { menuName: "数据" }, children: [{ routeName: "Profile", path: "/system/stockProfile", hidden: false, component: "system/stockProfile/index", meta: { menuName: "资料" } }] }] }]);
+    expect(root?.children?.[0]?.path).toBe("/stock-management/data");
+    expect(root?.children?.[0]?.children?.[0]?.path).toBe("/system/stockProfile");
+    expect(firstVisiblePath(root ? [root] : [])).toBe("/system/stockProfile");
+    const loader = root?.children?.[0]?.component as () => Promise<{ default: { __file?: string } }>;
+    expect((await loader()).default.__file).toContain("DirectoryLayout");
+  });
+  it("recognizes menu management and rejects disabled routes, keeping hidden authorized pages", () => {
+    const routes = buildDynamicRoutes([
+      { routeName: "SysMenu", path: "/system/sysMenu", hidden: false, component: "system/sysMenu/index", meta: { menuName: "菜单" } },
+      { routeName: "Disabled", path: "/disabled", hidden: false, status: 0, component: "system/sysMenu/index", meta: { menuName: "停用" } },
+      { routeName: "Hidden", path: "/hidden", hidden: true, component: "system/sysMenu/index", meta: { menuName: "隐藏" } },
+    ]);
+    expect(routes.map((route) => route.name)).toEqual(["SysMenu", "Hidden"]);
+    expect(routes[0]?.meta?.loadError).toBeUndefined();
+  });
+  it("stores safe external targets separately from internal route paths", () => {
+    const routes = buildDynamicRoutes(["https://example.com", "javascript:alert(1)"].map((url, index) => ({ routeName: `Link${index}`, path: url, routeLink: url, hidden: false, component: "", isExternal: 1, meta: { menuName: "外链" } })));
+    expect(routes[0]?.path).toBe("/__link/Link0"); expect(routes[0]?.meta?.externalUrl).toBe("https://example.com");
+    expect(routes[1]?.meta?.externalUrl).toBeUndefined(); expect(routes[1]?.meta?.loadError).toContain("HTTP/HTTPS");
+  });
+});

@@ -73,6 +73,9 @@ export interface BackendRouteMeta {
 }
 
 export interface BackendRoute {
+  menuType?: "CONTENTS" | "MENU" | "LINK";
+  isExternal?: number;
+  status?: number;
   routeName: string;
   routeLink?: string;
   path: string;

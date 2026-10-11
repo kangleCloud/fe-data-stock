@@ -15,9 +15,9 @@ import {
   onMounted,
   ref,
 } from "vue";
-import type { RouteRecordRaw } from "vue-router";
 import { useRoute, useRouter } from "vue-router";
 
+import RouteOutlet from "@/layout/components/RouteOutlet.vue";
 import SidebarItem from "@/layout/components/SidebarItem.vue";
 import { useAuthStore } from "@/stores/auth";
 import { usePermissionStore } from "@/stores/permission";
@@ -33,7 +33,7 @@ const isMobile = ref(false);
 let mediaQuery: MediaQueryList | null = null;
 
 const visibleRoutes = computed(() =>
-  permissionStore.routes.filter((item) => !item.meta?.hidden),
+  permissionStore.routes.filter((item) => !item.meta?.hidden && (!item.meta?.directory || item.meta?.externalUrl || item.children?.some((child) => !child.meta?.hidden))),
 );
 
 const breadcrumbItems = computed(() =>
@@ -69,6 +69,8 @@ async function handleLogout(): Promise<void> {
 
 function goToRoute(path: string): void {
   mobileDrawerOpen.value = false;
+  const target = router.getRoutes().find((item) => item.path === path);
+  if (target?.meta.externalUrl) { window.open(target.meta.externalUrl, "_blank", "noopener,noreferrer"); return; }
   void router.push(path);
 }
 
@@ -101,13 +103,13 @@ onBeforeUnmount(() => {
         :default-active="route.path"
         :collapse="collapsed"
         :collapse-transition="false"
-        router
         class="sidebar-menu"
       >
         <SidebarItem
           v-for="item in visibleRoutes"
           :key="String(item.name || item.path)"
           :route="item"
+          @navigate="goToRoute"
         />
       </el-menu>
       <button
@@ -136,25 +138,7 @@ onBeforeUnmount(() => {
         </span>
       </div>
       <el-menu :default-active="route.path" class="sidebar-menu">
-        <template v-for="item in visibleRoutes" :key="String(item.name)">
-          <el-sub-menu v-if="item.children?.length" :index="item.path">
-            <template #title>
-              <el-icon><MenuIcon /></el-icon>
-              <span>{{ item.meta?.title }}</span>
-            </template>
-            <el-menu-item
-              v-for="child in (item.children as RouteRecordRaw[])"
-              :key="child.path"
-              :index="child.path"
-              @click="goToRoute(child.path)"
-            >
-              {{ child.meta?.title }}
-            </el-menu-item>
-          </el-sub-menu>
-          <el-menu-item v-else :index="item.path" @click="goToRoute(item.path)">
-            {{ item.meta?.title }}
-          </el-menu-item>
-        </template>
+        <SidebarItem v-for="item in visibleRoutes" :key="String(item.name || item.path)" :route="item" @navigate="goToRoute" />
       </el-menu>
     </el-drawer>
 
@@ -201,7 +185,7 @@ onBeforeUnmount(() => {
       </header>
 
       <main id="main-content" class="admin-content" tabindex="-1">
-        <RouterView />
+        <RouteOutlet />
       </main>
     </div>
   </div>

@@ -27,6 +27,7 @@ declare module "axios" {
   }
 }
 
+export const PERMISSION_DENIED_EVENT = "vita-stock-admin:permission-denied";
 export const AUTH_EXPIRED_EVENT = "vita-stock-admin:auth-expired";
 const normalizeBaseUrl = (value: string): string => value.replace(/\/+$/, "");
 export const PUBLIC_API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_OPENAPI_BASE_URL || "/openapi/api");
@@ -70,6 +71,10 @@ function expireSession(): void {
   }
 }
 
+function refreshDenied(code: number | undefined, config?: AxiosRequestConfig): void {
+  if (code === 403 && !config?.publicAccess && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(PERMISSION_DENIED_EVENT));
+}
+
 function showError(message: string): void {
   if (typeof document !== "undefined") {
     ElMessage.error(message);
@@ -105,6 +110,7 @@ httpClient.interceptors.response.use(
     if (result.code === 401 && !response.config.publicAccess) {
       expireSession();
     }
+    refreshDenied(result.code, response.config);
     const message = result.msg || "请求失败，请稍后重试";
     if (shouldShowError(response.config)) {
       showError(message);
@@ -122,6 +128,7 @@ httpClient.interceptors.response.use(
     if (code === 401 && !error.config?.publicAccess) {
       expireSession();
     }
+    refreshDenied(code, error.config);
     if (shouldShowError(error.config)) {
       showError(message);
     }
@@ -162,6 +169,7 @@ export async function requestStream(path: string, signal: AbortSignal, publicAcc
       expireSession();
       throw new StreamResponseError(message, 401, response.status, contentType, "http");
     }
+    if (!publicAccess) refreshDenied(code ?? response.status, { publicAccess });
     const classification = contentType.includes("html") ? "html" : contentType.includes("json") ? "json" : response.ok ? "non-sse" : "http";
     throw new StreamResponseError(message, code, response.status, contentType, classification);
   }

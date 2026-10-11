@@ -14,6 +14,8 @@ import {
 } from "element-plus";
 import { nextTick, onMounted, reactive, ref } from "vue";
 
+import MenuGrantDrawer from "@/components/MenuGrantDrawer.vue";
+
 import {
   checkRoleCodeUnique,
   checkRoleNameUnique,
@@ -51,6 +53,8 @@ const dataScopeOptions: Array<{ label: string; value: DataScope }> = [
   { label: "自定义", value: "CUSTOM" },
 ];
 
+const grantVisible = ref(false);
+const grantRole = ref<SysRole>();
 const loading = ref(false);
 const submitting = ref(false);
 const drawerVisible = ref(false);
@@ -325,8 +329,9 @@ onMounted(loadData);
         <el-table-column prop="remark" label="备注" min-width="180">
           <template #default="{ row }">{{ row.remark || "—" }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
+            <el-button v-permission="'system:role:grant'" link type="primary" :disabled="row.isSystem === 1" @click="grantRole = row as SysRole; grantVisible = true">菜单授权</el-button>
             <el-tooltip
               :disabled="row.isSystem !== 1"
               content="系统内置角色不可编辑"
@@ -377,6 +382,7 @@ onMounted(loadData);
       </div>
     </div>
 
+    <MenuGrantDrawer v-model="grantVisible" :role="grantRole" />
     <el-drawer
       v-model="drawerVisible"
       :title="editing ? '编辑角色' : '新增角色'"
