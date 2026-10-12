@@ -134,6 +134,7 @@ function fundOption(segments: FundSample[][], name: string): EChartsCoreOption {
   const samples = segments.flat().filter((point) => Number.isFinite(point.netAmount) && Number.isFinite(Date.parse(point.collectedAt)));
   const values = samples.map((point) => point.netAmount!);
   const unit = fundUnit(values);
+  const axisRange = fundAxisRange(values, unit.divisor);
   const times = samples.map((point) => Date.parse(point.collectedAt));
   const first = times.length ? Math.min(...times) : undefined;
   const last = times.length ? Math.max(...times) : undefined;
@@ -162,18 +163,20 @@ function fundOption(segments: FundSample[][], name: string): EChartsCoreOption {
       axisLine: { lineStyle: { color: axisColor } },
       axisLabel: { color: textColor, hideOverlap: true, formatter: (value: number) =>
         new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) } },
-    yAxis: { type: "value", name: unit.name, nameTextStyle: { color: textColor }, ...fundAxisRange(values, unit.divisor),
+    yAxis: { type: "value", name: unit.name, nameTextStyle: { color: textColor }, ...axisRange,
       splitNumber: 4, axisLabel: { color: textColor, formatter: (value: number) =>
         (value / unit.divisor).toLocaleString("zh-CN", { maximumFractionDigits: 2 }) },
       splitLine: { lineStyle: { color: splitColor } } },
     visualMap: { type: "piecewise", show: false, dimension: 1,
-      seriesIndex: segments.map((_, index) => index),
-      pieces: [{ gt: 0, color: riseColor }, { lt: 0, color: fallColor }, { value: 0, color: textColor }] },
+      seriesIndex: segments.flatMap((segment, index) => segment.every((point) => point.netAmount === 0) ? [] : [index]),
+      // 有限区间为折线提供不同坐标的渐变锚点，避免零点重合时负值线段颜色反转。
+      pieces: [{ gt: 0, lte: axisRange.max, color: riseColor }, { gte: axisRange.min, lt: 0, color: fallColor }, { value: 0, color: textColor }] },
     series: segments.map((segment, index) => ({
       id: `segment-${index}`, name, type: "line",
       data: segment.map((point) => [point.collectedAt, point.netAmount]),
       showSymbol: segment.length === 1, symbolSize: 5, connectNulls: false, smooth: false,
-      lineStyle: { width: 2 },
+      lineStyle: { width: 2, color: segment.every((point) => point.netAmount === 0) ? textColor : undefined },
+      itemStyle: { color: segment.every((point) => point.netAmount === 0) ? textColor : undefined },
       ...(index === 0 ? { markLine: { silent: true, symbol: "none", label: { show: false },
         lineStyle: { color: axisColor, type: "dashed", width: 1.5 }, data: [{ yAxis: 0 }] } } : {}),
     })),

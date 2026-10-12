@@ -45,6 +45,27 @@ describe.each(builders)("fund chart %s", (build) => {
       expect(chart.renderToSVGString()).toContain(unit);
     } finally { chart.dispose(); }
   });
+  it.each([[-300, -800], [300, 800], [-300, 800], [300, -800], [0, 0]])("renders signed continuous line colors in the actual SVG: %s, %s", (first, second) => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => ({ measureText: (text: string) => ({ width: text.length * 7 }) }) as unknown as CanvasRenderingContext2D);
+    const chart = echarts.init(null, undefined, { renderer: "svg", ssr: true, width: 640, height: 300 });
+    try {
+      chart.setOption({ ...build([sample(first), sample(second, "2026-10-12T10:01:01+08:00")]), animation: false });
+      const svg = new DOMParser().parseFromString(chart.renderToSVGString(), "image/svg+xml");
+      const line = svg.querySelector('path[stroke-width="2"]')!;
+      if (first === 0 && second === 0) { expect(line.getAttribute("stroke")).toBe("#94A3B8"); return; }
+      const gradientId = line.getAttribute("stroke")!.match(/^url\(#(.+)\)$/)![1]!;
+      const gradient = svg.getElementById(gradientId)!;
+      const start = Number(gradient.getAttribute("y1")); const end = Number(gradient.getAttribute("y2"));
+      const stops = [...gradient.querySelectorAll("stop")].map((stop) => ({
+        y: start + parseFloat(stop.getAttribute("offset")!) / 100 * (end - start), color: stop.getAttribute("stop-color"),
+      })).sort((a, b) => a.y - b.y);
+      for (const amount of [first, second]) {
+        const y = chart.convertToPixel({ yAxisIndex: 0 }, amount) as number;
+        const color = stops.filter((stop) => stop.y <= y).at(-1)?.color ?? stops[0]!.color;
+        expect(color).toBe(amount < 0 ? "#22A06B" : "#F05252");
+      }
+    } finally { chart.dispose(); }
+  });
   it("keeps real time gaps/null breaks and leaves continuous segments without permanent markers", () => {
     const points = [sample(10), sample(20, "2026-10-12T10:01:01+08:00"), sample(null, "2026-10-12T10:01:30+08:00"),
       sample(-10, "2026-10-12T10:02:01+08:00"), sample(5, "2026-10-12T13:00:01+08:00")];
