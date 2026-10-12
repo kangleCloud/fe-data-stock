@@ -63,6 +63,24 @@ describe("public stock monitor view", () => {
     } finally { wrapper.unmount(); }
   });
 
+  it("shows the latest valid fund sample while keeping normal sampling rules in Tips", async () => {
+    const latest = { collectedAt: "2026-09-27T14:31:03+08:00", inflow: 0, outflow: 12345, netAmount: -12345 };
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "a", xqEnabled: true,
+      tradeDate: "2026-09-27", stocks: [{ ...stock, fundFlowStatus: "AVAILABLE", fundSeries: [...stock.fundSeries, latest,
+        { ...latest, collectedAt: "2026-09-27T14:32:03+08:00", inflow: null, outflow: null, netAmount: null }] }] });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises();
+      expect(wrapper.get(".stock-fund-latest").text()).toContain("−1.23万元");
+      expect(wrapper.get(".stock-fund-latest").text()).toContain("2026/09/27 14:31:03");
+      expect(wrapper.get(".stock-fund-latest strong").classes()).toContain("tone-fall");
+      expect(wrapper.get(".stock-fund-status").text()).toBe("资金采样可用");
+      expect(wrapper.get(".stock-fund-status").text()).not.toContain("不补点");
+      expect(wrapper.get(".stock-fund-chart").attributes("height")).toBe("220px");
+      expect(wrapper.get(".stock-accessible-table").text()).toContain("14:32:03");
+    } finally { wrapper.unmount(); }
+  });
+
   it("renders untrusted API errors as literal text", async () => {
     const text = '<svg onload="alert(1)">失败 & "原因"</svg>';
     mocks.getStockMonitorDashboard.mockRejectedValue(new Error(text));
@@ -102,8 +120,11 @@ describe("public stock monitor view", () => {
       await wrapper.get(".monitor-tools input").setValue("600004");
       await wrapper.get(".monitor-tools input").trigger("keyup.enter"); await flushPromises();
       expect(wrapper.text()).toContain("第 2 / 2 页");
+      const chartNode = wrapper.get(".stock-fund-chart").element;
+      const table = wrapper.get(".stock-table-scroll").element; table.scrollTop = 80;
       const changed = { ...items[4]!, quote: { ...stock.quote, price: 14.2 },
-        series: [...stock.series, { time: "2026-09-27T14:30:05+08:00", price: 14.2 }] };
+        series: [...stock.series, { time: "2026-09-27T14:30:05+08:00", price: 14.2 }],
+        fundFlowStatus: "AVAILABLE", fundSeries: [...stock.fundSeries, { collectedAt: "2026-09-27T14:30:05+08:00", inflow: 3000000, outflow: 1000000, netAmount: 2000000 }] };
       const patches = [{ baseStateId: "q1", stateId: "q2", stocks: [changed] },
         { baseStateId: "q2", stateId: "q3", stocks: [{ ...items[0]!, quote: { ...stock.quote, price: 11 } }] }];
       const frames = [...patches, patches[1]].map((patch) => `event: patch\ndata: ${JSON.stringify(patch)}\n\n`).join("");
@@ -112,6 +133,9 @@ describe("public stock monitor view", () => {
       expect(wrapper.findAll(".stock-card")).toHaveLength(1);
       expect(wrapper.text()).toContain("股票5"); expect(wrapper.text()).not.toContain("股票1");
       expect(wrapper.text()).toContain("14.20");
+      expect(wrapper.get(".stock-fund-latest").text()).toContain("+200万元");
+      expect(wrapper.get(".stock-fund-chart").element).toBe(chartNode);
+      expect(wrapper.get(".stock-table-scroll").element).toBe(table); expect(table.scrollTop).toBe(80);
     } finally { wrapper.unmount(); }
   });
   it("shows disabled collection without quotes or management actions to visitors", async () => {

@@ -108,7 +108,7 @@ describe("stock fund chart", () => {
       { collectedAt: "2026-09-30T13:02:00+08:00", inflow: 1_000_000, outflow: 2_000_000, netAmount: -1_000_000 },
     ];
     const option = buildStockFundOption(points) as {
-      xAxis: { type: string }; yAxis: { min: (value: { min: number }) => number; max: (value: { max: number }) => number };
+      xAxis: { type: string }; yAxis: { min: number; max: number };
       visualMap: { pieces: Array<{ color: string }> };
       tooltip: { valueFormatter: (value: unknown) => string };
       series: Array<{ data: Array<[string, number]>; markLine?: { data: Array<{ yAxis: number }> } }>;
@@ -118,10 +118,10 @@ describe("stock fund chart", () => {
       [[points[0]!.collectedAt, 1_000_000]], [[points[2]!.collectedAt, -1_000_000]],
     ]);
     expect(option.series[0]?.markLine?.data).toEqual([{ yAxis: 0 }]);
-    expect(option.yAxis.min({ min: 1_000_000 })).toBe(0);
-    expect(option.yAxis.max({ max: -1_000_000 })).toBe(0);
+    expect(option.yAxis.min).toBeLessThan(-1_000_000);
+    expect(option.yAxis.max).toBeGreaterThan(1_000_000);
     expect(option.visualMap.pieces[0]?.color).not.toBe(option.visualMap.pieces[1]?.color);
-    expect(option.tooltip.valueFormatter([points[2]!.collectedAt, -1_000_000])).toContain("−100万");
+    expect(option.tooltip.valueFormatter([points[2]!.collectedAt, -1_000_000])).toContain("−100万元");
   });
 });
 

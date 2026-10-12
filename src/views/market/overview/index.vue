@@ -3,6 +3,7 @@ import { Refresh } from "@element-plus/icons-vue";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { buildIntradayFundOption, buildSectorTreemapOption, buildCollectedPriceOption } from "@/charts/marketOptions";
+import FundChartTips from "@/components/market/FundChartTips.vue";
 import BaseChart from "@/components/market/BaseChart.vue";
 import MarketPanel from "@/components/market/MarketPanel.vue";
 import { useMarketSnapshotStream } from "@/composables/useMarketSnapshotStream";
@@ -160,14 +161,14 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
         :loading="loading && !snapshot" :has-data="Boolean(fundModule?.data?.latest)"
         :message="fundModule?.message ?? loadError"
       >
-        <p class="snapshot-note">由同花顺即时个股资金数据汇总；日内曲线仅连接连续成功采样，午间及采集缺口断线。</p>
+        <div class="snapshot-fund-heading"><span>同花顺即时个股资金汇总</span><FundChartTips /></div>
         <p v-if="fundModule?.data?.reconciledFromLegacy" class="snapshot-note" role="status">历史快照已按统一口径校正：净额 = 同批流入 − 流出。</p>
         <div class="snapshot-market-metrics">
           <div><small>全市场净额</small><strong :class="`tone-${valueTone(fundModule?.data?.latest.netAmount)}`">{{ formatMarketYuan(fundModule?.data?.latest.netAmount) }}</strong></div>
           <div><small>流入</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.inflow) }}</strong></div>
           <div><small>流出</small><strong>{{ formatMarketYuan(fundModule?.data?.latest.outflow) }}</strong></div>
         </div>
-        <p class="snapshot-note">最近采集：{{ shanghaiTime(fundModule?.data?.latest.collectedAt) }}。这不是源站报价时间。</p>
+        <p class="snapshot-note">最近采集：{{ shanghaiTime(fundModule?.data?.latest.collectedAt) }}。</p>
         <BaseChart
           v-if="fundModule?.data?.series.length" :option="fundOption"
           :accessible-label="`全市场资金净额当日日内曲线，共 ${fundModule.data.series.length} 个实际采样点`" height="300px"
@@ -284,6 +285,7 @@ function barWidth(item: SnapshotSectorItem, items: SnapshotSectorItem[]): string
 </template>
 
 <style scoped>
+.snapshot-fund-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; color: var(--market-text-secondary); font-size: 12px; }
 .snapshot-summary { position: relative; }
 .snapshot-summary.has-error > p:first-child { visibility: hidden; }
 .snapshot-intro .snapshot-connection-status { position: absolute; inset: 0; overflow: auto; overflow-wrap: anywhere; color: #ffb4b4; background: var(--market-panel); border-radius: 4px; }

@@ -8,6 +8,7 @@ import type {
 } from "@/types/market";
 import { formatAmount, formatPercent, formatPlainNumber } from "@/utils/market";
 import { splitPriceSeries, splitStockFundSeries } from "@/utils/stockMonitor";
+import { fundAxisRange, fundCollectedTime, fundUnit, formatFundAmount, fullFundAmount } from "@/utils/fundChart";
 import { splitFundSeries } from "@/utils/marketSnapshot";
 
 const axisColor = "#5F718A";
@@ -128,63 +129,63 @@ function sectorTreemapOption(items: SnapshotSectorItem[], lastSuccessAt: string 
   };
 }
 
-function intradayFundOption(points: SnapshotFundPoint[]): EChartsCoreOption {
-  const segments = splitFundSeries(points);
+type FundSample = Pick<StockFundPoint, "collectedAt" | "netAmount">;
+function fundOption(segments: FundSample[][], name: string): EChartsCoreOption {
+  const samples = segments.flat().filter((point) => Number.isFinite(point.netAmount) && Number.isFinite(Date.parse(point.collectedAt)));
+  const values = samples.map((point) => point.netAmount!);
+  const unit = fundUnit(values);
+  const times = samples.map((point) => Date.parse(point.collectedAt));
+  const first = times.length ? Math.min(...times) : undefined;
+  const last = times.length ? Math.max(...times) : undefined;
+  // 时间轴保留真实午休和缺样间隔；单点只扩展视窗，不添加采样。
+  const timePadding = first === last ? 120_000 : Math.max(1_000, ((last ?? 0) - (first ?? 0)) * 0.03);
   return {
     aria: { enabled: true },
-    tooltip: { trigger: "axis", backgroundColor: "#102039", borderColor: "#20334D",
-      valueFormatter: (value: unknown) => {
-        const amount = Array.isArray(value) ? value[1] : value;
-        return typeof amount === "number" && Number.isFinite(amount) ? `${formatAmount(amount)}元` : "—";
+    tooltip: { trigger: "axis", confine: true, renderMode: "html", backgroundColor: "#102039", borderColor: "#20334D",
+      textStyle: { color: "#F3F7FC" },
+      extraCssText: "max-width:min(320px, calc(100vw - 24px));white-space:normal;overflow-wrap:anywhere;",
+      valueFormatter: (value: unknown) => formatFundAmount(value),
+      formatter: (params: { data?: unknown; value?: unknown; seriesName?: string } | Array<{ data?: unknown; value?: unknown; seriesName?: string }>) => {
+        const items = Array.isArray(params) ? params : [params];
+        return items.flatMap((item) => {
+          if (!item || typeof item !== "object") return [];
+          const pair = item.data ?? item.value;
+          if (!Array.isArray(pair) || typeof pair[0] !== "string" || typeof pair[1] !== "number" || !Number.isFinite(pair[1])) return [];
+          // 只展示真实采样，Tooltip 不使用缺口内的轴指示时间。
+          if (!samples.some((point) => point.collectedAt === pair[0] && point.netAmount === pair[1])) return [];
+          return [`<div>${escapeHtml(fundCollectedTime(pair[0]))}</div><strong>${escapeHtml(item.seriesName ?? name)}</strong>：${formatFundAmount(pair[1])}<div>${fullFundAmount(pair[1])}</div>`];
+        }).join("<br>");
       } },
-    grid: { top: 16, right: 22, bottom: 34, left: 72 },
-    xAxis: { type: "time", axisLine: { lineStyle: { color: axisColor } },
+    grid: { top: 34, right: 16, bottom: 28, left: 16, containLabel: true },
+    xAxis: { type: "time", min: first === undefined ? undefined : first - timePadding,
+      max: last === undefined ? undefined : last + timePadding,
+      axisLine: { lineStyle: { color: axisColor } },
       axisLabel: { color: textColor, hideOverlap: true, formatter: (value: number) =>
         new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) } },
-    yAxis: { type: "value", scale: true, splitNumber: 4,
-      axisLabel: { color: textColor, formatter: (value: number) => formatAmount(value) },
+    yAxis: { type: "value", name: unit.name, nameTextStyle: { color: textColor }, ...fundAxisRange(values, unit.divisor),
+      splitNumber: 4, axisLabel: { color: textColor, formatter: (value: number) =>
+        (value / unit.divisor).toLocaleString("zh-CN", { maximumFractionDigits: 2 }) },
       splitLine: { lineStyle: { color: splitColor } } },
+    visualMap: { type: "piecewise", show: false, dimension: 1,
+      seriesIndex: segments.map((_, index) => index),
+      pieces: [{ gt: 0, color: riseColor }, { lt: 0, color: fallColor }, { value: 0, color: textColor }] },
     series: segments.map((segment, index) => ({
-      id: `segment-${index}`,
-      name: "全市场资金净额", type: "line",
+      id: `segment-${index}`, name, type: "line",
       data: segment.map((point) => [point.collectedAt, point.netAmount]),
-      showSymbol: segment.length === 1, symbolSize: 5, connectNulls: false,
-      lineStyle: { color: primaryColor, width: 2 }, itemStyle: { color: primaryColor },
+      showSymbol: segment.length === 1, symbolSize: 5, connectNulls: false, smooth: false,
+      lineStyle: { width: 2 },
+      ...(index === 0 ? { markLine: { silent: true, symbol: "none", label: { show: false },
+        lineStyle: { color: axisColor, type: "dashed", width: 1.5 }, data: [{ yAxis: 0 }] } } : {}),
     })),
   };
 }
 
+function intradayFundOption(points: SnapshotFundPoint[]): EChartsCoreOption {
+  return fundOption(splitFundSeries(points), "全市场资金净额");
+}
+
 function stockFundOption(points: StockFundPoint[]): EChartsCoreOption {
-  const segments = splitStockFundSeries(points);
-  return {
-    aria: { enabled: true },
-    tooltip: { trigger: "axis", backgroundColor: "#102039", borderColor: "#20334D",
-      textStyle: { color: "#F3F7FC" },
-      valueFormatter: (value: unknown) => {
-        const amount = Array.isArray(value) ? value[1] : value;
-        return typeof amount === "number" && Number.isFinite(amount) ? `${formatAmount(amount)}元` : "—";
-      } },
-    grid: { top: 20, right: 20, bottom: 35, left: 70 },
-    xAxis: { type: "time", axisLine: { lineStyle: { color: axisColor } },
-      axisLabel: { color: textColor, hideOverlap: true, formatter: (value: number) =>
-        new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) } },
-    yAxis: { type: "value", min: (range: { min: number }) => Math.min(0, range.min),
-      max: (range: { max: number }) => Math.max(0, range.max),
-      axisLabel: { color: textColor, formatter: (value: number) => formatAmount(value) },
-      splitLine: { lineStyle: { color: splitColor } } },
-    visualMap: { type: "piecewise", show: false, dimension: 1,
-      seriesIndex: segments.map((_, index) => index),
-      pieces: [{ gt: 0, color: riseColor }, { lte: 0, color: fallColor }] },
-    series: segments.map((segment, index) => ({
-      id: `segment-${index}`,
-      name: "个股资金净额", type: "line",
-      data: segment.map((point) => [point.collectedAt, point.netAmount]),
-      showSymbol: true, symbolSize: 5, connectNulls: false,
-      lineStyle: { width: 2 },
-      ...(index === 0 ? { markLine: { silent: true, symbol: "none", label: { formatter: "零轴" },
-        lineStyle: { color: axisColor, type: "dashed", width: 1.5 }, data: [{ yAxis: 0 }] } } : {}),
-    })),
-  };
+  return fundOption(splitStockFundSeries(points), "个股资金净额");
 }
 
 const optionsByData = new WeakMap<object, Map<string, EChartsCoreOption>>();

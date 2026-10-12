@@ -5,6 +5,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { buildStockFundOption, buildStockPriceOption } from "@/charts/marketOptions";
+import FundChartTips from "@/components/market/FundChartTips.vue";
+import { formatFundAmount, fundCollectedTime, latestFundPoint } from "@/utils/fundChart";
 import BaseChart from "@/components/market/BaseChart.vue";
 import { useStockMonitorStream } from "@/composables/useStockMonitorStream";
 import { useAuthStore } from "@/stores/auth";
@@ -84,6 +86,11 @@ function hasChart(stock: StockMonitorStock): boolean {
 function hasFundChart(stock: StockMonitorStock): boolean {
   return stock.dataStatus !== "NO_DATA" && stock.dataStatus !== "DISABLED" &&
     stock.fundSeries.some((point) => point.netAmount !== null);
+}
+
+function fundStatusMessage(stock: StockMonitorStock): string {
+  // 正常采样的固定口径放入 Tips，异常与服务端原因继续直接展示。
+  return stock.fundFlowStatus === "AVAILABLE" && !stock.fundFlowMessage ? "" : stockFundFlowMessage(stock);
 }
 
 function locateStock(): void {
@@ -224,12 +231,18 @@ onBeforeUnmount(() => {
           </div>
           <p v-if="quoteMessage(stock) && hasChart(stock)" class="stock-card__alert">{{ quoteMessage(stock) }}</p>
           <div class="stock-card__fund">
-            <h3>资金净额采样 <small>横轴为实际采集时间 · 单位元</small></h3>
-            <p class="stock-fund-status" role="status">{{ stockFundFlowLabel(stock) }} · {{ stockFundFlowMessage(stock) }}</p>
+            <div class="stock-fund-heading">
+              <h3>资金净额采样</h3><FundChartTips />
+              <div v-if="latestFundPoint(stock.fundSeries)" class="stock-fund-latest">
+                <strong :class="`tone-${valueTone(latestFundPoint(stock.fundSeries)!.netAmount)}`">{{ formatFundAmount(latestFundPoint(stock.fundSeries)!.netAmount) }}</strong>
+                <span>最近采集 {{ fundCollectedTime(latestFundPoint(stock.fundSeries)!.collectedAt) }}</span>
+              </div>
+            </div>
+            <p class="stock-fund-status" role="status">{{ stockFundFlowLabel(stock) }}<template v-if="fundStatusMessage(stock)"> · {{ fundStatusMessage(stock) }}</template></p>
             <BaseChart
               v-if="hasFundChart(stock)" :option="buildStockFundOption(stock.fundSeries)"
               :accessible-label="`${stock.name} ${stock.symbol}，${stock.effectiveTradeDate} 资金净额实际采集曲线，共 ${stock.fundSeries.length} 个采样点，零轴区分正负`"
-              height="180px"
+              height="220px" class="stock-fund-chart"
             />
             <p v-else class="stock-fund-empty">暂无有效资金采样点；价格信息仍可查看。</p>
             <details v-if="stock.fundSeries.length" class="stock-accessible-table">
@@ -273,7 +286,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.stock-fund-status { height: 48px; overflow: auto; margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); }
+.stock-fund-status { overflow-wrap: anywhere; margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--market-text-secondary); }
 .monitor-summary { position: relative; }
 .monitor-summary.has-error > .monitor-notice:first-child { visibility: hidden; }
 .stream-status-slot { position: absolute; inset: 0; box-sizing: border-box; overflow: auto; overflow-wrap: anywhere; }
@@ -313,7 +326,15 @@ onBeforeUnmount(() => {
 .stock-card__chart { min-height: 240px; margin-top: 12px; }
 .stock-card__fund { min-height: 180px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--market-border); }
 .stock-card__fund h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; color: var(--market-text-secondary); font-size: 13px; }
-.stock-card__fund h3 small { color: var(--market-muted); font-size: 11px; font-weight: 400; }
+.stock-fund-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 8px; }
+.stock-fund-heading h3 { margin: 0; }
+.stock-fund-latest { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin-left: auto; font-size: 12px; }
+.stock-fund-latest span { color: var(--market-text-secondary); }
+.stock-fund-latest strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.stock-fund-latest .tone-rise { color: var(--market-rise); }
+.stock-fund-latest .tone-fall { color: var(--market-fall); }
+.stock-fund-latest .tone-flat { color: var(--market-text-secondary); }
+@media (max-width: 767px) { .stock-fund-chart { height: 200px !important; } .stock-fund-latest { margin-left: 0; width: 100%; } }
 .stock-fund-empty { display: grid; place-items: center; min-height: 150px; margin: 0; color: var(--market-muted); font-size: 12px; }
 .stock-chart-empty, .monitor-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 240px; color: var(--market-muted); text-align: center; font-size: 12px; }
 .stock-chart-empty strong, .monitor-empty strong { color: var(--market-text-secondary); font-size: 15px; }

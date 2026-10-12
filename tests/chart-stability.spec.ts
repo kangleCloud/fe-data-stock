@@ -44,6 +44,30 @@ describe("stable live charts", () => {
     } finally { wrapper.unmount(); }
   });
 
+  it("keeps fund chart instances, table scroll and expansion during consecutive live fund updates", async () => {
+    state.value = structuredClone(fixture);
+    const dispose = vi.fn();
+    mocks.init.mockImplementation(() => ({ setOption: mocks.render, resize: vi.fn(), dispose }));
+    const wrapper = mount(Overview);
+    try {
+      await flushPromises();
+      const initialInstances = mocks.init.mock.calls.length;
+      const charts = wrapper.findAll(".base-chart").map((node) => node.element);
+      const table = wrapper.get(".snapshot-accessible-table div").element; table.scrollTop = 70;
+      const details = wrapper.get(".snapshot-accessible-table").element as HTMLDetailsElement; details.open = true;
+      for (let index = 0; index < 3; index++) {
+        const next = structuredClone(state.value); const fund = next.modules.marketFundFlow.data!;
+        const point = { ...fund.latest, collectedAt: `2026-09-23T13:0${3 + index}:00+08:00`, netAmount: (index - 1) * 100000000 };
+        fund.latest = point; fund.series.push(point); state.value = shareSnapshot(state.value, next); await flushPromises();
+        expect(mocks.init).toHaveBeenCalledTimes(initialInstances); expect(dispose).not.toHaveBeenCalled();
+        expect(wrapper.findAll(".base-chart").map((node) => node.element)).toEqual(charts);
+        expect(table.scrollTop).toBe(70); expect(details.open).toBe(true);
+        const render = mocks.render.mock.calls.at(-1)![0];
+        expect(render.series.flatMap((series: { data: unknown[] }) => series.data)).toHaveLength(fund.series.length);
+      }
+    } finally { wrapper.unmount(); }
+  });
+
   it("merges stable series IDs and removes obsolete curve segments", async () => {
     mocks.init.mockReturnValue({ setOption: mocks.render, on: vi.fn(), resize: vi.fn(), dispose: vi.fn() });
     const points = [{ time: "2026-10-09T09:30:00+08:00", price: 1 }, { time: "2026-10-09T13:00:00+08:00", price: 2 }];
