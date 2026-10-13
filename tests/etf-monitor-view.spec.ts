@@ -2,29 +2,43 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { reactive, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { installIntersectionObserver } from "./fixtures/intersectionObserver";
 import MonitorView from "@/views/market/etfMonitor/index.vue";
 import type { EtfMonitorDashboard } from "@/types/etf";
 import { shanghaiToday } from "@/utils/stockMonitor";
 import { applyEtfMonitorPatch, parseEtfMonitorDashboard } from "@/utils/etfMonitor";
 
-const mocks = vi.hoisted(() => ({ initialize: vi.fn(), push: vi.fn(), refresh: vi.fn(), init: vi.fn(), render: vi.fn(), dispose: vi.fn() }));
+const mocks = vi.hoisted(() => ({ initialize: vi.fn(), push: vi.fn(), refresh: vi.fn(), init: vi.fn(), render: vi.fn(), dispose: vi.fn(), query: {} as Record<string, string> }));
 const auth = reactive({ isAuthenticated: false, permissionCodes: [] as string[] });
 const permissions = reactive({ initialized: false, initialize: mocks.initialize });
 const snapshot = ref<EtfMonitorDashboard>({ schemaVersion: 1, stateId: null, tradeDate: null, xqEnabled: false, etfs: [] });
 vi.mock("@/charts/echarts", () => ({ echarts: { init: mocks.init } }));
 vi.mock("@/stores/auth", () => ({ useAuthStore: () => auth }));
 vi.mock("@/stores/permission", () => ({ usePermissionStore: () => permissions }));
-vi.mock("vue-router", () => ({ useRoute: () => ({ query: {} }), useRouter: () => ({ push: mocks.push }) }));
+vi.mock("vue-router", () => ({ useRoute: () => ({ query: mocks.query }), useRouter: () => ({ push: mocks.push }) }));
 vi.mock("@/composables/useEtfMonitorStream", () => ({ useEtfMonitorStream: () => ({
   snapshot, loading: ref(false), loadError: ref(""), manualRefresh: mocks.refresh,
 }) }));
 
 beforeEach(() => {
+  mocks.query = {};
+  vi.stubGlobal("IntersectionObserver", undefined);
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
   vi.clearAllMocks(); auth.isAuthenticated = false; auth.permissionCodes = []; permissions.initialized = false;
   snapshot.value.etfs = [];
   mocks.init.mockImplementation(() => ({ setOption: mocks.render, resize: vi.fn(), dispose: mocks.dispose }));
   mocks.initialize.mockImplementation(async () => { permissions.initialized = true; });
 });
+
+function etfList(count: number) {
+  const date = shanghaiToday();
+  return parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: date, xqEnabled: false,
+    etfs: Array.from({ length: count }, (_, index) => ({ symbol: `SH51000${index}`, code: `51000${index}`, name: `ETF${index + 1}`, market: "SH", sortOrder: index + 1,
+      profile: { exchange: null, etfType: null, listingStatus: null, listingDate: null, manager: null, custodian: null,
+        shareCount: null, shareDate: null, trackingIndexCode: null, trackingIndexName: null, updatedAt: null },
+      quote: null, series: [], fundSeries: [], fundFlowStatus: "NO_RELIABLE_SOURCE", effectiveTradeDate: date,
+      dataStatus: "NO_DATA", closeConfirmed: false, assetAllocation: null })) });
+}
 
 describe("ETF public configuration navigation", () => {
   it.each([
@@ -123,10 +137,12 @@ describe("ETF public configuration navigation", () => {
         previousClose: 2.124686, open: 2.1, high: 2.2, low: 2.0, volume: 100, amount: 200, collectedAt: `${date}T10:00:00+08:00`, status: "FRESH" },
       series: [{ collectedAt: `${date}T10:00:00+08:00`, price: 2.123456 }], fundSeries: [], fundFlowStatus: "NO_RELIABLE_SOURCE",
       effectiveTradeDate: date, dataStatus: "CURRENT", closeConfirmed: false, assetAllocation: null };
-    snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: date, xqEnabled: false, etfs: [item] });
+    snapshot.value = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", tradeDate: date, xqEnabled: false, etfs: Array.from({ length: 10 }, (_, index) => ({ ...item, symbol: `SH51000${index}`, code: `51000${index}`, sortOrder: index + 1 })) });
     const wrapper = mount(MonitorView);
     try {
       await flushPromises(); const chart = wrapper.get(".base-chart").element;
+      await wrapper.get(".etf-reveal-footer button").trigger("click"); await flushPromises();
+      expect(wrapper.findAll(".etf-card")).toHaveLength(8);
       const details = wrapper.get(".etf-section details").element as HTMLDetailsElement; details.open = true;
       const table = wrapper.get(".etf-table-scroll").element; table.scrollTop = 60;
       expect(wrapper.findAll(".etf-metrics dd")[6]!.text()).toBe("—");
@@ -139,12 +155,46 @@ describe("ETF public configuration navigation", () => {
         expect(wrapper.findAll(".etf-metrics dd")[6]!.text()).toBe((2.123456 + index / 1000).toFixed(3));
         expect(wrapper.findAll(".etf-metrics dd")[7]!.text()).toBe((2.234567 + index / 1000).toFixed(3));
         expect(wrapper.text()).toContain("采样已延迟");
-        expect(wrapper.get(".base-chart").element).toBe(chart); expect(mocks.init).toHaveBeenCalledTimes(1); expect(mocks.dispose).not.toHaveBeenCalled();
+        expect(wrapper.get(".base-chart").element).toBe(chart); expect(mocks.init).toHaveBeenCalledTimes(8);
+        expect(wrapper.findAll(".etf-card")).toHaveLength(8); expect(mocks.dispose).not.toHaveBeenCalled();
         expect(table.scrollTop).toBe(60); expect(details.open).toBe(true);
       }
       expect(wrapper.get(".etf-quote-alert").text()).toContain("行情采集失败");
       expect(wrapper.get(".etf-profile-info").text()).toContain("上证50 · 000016");
       expect(mocks.refresh).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each(["search", "symbol"])("reveals and scrolls to the ninth ETF through %s", async (method) => {
+    const observers = installIntersectionObserver(); snapshot.value = etfList(10);
+    if (method === "symbol") mocks.query = { symbol: "510008" };
+    const wrapper = mount(MonitorView);
+    try {
+      await flushPromises();
+      if (method === "search") {
+        expect(wrapper.findAll(".etf-card")).toHaveLength(4);
+        await wrapper.get(".etf-tools input").setValue("510008"); await wrapper.get(".etf-tools input").trigger("keyup.enter"); await flushPromises();
+      }
+      expect(wrapper.findAll(".etf-card")).toHaveLength(10);
+      expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts.at(-1)).toBe(wrapper.get('[data-monitor-symbol="SH510008"]').element);
+      expect(mocks.refresh).not.toHaveBeenCalled(); expect(wrapper.find(".el-pagination").exists()).toBe(false);
+    } finally { wrapper.unmount(); expect(observers[0]!.disconnect).toHaveBeenCalledTimes(1); }
+  });
+  it("appends ETF cards, keeps the revealed allowance after reads and config changes, and never refreshes automatically", async () => {
+    const observers = installIntersectionObserver(); snapshot.value = etfList(10);
+    const wrapper = mount(MonitorView);
+    try {
+      await flushPromises(); const first = wrapper.findAll(".etf-card").map((node) => node.element);
+      observers[0]!.emit(true); observers[0]!.emit(true); await flushPromises(); expect(wrapper.findAll(".etf-card")).toHaveLength(8);
+      expect(wrapper.findAll(".etf-card").slice(0, 4).map((node) => node.element)).toEqual(first);
+      expect(mocks.refresh).not.toHaveBeenCalled();
+      await wrapper.findAll("button").find((button) => button.text().includes("重新读取快照"))!.trigger("click");
+      snapshot.value = etfList(10); await flushPromises(); expect(wrapper.findAll(".etf-card")).toHaveLength(8);
+      snapshot.value = { ...etfList(5), stateId: "config-small" }; await flushPromises(); expect(wrapper.findAll(".etf-card")).toHaveLength(5);
+      snapshot.value = { ...etfList(10), stateId: "config-growth" }; await flushPromises(); expect(wrapper.findAll(".etf-card")).toHaveLength(8);
+      observers[0]!.emit(false); observers[0]!.emit(true); await flushPromises(); expect(wrapper.findAll(".etf-card")).toHaveLength(10);
+      expect(wrapper.get(".etf-reveal-footer").text()).toContain("已展示全部"); expect(mocks.refresh).toHaveBeenCalledTimes(1);
+      expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
     } finally { wrapper.unmount(); }
   });
 

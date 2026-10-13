@@ -7,6 +7,7 @@ import { useRoute, useRouter } from "vue-router";
 import { buildCollectedPriceOption } from "@/charts/marketOptions";
 import EtfQuoteTips from "@/components/market/EtfQuoteTips.vue";
 import BaseChart from "@/components/market/BaseChart.vue";
+import { useMonitorReveal } from "@/composables/useMonitorReveal";
 import { useEtfMonitorStream } from "@/composables/useEtfMonitorStream";
 import { useAuthStore } from "@/stores/auth";
 import { usePermissionStore } from "@/stores/permission";
@@ -17,7 +18,6 @@ import { etfProfileStatus } from "@/utils/etfProfile";
 import { etfAllocationMessage } from "@/utils/etfMonitor";
 import { shanghaiToday } from "@/utils/stockMonitor";
 
-const PAGE_SIZE = 4;
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
@@ -45,20 +45,17 @@ async function openConfig(): Promise<void> {
 onMounted(initializePermissions);
 watch(() => auth.isAuthenticated, initializePermissions);
 const { snapshot: dashboard, loading, loadError, manualRefresh } = useEtfMonitorStream();
-const page = ref(1);
 const keyword = ref("");
 const etfs = computed(() => dashboard.value?.etfs ?? []);
-const pages = computed(() => Math.max(1, Math.ceil(etfs.value.length / PAGE_SIZE)));
-const visible = computed(() => etfs.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
+const { visible, hasMore, sentinel, list, revealMore, revealTarget } = useMonitorReveal(etfs);
 let initialSymbol = typeof route.query.symbol === "string" ? route.query.symbol : null;
 watch(etfs, () => {
-  page.value = Math.min(page.value, pages.value);
   if (initialSymbol && etfs.value.length) {
     keyword.value = initialSymbol;
     initialSymbol = null;
-    locate();
+    void locate();
   }
-});
+}, { immediate: true });
 
 function shanghaiTime(value: string | null): string {
   if (!value || Number.isNaN(Date.parse(value))) return "—";
@@ -75,12 +72,12 @@ function statusLabel(item: EtfMonitorItem): string {
   return item.closeConfirmed ? "已确认收盘" : "当日采样 · 收盘未确认";
 }
 
-function locate(): void {
+async function locate(): Promise<void> {
   const term = keyword.value.trim().toUpperCase();
   if (!term) return;
   const index = etfs.value.findIndex((item) => item.symbol.includes(term) || item.code.includes(term) || item.name.includes(term));
   if (index < 0) { ElMessage.warning("未在已启用 ETF 中找到匹配项"); return; }
-  page.value = Math.floor(index / PAGE_SIZE) + 1;
+  await revealTarget(index);
 }
 
 function priceOption(item: EtfMonitorItem) {
@@ -98,7 +95,7 @@ function formatPrice(value: number | null | undefined, signed = false): string {
     <header class="etf-heading">
       <div><p>ETF MONITOR · V1</p><h1>ETF 监控</h1><span>独立监控最多 10 只 ETF；行情来自 AKShare / 新浪</span></div>
       <div class="etf-tools">
-        <span>{{ etfs.length }} / 10 只</span>
+        <span>{{ etfs.length }} / 10 只 · 已展示 {{ visible.length }}/{{ etfs.length }}</span>
         <el-input v-model="keyword" clearable placeholder="ETF 代码或名称" :prefix-icon="Search" @keyup.enter="locate" />
         <button type="button" @click="locate">定位</button>
         <button type="button" :disabled="loading" @click="manualRefresh"><Refresh />重新读取快照</button>
@@ -112,8 +109,8 @@ function formatPrice(value: number | null | undefined, signed = false): string {
     <p v-if="dashboard && !dashboard.xqEnabled" class="etf-notice">雪球资料采集关闭，资产配置不公开；新浪 ETF 行情仍可查看。</p>
     <div v-if="loading && !dashboard" class="etf-empty">正在读取 ETF 快照…</div>
     <div v-else-if="!etfs.length" class="etf-empty"><span>{{ dashboard ? "尚未启用 ETF 监控" : "暂无 ETF 监控快照" }}</span><el-button v-if="canViewConfig" :icon="Setting" :loading="configOpening" @click="openConfig">配置管理</el-button></div>
-    <div v-else class="etf-grid">
-      <section v-for="item in visible" :key="item.symbol" class="etf-card">
+    <div v-else ref="list" class="etf-grid">
+      <section v-for="item in visible" :key="item.symbol" :data-monitor-symbol="item.symbol" class="etf-card">
         <header class="etf-card-heading">
           <div><h2>{{ item.name }} <small>{{ item.symbol }}</small></h2><span>{{ item.profile.fundType || "—" }} · {{ item.profile.exchange || item.market }}</span></div>
           <div><strong>{{ statusLabel(item) }}</strong><small>有效交易日 {{ item.effectiveTradeDate || "—" }}</small></div>
@@ -155,7 +152,10 @@ function formatPrice(value: number | null | undefined, signed = false): string {
         <footer>行情来源 AKShare / 新浪 · {{ etfProfileStatus(item.profile) }} · 资料采集 {{ shanghaiTime(item.profile.updatedAt) }} · {{ item.closeConfirmed ? "收盘已确认" : "收盘未确认" }}</footer>
       </section>
     </div>
-    <el-pagination v-if="etfs.length > PAGE_SIZE" v-model:current-page="page" class="etf-pagination" background layout="prev, pager, next" :page-size="PAGE_SIZE" :total="etfs.length" />
+    <div v-if="etfs.length" ref="sentinel" class="etf-reveal-footer">
+      <span role="status">已展示 {{ visible.length }}/{{ etfs.length }}<template v-if="!hasMore"> · 已展示全部</template></span>
+      <button v-if="hasMore" type="button" @click="revealMore">显示更多</button>
+    </div>
   </div>
 </template>
 
@@ -200,7 +200,10 @@ function formatPrice(value: number | null | undefined, signed = false): string {
 .etf-section table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .etf-section th, .etf-section td { padding: 6px; border-bottom: 1px solid var(--market-border); text-align: left; }
 .etf-card footer { margin-top: 10px; color: var(--market-muted); font-size: 11px; }
-.etf-pagination { display: flex; justify-content: center; }
+.etf-reveal-footer { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; min-height: 48px; color: var(--market-text-secondary); font-size: 12px; }
+.etf-reveal-footer button { min-height: 44px; padding: 6px 12px; border: 1px solid var(--market-border); border-radius: 8px; background: transparent; color: var(--market-text); cursor: pointer; }
+.etf-reveal-footer button:focus-visible { outline: 2px solid var(--market-primary); outline-offset: 2px; }
+.etf-card { scroll-margin-top: 100px; }
 @media (max-width: 900px) { .etf-grid { grid-template-columns: 1fr; } .etf-heading { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 767px) { .etf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .etf-tools { justify-content: flex-start; } .etf-tools .el-input { width: 100%; } .etf-card-heading { flex-wrap: wrap; } }

@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { installIntersectionObserver } from "./fixtures/intersectionObserver";
 import StockMonitorView from "@/views/market/stockMonitor/index.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -9,12 +10,13 @@ const mocks = vi.hoisted(() => ({
   getStockMonitorDashboard: vi.fn(),
   replace: vi.fn(),
   push: vi.fn(),
+  query: {} as Record<string, string>,
 }));
 
 vi.mock("@/stores/auth", () => ({ useAuthStore: () => mocks.auth }));
 vi.mock("@/stores/permission", () => ({ usePermissionStore: () => mocks.permission }));
 vi.mock("vue-router", () => ({
-  useRoute: () => ({ query: {} }),
+  useRoute: () => ({ query: mocks.query }),
   useRouter: () => ({ replace: mocks.replace, push: mocks.push }),
 }));
 vi.mock("@/api/market", () => ({
@@ -37,6 +39,8 @@ const stock = {
 };
 
 beforeEach(() => {
+  mocks.query = {};
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
   vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => new Promise<Response>((_resolve, reject) => {
     options.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
   })));
@@ -101,7 +105,7 @@ describe("public stock monitor view", () => {
       expect(wrapper.text()).not.toContain("资金采样可用");
     } finally { wrapper.unmount(); }
   });
-  it("keeps page two and configuration order during per-stock completion bursts", async () => {
+  it("keeps revealed cards and configuration order during per-stock completion bursts", async () => {
     const items = Array.from({ length: 5 }, (_, index) => ({ ...stock,
       symbol: `SH60000${index}`, code: `60000${index}`, name: `股票${index + 1}`, sortOrder: index + 1 }));
     mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "q1", xqEnabled: true,
@@ -119,9 +123,10 @@ describe("public stock monitor view", () => {
       await flushPromises();
       await wrapper.get(".monitor-tools input").setValue("600004");
       await wrapper.get(".monitor-tools input").trigger("keyup.enter"); await flushPromises();
-      expect(wrapper.text()).toContain("第 2 / 2 页");
-      const chartNode = wrapper.get(".stock-fund-chart").element;
-      const table = wrapper.get(".stock-table-scroll").element; table.scrollTop = 80;
+      expect(wrapper.text()).toContain("已展示 5/5");
+      const target = wrapper.get('[data-monitor-symbol="SH600004"]');
+      const chartNode = target.get(".stock-fund-chart").element;
+      const table = target.get(".stock-table-scroll").element; table.scrollTop = 80;
       const changed = { ...items[4]!, quote: { ...stock.quote, price: 14.2 },
         series: [...stock.series, { time: "2026-09-27T14:30:05+08:00", price: 14.2 }],
         fundFlowStatus: "AVAILABLE", fundSeries: [...stock.fundSeries, { collectedAt: "2026-09-27T14:30:05+08:00", inflow: 3000000, outflow: 1000000, netAmount: 2000000 }] };
@@ -129,15 +134,52 @@ describe("public stock monitor view", () => {
         { baseStateId: "q2", stateId: "q3", stocks: [{ ...items[0]!, quote: { ...stock.quote, price: 11 } }] }];
       const frames = [...patches, patches[1]].map((patch) => `event: patch\ndata: ${JSON.stringify(patch)}\n\n`).join("");
       stream.enqueue(new TextEncoder().encode(frames)); await flushPromises();
-      expect(wrapper.text()).toContain("第 2 / 2 页");
-      expect(wrapper.findAll(".stock-card")).toHaveLength(1);
-      expect(wrapper.text()).toContain("股票5"); expect(wrapper.text()).not.toContain("股票1");
+      expect(wrapper.text()).toContain("已展示 5/5");
+      expect(wrapper.findAll(".stock-card")).toHaveLength(5);
+      expect(wrapper.text()).toContain("股票5"); expect(wrapper.text()).toContain("股票1");
       expect(wrapper.text()).toContain("14.20");
-      expect(wrapper.get(".stock-fund-latest").text()).toContain("+200万元");
-      expect(wrapper.get(".stock-fund-chart").element).toBe(chartNode);
-      expect(wrapper.get(".stock-table-scroll").element).toBe(table); expect(table.scrollTop).toBe(80);
+      expect(target.get(".stock-fund-latest").text()).toContain("+200万元");
+      expect(target.get(".stock-fund-chart").element).toBe(chartNode);
+      expect(target.get(".stock-table-scroll").element).toBe(table); expect(table.scrollTop).toBe(80);
     } finally { wrapper.unmount(); }
   });
+  it.each(["search", "symbol", "stockCode"])("reveals and scrolls to the ninth stock through %s without extra reads", async (method) => {
+    const observers = installIntersectionObserver();
+    const items = Array.from({ length: 10 }, (_, index) => ({ ...stock, symbol: `SH60000${index}`, code: `60000${index}`, name: `股票${index + 1}`, sortOrder: index + 1 }));
+    if (method !== "search") mocks.query = { [method]: "600008" };
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "q1", xqEnabled: true, tradeDate: "2026-09-27", stocks: items });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises();
+      if (method === "search") {
+        expect(wrapper.findAll(".stock-card")).toHaveLength(4);
+        await wrapper.get(".quick-search input").setValue("600008"); await wrapper.get(".quick-search input").trigger("keyup.enter"); await flushPromises();
+      }
+      expect(wrapper.findAll(".stock-card")).toHaveLength(10); expect(wrapper.text()).toContain("已展示 10/10");
+      const target = wrapper.get('[data-monitor-symbol="SH600008"]'); expect(target.classes()).toContain("is-highlighted");
+      expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts.at(-1)).toBe(target.element);
+      expect(HTMLElement.prototype.scrollIntoView).toHaveBeenLastCalledWith({ block: "start", behavior: "smooth" });
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(1); expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+      expect(wrapper.find(".el-pagination").exists()).toBe(false);
+    } finally { wrapper.unmount(); expect(observers[0]!.disconnect).toHaveBeenCalledTimes(1); }
+  });
+
+  it("appends local stock cards 4 to 8 to 10 and preserves original nodes without network reads", async () => {
+    const observers = installIntersectionObserver();
+    const items = Array.from({ length: 10 }, (_, index) => ({ ...stock, symbol: `SH60000${index}`, code: `60000${index}`, name: `股票${index + 1}`, sortOrder: index + 1 }));
+    mocks.getStockMonitorDashboard.mockResolvedValue({ schemaVersion: 1, stateId: "q1", xqEnabled: true, tradeDate: "2026-09-27", stocks: items });
+    const wrapper = mount(StockMonitorView, { global: { stubs: { BaseChart: true } } });
+    try {
+      await flushPromises(); const first = wrapper.findAll(".stock-card").map((node) => node.element);
+      observers[0]!.emit(true); observers[0]!.emit(true); await flushPromises(); expect(wrapper.findAll(".stock-card")).toHaveLength(8);
+      observers[0]!.emit(false); observers[0]!.emit(true); await flushPromises(); expect(wrapper.findAll(".stock-card")).toHaveLength(10);
+      expect(wrapper.findAll(".stock-card").slice(0, 4).map((node) => node.element)).toEqual(first);
+      expect(wrapper.get(".monitor-reveal-footer").text()).toContain("已展示全部");
+      expect(mocks.getStockMonitorDashboard).toHaveBeenCalledTimes(1); expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+      expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
+  });
+
   it("shows disabled collection without quotes or management actions to visitors", async () => {
     mocks.getStockMonitorDashboard.mockResolvedValue({
       schemaVersion: 1, xqEnabled: false, tradeDate: null,
@@ -252,7 +294,7 @@ describe("public stock monitor view", () => {
       await flushPromises();
       expect(wrapper.text()).toContain("价格 · 元10.40");
       expect((wrapper.get(".quick-search input").element as HTMLInputElement).value).toBe("浦发");
-      expect(wrapper.text()).toContain("第 1 / 1 页");
+      expect(wrapper.text()).toContain("已展示 1/1");
     } finally { wrapper.unmount(); }
   });
 

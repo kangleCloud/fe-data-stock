@@ -1,5 +1,7 @@
 import { afterEach, vi } from "vitest";
 
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, writable: true, value: vi.fn() });
+
 class ResizeObserverMock {
   observe(): void {}
   unobserve(): void {}

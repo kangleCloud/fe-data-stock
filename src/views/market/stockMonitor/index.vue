@@ -8,6 +8,7 @@ import { buildStockFundOption, buildStockPriceOption } from "@/charts/marketOpti
 import FundChartTips from "@/components/market/FundChartTips.vue";
 import { formatFundAmount, fundCollectedTime, latestFundPoint } from "@/utils/fundChart";
 import BaseChart from "@/components/market/BaseChart.vue";
+import { useMonitorReveal } from "@/composables/useMonitorReveal";
 import { useStockMonitorStream } from "@/composables/useStockMonitorStream";
 import { useAuthStore } from "@/stores/auth";
 import { usePermissionStore } from "@/stores/permission";
@@ -16,13 +17,11 @@ import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/uti
 import { canAccess } from "@/utils/permission";
 import { isHistoricalStock, stockFundFlowLabel, stockFundFlowMessage } from "@/utils/stockMonitor";
 
-const PAGE_SIZE = 4;
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const permissionStore = usePermissionStore();
 const { snapshot: dashboard, loading, loadError: errorMessage, manualRefresh: loadDashboard } = useStockMonitorStream();
-const pageNum = ref(1);
 const keyword = ref("");
 const highlighted = ref("");
 let highlightId: ReturnType<typeof setTimeout> | undefined;
@@ -31,8 +30,7 @@ let pendingInitialSymbol = route.query.symbol ?? route.query.stockCode;
 
 const canViewConfig = computed(() => canAccess(authStore.permissionCodes, "system:stock-monitor:view"));
 const stocks = computed(() => dashboard.value?.stocks ?? []);
-const pageCount = computed(() => Math.max(1, Math.ceil(stocks.value.length / PAGE_SIZE)));
-const visibleStocks = computed(() => stocks.value.slice((pageNum.value - 1) * PAGE_SIZE, pageNum.value * PAGE_SIZE));
+const { visible: visibleStocks, hasMore, sentinel, list, revealMore, revealTarget } = useMonitorReveal(stocks);
 
 function shanghaiTime(value: string | null): string {
   if (!value) return "—";
@@ -93,7 +91,7 @@ function fundStatusMessage(stock: StockMonitorStock): string {
   return stock.fundFlowStatus === "AVAILABLE" && !stock.fundFlowMessage ? "" : stockFundFlowMessage(stock);
 }
 
-function locateStock(): void {
+async function locateStock(): Promise<void> {
   const search = keyword.value.trim().toUpperCase();
   if (!search) return;
   const index = stocks.value.findIndex((item) =>
@@ -102,10 +100,10 @@ function locateStock(): void {
     ElMessage.warning("未在已启用股票中找到匹配项");
     return;
   }
-  pageNum.value = Math.floor(index / PAGE_SIZE) + 1;
   highlighted.value = stocks.value[index]!.symbol;
   if (highlightId) clearTimeout(highlightId);
   highlightId = setTimeout(() => { highlighted.value = ""; }, 2_000);
+  await revealTarget(index);
 }
 
 async function initializePermissions(): Promise<void> {
@@ -130,11 +128,11 @@ onMounted(async () => {
 });
 
 watch(dashboard, async () => {
-  pageNum.value = Math.min(pageNum.value, pageCount.value);
-  if (!active || !dashboard.value || typeof pendingInitialSymbol !== "string") return;
+  if (!active || !stocks.value.length || typeof pendingInitialSymbol !== "string") return;
   keyword.value = pendingInitialSymbol;
   pendingInitialSymbol = null;
-  locateStock();
+  await locateStock();
+  if (!active) return;
   await router.replace({ query: {} });
 });
 
@@ -150,11 +148,11 @@ onBeforeUnmount(() => {
       <div>
         <p>STOCK PRICE MONITOR · V1</p>
         <h1>个股监控大屏</h1>
-        <span>最多 10 只股票，每页展示 4 只；曲线仅使用实际采样时间点</span>
+        <span>最多 10 只股票，向下滚动逐批展示；曲线仅使用实际采样时间点</span>
       </div>
       <div class="monitor-tools">
         <span class="monitor-count">{{ stocks.length }} / 10 只</span>
-        <span class="monitor-count">第 {{ pageNum }} / {{ pageCount }} 页</span>
+        <span class="monitor-count">已展示 {{ visibleStocks.length }}/{{ stocks.length }}</span>
         <div class="quick-search">
           <el-input v-model="keyword" clearable placeholder="股票代码或名称" :prefix-icon="Search" @keyup.enter="locateStock" />
           <button type="button" @click="locateStock">定位</button>
@@ -192,8 +190,8 @@ onBeforeUnmount(() => {
       <span>管理员可在配置管理中从交易所股票字典选择最多 10 只。</span>
       <button v-if="canViewConfig" class="outline-button" type="button" @click="openConfig">打开配置管理</button>
     </div>
-    <div v-else class="stock-card-grid">
-      <section v-for="stock in visibleStocks" :key="stock.symbol" class="stock-card" :class="{ 'is-highlighted': highlighted === stock.symbol }">
+    <div v-else ref="list" class="stock-card-grid">
+      <section v-for="stock in visibleStocks" :key="stock.symbol" :data-monitor-symbol="stock.symbol" class="stock-card" :class="{ 'is-highlighted': highlighted === stock.symbol }">
         <header class="stock-card__header">
           <div>
             <h2>{{ stock.name }} <small>{{ stock.symbol }}</small></h2>
@@ -278,10 +276,10 @@ onBeforeUnmount(() => {
         <p v-else class="stock-card__disabled">仅展示监控清单；报价、曲线和雪球资料暂不公开。{{ stockFundFlowMessage(stock) }}</p>
       </section>
     </div>
-    <el-pagination
-      v-if="stocks.length > PAGE_SIZE" v-model:current-page="pageNum" class="monitor-pagination"
-      background layout="prev, pager, next" :page-size="PAGE_SIZE" :total="stocks.length"
-    />
+    <div v-if="stocks.length" ref="sentinel" class="monitor-reveal-footer">
+      <span role="status">已展示 {{ visibleStocks.length }}/{{ stocks.length }}<template v-if="!hasMore"> · 已展示全部</template></span>
+      <button v-if="hasMore" type="button" class="outline-button" @click="revealMore">显示更多</button>
+    </div>
   </div>
 </template>
 
@@ -347,7 +345,8 @@ onBeforeUnmount(() => {
 .stock-table-scroll { max-height: 160px; overflow: auto; }
 .stock-accessible-table table { width: 100%; border-collapse: collapse; }
 .stock-accessible-table th, .stock-accessible-table td { padding: 6px; border-bottom: 1px solid var(--market-border); text-align: left; }
-.monitor-pagination { display: flex; justify-content: center; }
+.monitor-reveal-footer { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; min-height: 48px; color: var(--market-text-secondary); font-size: 12px; }
+.stock-card { scroll-margin-top: 100px; }
 .monitor-skeleton { min-height: 420px; border: 1px solid var(--market-border); border-radius: 12px; background: linear-gradient(100deg, #0b1728 30%, #102039 50%, #0b1728 70%); background-size: 240% 100%; animation: skeleton-move 1.4s linear infinite; }
 @keyframes skeleton-move { to { background-position: -240% 0; } }
 @media (max-width: 1100px) { .monitor-heading { align-items: flex-start; flex-direction: column; } .monitor-tools { justify-content: flex-start; } }
