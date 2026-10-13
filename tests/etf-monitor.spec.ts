@@ -21,6 +21,24 @@ const item = {
 };
 
 describe("ETF monitor public contract", () => {
+  it.each([undefined, null, 0, -1, Number.NaN, Number.POSITIVE_INFINITY, "2.500", {}])("normalizes unavailable bid/ask quotes to null: %s", (value) => {
+    const parsed = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", xqEnabled: false, tradeDate: "2026-09-30",
+      etfs: [{ ...item, quote: { ...quote, buyPrice: value, sellPrice: value } }] });
+    expect(parsed.etfs[0]!.quote).toMatchObject({ buyPrice: null, sellPrice: null });
+  });
+  it("preserves raw bid/ask precision in GET and patches and accepts old patches without these fields", () => {
+    const prices = { buyPrice: 2.123456789, sellPrice: 2.234567891 };
+    const current = parseEtfMonitorDashboard({ schemaVersion: 1, stateId: "a", xqEnabled: false, tradeDate: "2026-09-30",
+      etfs: [{ ...item, quote: { ...quote, ...prices } }] });
+    expect(current.etfs[0]!.quote).toMatchObject(prices);
+    const updated = applyEtfMonitorPatch(current, { baseStateId: "a", stateId: "b", etfs: [{ ...item, quote: { ...quote, buyPrice: 2.3456789, sellPrice: 2.4567891 } }] });
+    if (updated === "duplicate") throw new Error("expected patch");
+    expect(updated.etfs[0]!.quote).toMatchObject({ buyPrice: 2.3456789, sellPrice: 2.4567891 });
+    const legacy = applyEtfMonitorPatch(updated, { baseStateId: "b", stateId: "c", etfs: [item] });
+    if (legacy === "duplicate") throw new Error("expected legacy patch");
+    expect(legacy.etfs[0]!.quote).toMatchObject({ buyPrice: null, sellPrice: null });
+    expect(legacy.etfs[0]!.series).toEqual(current.etfs[0]!.series);
+  });
   it("accepts delayed undated quote values and clears historical curves in full-item patches", () => {
     const undated = { ...item, effectiveTradeDate: null, dataStatus: "DELAYED", series: [],
       quote: { ...quote, tradeDate: null, collectedAt: "2026-10-10T10:00:00+08:00", price: 2.6 } };

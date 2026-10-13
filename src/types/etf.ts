@@ -39,6 +39,8 @@ export interface EtfQuote {
   open: number | null;
   high: number | null;
   low: number | null;
+  buyPrice: number | null;
+  sellPrice: number | null;
   volume: number | null;
   amount: number | null;
   sourceTime: null;

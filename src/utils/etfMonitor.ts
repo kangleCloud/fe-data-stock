@@ -59,6 +59,11 @@ function profileValue(value: unknown): EtfProfile {
   };
 }
 
+function nullableBidAsk(value: unknown): number | null {
+  // 旧 V1 缺字段及无效买卖价按不可用处理；有效值保留原始精度。
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function quoteValue(value: unknown): EtfQuote {
   const quote = record(value);
   if (quote.source !== "SINA_ETF" || quote.sourceTime !== null || !QUOTE_STATUSES.has(String(quote.status))) {
@@ -69,6 +74,7 @@ function quoteValue(value: unknown): EtfQuote {
     price: nullableNumber(quote.price), change: nullableNumber(quote.change),
     changePercent: nullableNumber(quote.changePercent), previousClose: nullableNumber(quote.previousClose),
     open: nullableNumber(quote.open), high: nullableNumber(quote.high), low: nullableNumber(quote.low),
+    buyPrice: nullableBidAsk(quote.buyPrice), sellPrice: nullableBidAsk(quote.sellPrice),
     volume: nullableNumber(quote.volume), amount: nullableNumber(quote.amount),
     collectedAt: nullableTime(quote.collectedAt), status: quote.status as EtfQuote["status"],
   };

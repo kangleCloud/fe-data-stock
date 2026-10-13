@@ -100,6 +100,23 @@ describe("stock price chart", () => {
   });
 });
 
+describe("120-second collection compatibility", () => {
+  it.each(["stock", "ETF"] as const)("keeps the exact 180000ms price gap boundary for %s", (kind) => {
+    const start = Date.parse("2026-10-13T09:30:00+08:00");
+    const times = [start, start + 179999, start + 179999 + 180000, start + 179999 + 180000 + 180001];
+    const points = times.map((time, index) => ({ time: new Date(time).toISOString(), price: 10 + index / 1000 }));
+    const option = (kind === "stock" ? buildStockPriceOption(points)
+      : buildCollectedPriceOption(points.map((point) => ({ collectedAt: point.time, price: point.price })), "元", 3)) as {
+        series: Array<{ data: Array<[string, number]>; connectNulls: boolean; showSymbol: boolean }>;
+      };
+    // 边界内继续连接，超过 180 秒才断线；不得为较慢采集周期补点或改写价格。
+    expect(option.series.map((segment) => segment.data.length)).toEqual([3, 1]);
+    expect(option.series.flatMap((segment) => segment.data)).toEqual(points.map((point) => [point.time, point.price]));
+    expect(option.series.every((segment) => segment.connectNulls === false)).toBe(true);
+    expect(option.series[1]!.showSymbol).toBe(true);
+  });
+});
+
 describe("stock fund chart", () => {
   it("uses actual collection times, a zero axis, signed colors, and broken gaps", () => {
     const points = [

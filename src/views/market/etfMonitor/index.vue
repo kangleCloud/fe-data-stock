@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { buildCollectedPriceOption } from "@/charts/marketOptions";
+import EtfQuoteTips from "@/components/market/EtfQuoteTips.vue";
 import BaseChart from "@/components/market/BaseChart.vue";
 import { useEtfMonitorStream } from "@/composables/useEtfMonitorStream";
 import { useAuthStore } from "@/stores/auth";
@@ -104,9 +105,9 @@ function formatPrice(value: number | null | undefined, signed = false): string {
         <button v-if="canViewConfig" type="button" :disabled="configOpening" @click="openConfig"><Setting />配置管理</button>
       </div>
     </header>
-    <div class="etf-summary" :class="{ 'has-error': loadError }">
-      <p class="etf-notice" :aria-hidden="!!loadError">行情无可靠源时间，价格曲线横轴和卡片时间均为实际采集时间；历史行情不代表已确认收盘。</p>
-      <p class="etf-error stream-status-slot" :class="{ 'has-error': loadError }" role="alert" :tabindex="loadError ? 0 : -1"><template v-if="loadError">{{ dashboard ? "保留上次快照，更新可能延迟：" : "ETF 快照不可用：" }}{{ loadError }}</template></p>
+    <div class="etf-summary">
+      <EtfQuoteTips />
+      <p v-if="loadError" class="etf-error" role="alert">{{ dashboard ? "保留上次快照，更新可能延迟：" : "ETF 快照不可用：" }}{{ loadError }}</p>
     </div>
     <p v-if="dashboard && !dashboard.xqEnabled" class="etf-notice">雪球资料采集关闭，资产配置不公开；新浪 ETF 行情仍可查看。</p>
     <div v-if="loading && !dashboard" class="etf-empty">正在读取 ETF 快照…</div>
@@ -117,16 +118,25 @@ function formatPrice(value: number | null | undefined, signed = false): string {
           <div><h2>{{ item.name }} <small>{{ item.symbol }}</small></h2><span>{{ item.profile.fundType || "—" }} · {{ item.profile.exchange || item.market }}</span></div>
           <div><strong>{{ statusLabel(item) }}</strong><small>有效交易日 {{ item.effectiveTradeDate || "—" }}</small></div>
         </header>
+        <p v-if="item.quote?.status === 'ERROR'" class="etf-error etf-quote-alert" role="alert">行情采集失败，请核对采集时间与可用数据。</p>
         <dl class="etf-metrics">
           <div><dt>交易价格 · 元</dt><dd>{{ formatPrice(item.quote?.price) }}</dd></div>
+          <div><dt>昨收 · 元</dt><dd>{{ formatPrice(item.quote?.previousClose) }}</dd></div>
+          <div><dt>今开 · 元</dt><dd>{{ formatPrice(item.quote?.open) }}</dd></div>
           <div><dt>涨跌额 · 元</dt><dd :class="`tone-${valueTone(item.quote?.change)}`">{{ formatPrice(item.quote?.change, true) }}</dd></div>
+          <div><dt>最高 · 元</dt><dd>{{ formatPrice(item.quote?.high) }}</dd></div>
+          <div><dt>最低 · 元</dt><dd>{{ formatPrice(item.quote?.low) }}</dd></div>
+          <div><dt>买入价 · 元</dt><dd>{{ formatPrice(item.quote?.buyPrice) }}</dd></div>
+          <div><dt>卖出价 · 元</dt><dd>{{ formatPrice(item.quote?.sellPrice) }}</dd></div>
           <div><dt>涨跌幅</dt><dd :class="`tone-${valueTone(item.quote?.changePercent)}`">{{ formatPercent(item.quote?.changePercent ?? null) }}</dd></div>
           <div><dt>成交额 · 元</dt><dd>{{ formatAmount(item.quote?.amount ?? null) }}</dd></div>
           <div><dt>成交量</dt><dd>{{ formatPlainNumber(item.quote?.volume ?? null) }}</dd></div>
-          <div><dt>跟踪指数</dt><dd>{{ item.profile.trackingIndexName || "暂无可靠数据" }}<small v-if="item.profile.trackingIndexCode"> {{ item.profile.trackingIndexCode }}</small></dd></div>
-          <div><dt>管理人</dt><dd>{{ item.profile.manager || "—" }}</dd></div>
           <div><dt>采集时间</dt><dd>{{ shanghaiTime(item.quote?.collectedAt ?? null) }}</dd></div>
         </dl>
+        <div class="etf-profile-info" aria-label="ETF 资料信息">
+          <span>跟踪指数：{{ item.profile.trackingIndexName || "暂无可靠数据" }}<template v-if="item.profile.trackingIndexCode"> · {{ item.profile.trackingIndexCode }}</template></span>
+          <span>管理人：{{ item.profile.manager || "—" }}</span>
+        </div>
         <div class="etf-section">
           <h3>日内交易价格 <small>实际采集时间 · {{ item.effectiveTradeDate || "—" }}</small></h3>
           <BaseChart v-if="item.series.length" :option="priceOption(item)" :accessible-label="`${item.name}实际采集时间价格走势，共 ${item.series.length} 点`" height="190px" />
@@ -151,10 +161,8 @@ function formatPrice(value: number | null | undefined, signed = false): string {
 
 <style scoped>
 .etf-allocation-status { height: 40px; overflow: auto; }
-.etf-summary { position: relative; }
-.etf-summary.has-error > .etf-notice { visibility: hidden; }
-.stream-status-slot { position: absolute; inset: 0; box-sizing: border-box; overflow: auto; overflow-wrap: anywhere; }
-.stream-status-slot:not(.has-error) { visibility: hidden; }
+.etf-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.etf-summary .etf-error { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .etf-monitor-page { display: grid; gap: 14px; color: var(--market-text); }
 .etf-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .etf-heading p { margin: 0 0 4px; color: var(--market-primary); font-size: 11px; font-weight: 700; letter-spacing: .12em; }
@@ -177,9 +185,11 @@ function formatPrice(value: number | null | undefined, signed = false): string {
 .etf-card-heading strong { color: #fcd34d; }
 .etf-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; margin: 0; border: 1px solid var(--market-border); border-radius: 8px; background: var(--market-border); }
 .etf-metrics > div { display: grid; gap: 5px; min-width: 0; padding: 10px; background: #091423; }
-.etf-metrics dt { color: var(--market-muted); font-size: 11px; }
-.etf-metrics dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 13px; }
+.etf-metrics dt { color: var(--market-text-secondary); font-size: 12px; }
+.etf-metrics dd { font-variant-numeric: tabular-nums; min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 13px; }
 .etf-metrics dd small { color: var(--market-muted); font-size: 10px; }
+.etf-quote-alert { margin: 0 0 8px; }
+.etf-profile-info { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; color: var(--market-text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .etf-section { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--market-border); }
 .etf-section h3 { margin: 0 0 7px; color: var(--market-text-secondary); font-size: 13px; }
 .etf-section h3 small, .etf-section p { color: var(--market-muted); font-size: 11px; font-weight: 400; }
@@ -192,5 +202,6 @@ function formatPrice(value: number | null | undefined, signed = false): string {
 .etf-card footer { margin-top: 10px; color: var(--market-muted); font-size: 11px; }
 .etf-pagination { display: flex; justify-content: center; }
 @media (max-width: 900px) { .etf-grid { grid-template-columns: 1fr; } .etf-heading { align-items: flex-start; flex-direction: column; } }
-@media (max-width: 600px) { .etf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .etf-tools { justify-content: flex-start; } .etf-tools .el-input { width: 100%; } .etf-card-heading { flex-wrap: wrap; } }
+@media (max-width: 767px) { .etf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .etf-tools { justify-content: flex-start; } .etf-tools .el-input { width: 100%; } .etf-card-heading { flex-wrap: wrap; } }
 </style>
