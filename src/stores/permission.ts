@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import type { Router, RouteRecordRaw } from "vue-router";
 import { getAuthInfo, getAuthRouters } from "@/api/auth";
-import { buildDynamicRoutes, firstVisiblePath } from "@/router/dynamic";
+import { buildDynamicRoutes, portfolioHomePath } from "@/router/dynamic";
 import { useAuthStore } from "@/stores/auth";
 
 // Runtime state belongs to each store; concurrent callers share one refresh.
@@ -13,7 +13,7 @@ function stateFor(store: object) {
 }
 export const usePermissionStore = defineStore("permission", {
   state: () => ({ routes: [] as RouteRecordRaw[], initialized: false, version: 0, reconciling: false, signature: "" }),
-  getters: { firstPath: (state) => firstVisiblePath(state.routes) || "/403" },
+  getters: { firstPath: (state) => portfolioHomePath(state.routes, useAuthStore().permissionCodes) },
   actions: {
     async initialize(router: Router): Promise<void> { if (!this.initialized) await this.refresh(router); },
     async refresh(router: Router, reconcile = false): Promise<void> {

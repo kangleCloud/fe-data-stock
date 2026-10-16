@@ -1,4 +1,4 @@
-import { LineChart, TreemapChart } from "echarts/charts";
+import { BarChart, PieChart, LineChart, TreemapChart } from "echarts/charts";
 import {
   AriaComponent,
   GridComponent,
@@ -10,6 +10,8 @@ import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([
+  BarChart,
+  PieChart,
   LineChart,
   TreemapChart,
   TooltipComponent,

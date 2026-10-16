@@ -83,13 +83,13 @@ export function buildDynamicRoutes(routes: BackendRoute[]): RouteRecordRaw[] {
   return routes.filter((route) => route.status !== 0).map((route) => transformRoute(route));
 }
 
-export function firstVisiblePath(routes: RouteRecordRaw[]): string {
+export function firstVisiblePath(routes: RouteRecordRaw[], excludedPaths: string[] = []): string {
   for (const route of routes) {
-    if (route.meta?.hidden || route.meta?.externalUrl) {
+    if (route.meta?.hidden || route.meta?.externalUrl || excludedPaths.includes(route.path)) {
       continue;
     }
     if (route.children?.length) {
-      const childPath = firstVisiblePath(route.children);
+      const childPath = firstVisiblePath(route.children, excludedPaths);
       if (childPath) {
         return childPath;
       }
@@ -104,4 +104,27 @@ export function firstVisiblePath(routes: RouteRecordRaw[]): string {
     }
   }
   return "";
+}
+
+/** 驾驶舱仅在真实动态授权路由存在时作为登录默认入口。 */
+export function portfolioHomePath(
+  routes: RouteRecordRaw[],
+  permissions: string[],
+): string {
+  const granted =
+    permissions.includes("portfolio:dashboard:view") ||
+    permissions.includes("**:**:**");
+  function hasDashboard(items: RouteRecordRaw[]): boolean {
+    return items.some((item) => {
+      if (item.meta?.hidden || item.meta?.externalUrl || item.meta?.loadError)
+        return false;
+      return (
+        (item.path === "/portfolio/dashboard" && !item.meta?.directory) ||
+        hasDashboard(item.children || [])
+      );
+    });
+  }
+  if (granted && hasDashboard(routes)) return "/portfolio/dashboard";
+  // 菜单与按钮授权刷新间隙也不能将无接口权限的驾驶舱选为默认入口。
+  return firstVisiblePath(routes, ["/portfolio/dashboard"]) || "/403";
 }
