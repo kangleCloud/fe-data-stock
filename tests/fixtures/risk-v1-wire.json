@@ -1,0 +1,92 @@
+{
+  "permissionDenied": {
+    "code": 403,
+    "success": false,
+    "msg": "没有该操作权限",
+    "content": null
+  },
+  "dashboardExample": {
+    "metrics": {
+      "requestCount": "1",
+      "apiCount": "1",
+      "httpErrorCount": "0",
+      "httpErrorRate": "0.000000",
+      "restP95Micros": "1000",
+      "restP95Overflow": false,
+      "sseP95Micros": null,
+      "sseP95Overflow": false,
+      "sseEndedCount": "0",
+      "clientAbortCount": "0",
+      "upstreamFailureCount": "0"
+    },
+    "trend": [
+      {
+        "minuteAt": "2026-10-26T12:00:00.000+08:00",
+        "requestCount": "1",
+        "apiCount": "1",
+        "httpErrorCount": "0"
+      }
+    ],
+    "dailySources": [
+      {
+        "businessDate": "2026-10-26",
+        "sourceCount": "1",
+        "approximate": true
+      }
+    ],
+    "regions": [
+      {
+        "regionCode": "UNKNOWN",
+        "requestCount": "1"
+      }
+    ],
+    "requestTypes": [
+      {
+        "requestType": "API",
+        "requestCount": "1"
+      }
+    ],
+    "statuses": [
+      {
+        "status": "200",
+        "requestCount": "1"
+      }
+    ],
+    "topInterfaces": [
+      {
+        "pathTemplate": "/api/example",
+        "method": "GET",
+        "requestType": "API",
+        "requestCount": "1",
+        "httpErrorCount": "0",
+        "restP95Micros": "1000",
+        "restP95Overflow": false,
+        "sseP95Micros": null,
+        "sseP95Overflow": false,
+        "clientAbortCount": "0"
+      }
+    ],
+    "quality": [],
+    "metadata": {
+      "generatedAt": "2026-10-26T12:00:10.000+08:00",
+      "dataUpdatedAt": "2026-10-26T12:00:00.000+08:00",
+      "collectorHeartbeatAt": "2026-10-26T12:00:10.000+08:00",
+      "lastEventTime": "2026-10-26T12:00:00.000+08:00",
+      "lagSeconds": "0",
+      "completeness": "READY",
+      "warnings": []
+    }
+  },
+  "sseInterfaceExample": {
+    "pathTemplate": "/sse/example",
+    "method": "GET",
+    "requestType": "SSE",
+    "requestCount": "1",
+    "httpErrorCount": "0",
+    "restP95Micros": null,
+    "restP95Overflow": false,
+    "sseP95Micros": "1000000",
+    "sseP95Overflow": false,
+    "clientAbortCount": "0"
+  }
+}

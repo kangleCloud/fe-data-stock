@@ -11,7 +11,6 @@ export function usePortfolioPage<T>(
   const loading = ref(false);
   const error = ref("");
   const query = reactive<PortfolioQuery>({ pageNum: 1, pageSize: 10 });
-  const appliedQuery = ref<PortfolioQuery>({});
   let epoch = 0;
   async function load(reset = false) {
     if (reset) {
@@ -26,8 +25,6 @@ export function usePortfolioPage<T>(
       if (own === epoch) {
         rows.value = result.list as typeof rows.value;
         total.value = result.total;
-        // 数据及其查询口径同批确认；失败或迟到响应不能改变旧画面的截止日。
-        appliedQuery.value = requestedQuery;
       }
     } catch (caughtError) {
       if (own === epoch) {
@@ -40,5 +37,5 @@ export function usePortfolioPage<T>(
     }
   }
   onMounted(() => load());
-  return { rows, total, loading, error, query, appliedQuery, load };
+  return { rows, total, loading, error, query, load };
 }

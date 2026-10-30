@@ -1,0 +1,1091 @@
+[
+  {
+    "kind": "china",
+    "repository": "wmgeolab/geoBoundaries",
+    "commit": "9469f09592ced973a3448cf66b6100b741b64c0d",
+    "url": "https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09592ced973a3448cf66b6100b741b64c0d/releaseData/gbOpen/CHN/ADM1/geoBoundaries-CHN-ADM1_simplified.geojson",
+    "sha256": "bc4afc7eacf4351ae5b3ae7a612327987ce1123cb5deb8574fb49107091c6623",
+    "bytes": 263343,
+    "features": 34,
+    "license": "Public Domain",
+    "localPath": "maps/risk-v1/china.geojson",
+    "idProperty": "shapeID",
+    "codeProperty": "shapeISO",
+    "mapping": {
+      "43563684B67556328368055": {
+        "code": "CN-46",
+        "sourceCode": "CHN",
+        "label": "海南"
+      },
+      "43563684B32372453033755": {
+        "code": "TW",
+        "sourceCode": "CHN",
+        "label": "台湾"
+      },
+      "43563684B59914390554750": {
+        "code": "CN-45",
+        "sourceCode": "CHN",
+        "label": "广西"
+      },
+      "43563684B30737817496648": {
+        "code": "CN-35",
+        "sourceCode": "CHN",
+        "label": "福建"
+      },
+      "43563684B84540832148656": {
+        "code": "CN-53",
+        "sourceCode": "CHN",
+        "label": "云南"
+      },
+      "43563684B78583622565599": {
+        "code": "CN-52",
+        "sourceCode": "CHN",
+        "label": "贵州"
+      },
+      "43563684B87813050901813": {
+        "code": "CN-36",
+        "sourceCode": "CHN",
+        "label": "江西"
+      },
+      "43563684B64987462919315": {
+        "code": "CN-43",
+        "sourceCode": "CHN",
+        "label": "湖南"
+      },
+      "43563684B73528730180553": {
+        "code": "CN-33",
+        "sourceCode": "CHN",
+        "label": "浙江"
+      },
+      "43563684B32591653033375": {
+        "code": "CN-31",
+        "sourceCode": "CHN",
+        "label": "上海"
+      },
+      "43563684B97743196909507": {
+        "code": "CN-50",
+        "sourceCode": "CHN",
+        "label": "重庆"
+      },
+      "43563684B41908353419915": {
+        "code": "CN-42",
+        "sourceCode": "CHN",
+        "label": "湖北"
+      },
+      "43563684B14397599951889": {
+        "code": "CN-51",
+        "sourceCode": "CHN",
+        "label": "四川"
+      },
+      "43563684B75549295130005": {
+        "code": "CN-34",
+        "sourceCode": "CHN",
+        "label": "安徽"
+      },
+      "43563684B64367354813847": {
+        "code": "CN-32",
+        "sourceCode": "CHN",
+        "label": "江苏"
+      },
+      "43563684B96917371447908": {
+        "code": "CN-41",
+        "sourceCode": "CHN",
+        "label": "河南"
+      },
+      "43563684B19802372559419": {
+        "code": "CN-54",
+        "sourceCode": "CHN",
+        "label": "西藏"
+      },
+      "43563684B58995436924100": {
+        "code": "CN-37",
+        "sourceCode": "CHN",
+        "label": "山东"
+      },
+      "43563684B46172434476792": {
+        "code": "CN-63",
+        "sourceCode": "CHN",
+        "label": "青海"
+      },
+      "43563684B64666899633249": {
+        "code": "CN-64",
+        "sourceCode": "CHN",
+        "label": "宁夏"
+      },
+      "43563684B62959128536432": {
+        "code": "CN-61",
+        "sourceCode": "CHN",
+        "label": "陕西"
+      },
+      "43563684B84701301190484": {
+        "code": "CN-12",
+        "sourceCode": "CHN",
+        "label": "天津"
+      },
+      "43563684B34303967365755": {
+        "code": "CN-14",
+        "sourceCode": "CHN",
+        "label": "山西"
+      },
+      "43563684B17418114845297": {
+        "code": "CN-11",
+        "sourceCode": "CHN",
+        "label": "北京"
+      },
+      "43563684B11053367304830": {
+        "code": "CN-62",
+        "sourceCode": "CHN",
+        "label": "甘肃"
+      },
+      "43563684B58229551045164": {
+        "code": "CN-13",
+        "sourceCode": "CHN",
+        "label": "河北"
+      },
+      "43563684B26929678147954": {
+        "code": "CN-21",
+        "sourceCode": "CHN",
+        "label": "辽宁"
+      },
+      "43563684B3982601277390": {
+        "code": "CN-22",
+        "sourceCode": "CHN",
+        "label": "吉林"
+      },
+      "43563684B50492231896073": {
+        "code": "CN-65",
+        "sourceCode": "CHN",
+        "label": "新疆"
+      },
+      "43563684B95381459098578": {
+        "code": "CN-15",
+        "sourceCode": "CHN",
+        "label": "内蒙古"
+      },
+      "43563684B55920014778896": {
+        "code": "CN-23",
+        "sourceCode": "CHN",
+        "label": "黑龙江"
+      },
+      "43563684B97104103456250": {
+        "code": "MO",
+        "sourceCode": "CHN",
+        "label": "澳门"
+      },
+      "43563684B69230098435171": {
+        "code": "HK",
+        "sourceCode": "CHN",
+        "label": "香港"
+      },
+      "43563684B38891657012300": {
+        "code": "CN-44",
+        "sourceCode": "CHN",
+        "label": "广东"
+      }
+    },
+    "licenseUrl": "https://www.geoboundaries.org/api/current/gbOpen/CHN/ADM1/",
+    "version": "CHN-ADM1-43563684 / 2019"
+  },
+  {
+    "kind": "world",
+    "repository": "nvkelso/natural-earth-vector",
+    "commit": "ca96624a56bd078437bca8184e78163e5039ad19",
+    "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_110m_admin_0_countries.geojson",
+    "sha256": "6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f",
+    "bytes": 838726,
+    "features": 177,
+    "license": "Public Domain",
+    "localPath": "maps/risk-v1/world.geojson",
+    "idProperty": "ADM0_A3",
+    "codeProperty": "ISO_A2_EH",
+    "mapping": {
+      "FJI": {
+        "code": "FJ",
+        "sourceCode": "FJ",
+        "label": "斐济"
+      },
+      "TZA": {
+        "code": "TZ",
+        "sourceCode": "TZ",
+        "label": "坦桑尼亚"
+      },
+      "SAH": {
+        "code": "EH",
+        "sourceCode": "EH",
+        "label": "西撒哈拉"
+      },
+      "CAN": {
+        "code": "CA",
+        "sourceCode": "CA",
+        "label": "加拿大"
+      },
+      "USA": {
+        "code": "US",
+        "sourceCode": "US",
+        "label": "美国"
+      },
+      "KAZ": {
+        "code": "KZ",
+        "sourceCode": "KZ",
+        "label": "哈萨克斯坦"
+      },
+      "UZB": {
+        "code": "UZ",
+        "sourceCode": "UZ",
+        "label": "乌兹别克斯坦"
+      },
+      "PNG": {
+        "code": "PG",
+        "sourceCode": "PG",
+        "label": "巴布亚新几内亚"
+      },
+      "IDN": {
+        "code": "ID",
+        "sourceCode": "ID",
+        "label": "印度尼西亚"
+      },
+      "ARG": {
+        "code": "AR",
+        "sourceCode": "AR",
+        "label": "阿根廷"
+      },
+      "CHL": {
+        "code": "CL",
+        "sourceCode": "CL",
+        "label": "智利"
+      },
+      "COD": {
+        "code": "CD",
+        "sourceCode": "CD",
+        "label": "刚果民主共和国"
+      },
+      "SOM": {
+        "code": "SO",
+        "sourceCode": "SO",
+        "label": "索马里"
+      },
+      "KEN": {
+        "code": "KE",
+        "sourceCode": "KE",
+        "label": "肯尼亚"
+      },
+      "SDN": {
+        "code": "SD",
+        "sourceCode": "SD",
+        "label": "苏丹"
+      },
+      "TCD": {
+        "code": "TD",
+        "sourceCode": "TD",
+        "label": "乍得"
+      },
+      "HTI": {
+        "code": "HT",
+        "sourceCode": "HT",
+        "label": "海地"
+      },
+      "DOM": {
+        "code": "DO",
+        "sourceCode": "DO",
+        "label": "多米尼加"
+      },
+      "RUS": {
+        "code": "RU",
+        "sourceCode": "RU",
+        "label": "俄罗斯"
+      },
+      "BHS": {
+        "code": "BS",
+        "sourceCode": "BS",
+        "label": "巴哈马"
+      },
+      "FLK": {
+        "code": "FK",
+        "sourceCode": "FK",
+        "label": "福克兰群岛"
+      },
+      "NOR": {
+        "code": "NO",
+        "sourceCode": "NO",
+        "label": "挪威"
+      },
+      "GRL": {
+        "code": "GL",
+        "sourceCode": "GL",
+        "label": "格陵兰"
+      },
+      "ATF": {
+        "code": "TF",
+        "sourceCode": "TF",
+        "label": "法属南部和南极领地"
+      },
+      "TLS": {
+        "code": "TL",
+        "sourceCode": "TL",
+        "label": "东帝汶"
+      },
+      "ZAF": {
+        "code": "ZA",
+        "sourceCode": "ZA",
+        "label": "南非"
+      },
+      "LSO": {
+        "code": "LS",
+        "sourceCode": "LS",
+        "label": "莱索托"
+      },
+      "MEX": {
+        "code": "MX",
+        "sourceCode": "MX",
+        "label": "墨西哥"
+      },
+      "URY": {
+        "code": "UY",
+        "sourceCode": "UY",
+        "label": "乌拉圭"
+      },
+      "BRA": {
+        "code": "BR",
+        "sourceCode": "BR",
+        "label": "巴西"
+      },
+      "BOL": {
+        "code": "BO",
+        "sourceCode": "BO",
+        "label": "玻利维亚"
+      },
+      "PER": {
+        "code": "PE",
+        "sourceCode": "PE",
+        "label": "秘鲁"
+      },
+      "COL": {
+        "code": "CO",
+        "sourceCode": "CO",
+        "label": "哥伦比亚"
+      },
+      "PAN": {
+        "code": "PA",
+        "sourceCode": "PA",
+        "label": "巴拿马"
+      },
+      "CRI": {
+        "code": "CR",
+        "sourceCode": "CR",
+        "label": "哥斯达黎加"
+      },
+      "NIC": {
+        "code": "NI",
+        "sourceCode": "NI",
+        "label": "尼加拉瓜"
+      },
+      "HND": {
+        "code": "HN",
+        "sourceCode": "HN",
+        "label": "洪都拉斯"
+      },
+      "SLV": {
+        "code": "SV",
+        "sourceCode": "SV",
+        "label": "萨尔瓦多"
+      },
+      "GTM": {
+        "code": "GT",
+        "sourceCode": "GT",
+        "label": "危地马拉"
+      },
+      "BLZ": {
+        "code": "BZ",
+        "sourceCode": "BZ",
+        "label": "伯利兹"
+      },
+      "VEN": {
+        "code": "VE",
+        "sourceCode": "VE",
+        "label": "委内瑞拉"
+      },
+      "GUY": {
+        "code": "GY",
+        "sourceCode": "GY",
+        "label": "圭亚那"
+      },
+      "SUR": {
+        "code": "SR",
+        "sourceCode": "SR",
+        "label": "苏里南"
+      },
+      "FRA": {
+        "code": "FR",
+        "sourceCode": "FR",
+        "label": "法国"
+      },
+      "ECU": {
+        "code": "EC",
+        "sourceCode": "EC",
+        "label": "厄瓜多尔"
+      },
+      "PRI": {
+        "code": "PR",
+        "sourceCode": "PR",
+        "label": "波多黎各"
+      },
+      "JAM": {
+        "code": "JM",
+        "sourceCode": "JM",
+        "label": "牙买加"
+      },
+      "CUB": {
+        "code": "CU",
+        "sourceCode": "CU",
+        "label": "古巴"
+      },
+      "ZWE": {
+        "code": "ZW",
+        "sourceCode": "ZW",
+        "label": "津巴布韦"
+      },
+      "BWA": {
+        "code": "BW",
+        "sourceCode": "BW",
+        "label": "博茨瓦纳"
+      },
+      "NAM": {
+        "code": "NA",
+        "sourceCode": "NA",
+        "label": "纳米比亚"
+      },
+      "SEN": {
+        "code": "SN",
+        "sourceCode": "SN",
+        "label": "塞内加尔"
+      },
+      "MLI": {
+        "code": "ML",
+        "sourceCode": "ML",
+        "label": "马里"
+      },
+      "MRT": {
+        "code": "MR",
+        "sourceCode": "MR",
+        "label": "毛里塔尼亚"
+      },
+      "BEN": {
+        "code": "BJ",
+        "sourceCode": "BJ",
+        "label": "贝宁"
+      },
+      "NER": {
+        "code": "NE",
+        "sourceCode": "NE",
+        "label": "尼日尔"
+      },
+      "NGA": {
+        "code": "NG",
+        "sourceCode": "NG",
+        "label": "尼日利亚"
+      },
+      "CMR": {
+        "code": "CM",
+        "sourceCode": "CM",
+        "label": "喀麦隆"
+      },
+      "TGO": {
+        "code": "TG",
+        "sourceCode": "TG",
+        "label": "多哥"
+      },
+      "GHA": {
+        "code": "GH",
+        "sourceCode": "GH",
+        "label": "加纳"
+      },
+      "CIV": {
+        "code": "CI",
+        "sourceCode": "CI",
+        "label": "科特迪瓦"
+      },
+      "GIN": {
+        "code": "GN",
+        "sourceCode": "GN",
+        "label": "几内亚"
+      },
+      "GNB": {
+        "code": "GW",
+        "sourceCode": "GW",
+        "label": "几内亚比绍"
+      },
+      "LBR": {
+        "code": "LR",
+        "sourceCode": "LR",
+        "label": "利比里亚"
+      },
+      "SLE": {
+        "code": "SL",
+        "sourceCode": "SL",
+        "label": "塞拉利昂"
+      },
+      "BFA": {
+        "code": "BF",
+        "sourceCode": "BF",
+        "label": "布基纳法索"
+      },
+      "CAF": {
+        "code": "CF",
+        "sourceCode": "CF",
+        "label": "中非共和国"
+      },
+      "COG": {
+        "code": "CG",
+        "sourceCode": "CG",
+        "label": "刚果共和国"
+      },
+      "GAB": {
+        "code": "GA",
+        "sourceCode": "GA",
+        "label": "加蓬"
+      },
+      "GNQ": {
+        "code": "GQ",
+        "sourceCode": "GQ",
+        "label": "赤道几内亚"
+      },
+      "ZMB": {
+        "code": "ZM",
+        "sourceCode": "ZM",
+        "label": "赞比亚"
+      },
+      "MWI": {
+        "code": "MW",
+        "sourceCode": "MW",
+        "label": "马拉维"
+      },
+      "MOZ": {
+        "code": "MZ",
+        "sourceCode": "MZ",
+        "label": "莫桑比克"
+      },
+      "SWZ": {
+        "code": "SZ",
+        "sourceCode": "SZ",
+        "label": "斯威士兰"
+      },
+      "AGO": {
+        "code": "AO",
+        "sourceCode": "AO",
+        "label": "安哥拉"
+      },
+      "BDI": {
+        "code": "BI",
+        "sourceCode": "BI",
+        "label": "布隆迪"
+      },
+      "ISR": {
+        "code": "IL",
+        "sourceCode": "IL",
+        "label": "以色列"
+      },
+      "LBN": {
+        "code": "LB",
+        "sourceCode": "LB",
+        "label": "黎巴嫩"
+      },
+      "MDG": {
+        "code": "MG",
+        "sourceCode": "MG",
+        "label": "马达加斯加"
+      },
+      "PSX": {
+        "code": "PS",
+        "sourceCode": "PS",
+        "label": "巴勒斯坦"
+      },
+      "GMB": {
+        "code": "GM",
+        "sourceCode": "GM",
+        "label": "冈比亚"
+      },
+      "TUN": {
+        "code": "TN",
+        "sourceCode": "TN",
+        "label": "突尼斯"
+      },
+      "DZA": {
+        "code": "DZ",
+        "sourceCode": "DZ",
+        "label": "阿尔及利亚"
+      },
+      "JOR": {
+        "code": "JO",
+        "sourceCode": "JO",
+        "label": "约旦"
+      },
+      "ARE": {
+        "code": "AE",
+        "sourceCode": "AE",
+        "label": "阿拉伯联合酋长国"
+      },
+      "QAT": {
+        "code": "QA",
+        "sourceCode": "QA",
+        "label": "卡塔尔"
+      },
+      "KWT": {
+        "code": "KW",
+        "sourceCode": "KW",
+        "label": "科威特"
+      },
+      "IRQ": {
+        "code": "IQ",
+        "sourceCode": "IQ",
+        "label": "伊拉克"
+      },
+      "OMN": {
+        "code": "OM",
+        "sourceCode": "OM",
+        "label": "阿曼"
+      },
+      "VUT": {
+        "code": "VU",
+        "sourceCode": "VU",
+        "label": "瓦努阿图"
+      },
+      "KHM": {
+        "code": "KH",
+        "sourceCode": "KH",
+        "label": "柬埔寨"
+      },
+      "THA": {
+        "code": "TH",
+        "sourceCode": "TH",
+        "label": "泰国"
+      },
+      "LAO": {
+        "code": "LA",
+        "sourceCode": "LA",
+        "label": "老挝"
+      },
+      "MMR": {
+        "code": "MM",
+        "sourceCode": "MM",
+        "label": "缅甸"
+      },
+      "VNM": {
+        "code": "VN",
+        "sourceCode": "VN",
+        "label": "越南"
+      },
+      "PRK": {
+        "code": "KP",
+        "sourceCode": "KP",
+        "label": "朝鲜民主主义人民共和国"
+      },
+      "KOR": {
+        "code": "KR",
+        "sourceCode": "KR",
+        "label": "大韩民国"
+      },
+      "MNG": {
+        "code": "MN",
+        "sourceCode": "MN",
+        "label": "蒙古国"
+      },
+      "IND": {
+        "code": "IN",
+        "sourceCode": "IN",
+        "label": "印度"
+      },
+      "BGD": {
+        "code": "BD",
+        "sourceCode": "BD",
+        "label": "孟加拉国"
+      },
+      "BTN": {
+        "code": "BT",
+        "sourceCode": "BT",
+        "label": "不丹"
+      },
+      "NPL": {
+        "code": "NP",
+        "sourceCode": "NP",
+        "label": "尼泊尔"
+      },
+      "PAK": {
+        "code": "PK",
+        "sourceCode": "PK",
+        "label": "巴基斯坦"
+      },
+      "AFG": {
+        "code": "AF",
+        "sourceCode": "AF",
+        "label": "阿富汗"
+      },
+      "TJK": {
+        "code": "TJ",
+        "sourceCode": "TJ",
+        "label": "塔吉克斯坦"
+      },
+      "KGZ": {
+        "code": "KG",
+        "sourceCode": "KG",
+        "label": "吉尔吉斯斯坦"
+      },
+      "TKM": {
+        "code": "TM",
+        "sourceCode": "TM",
+        "label": "土库曼斯坦"
+      },
+      "IRN": {
+        "code": "IR",
+        "sourceCode": "IR",
+        "label": "伊朗"
+      },
+      "SYR": {
+        "code": "SY",
+        "sourceCode": "SY",
+        "label": "叙利亚"
+      },
+      "ARM": {
+        "code": "AM",
+        "sourceCode": "AM",
+        "label": "亚美尼亚"
+      },
+      "SWE": {
+        "code": "SE",
+        "sourceCode": "SE",
+        "label": "瑞典"
+      },
+      "BLR": {
+        "code": "BY",
+        "sourceCode": "BY",
+        "label": "白俄罗斯"
+      },
+      "UKR": {
+        "code": "UA",
+        "sourceCode": "UA",
+        "label": "乌克兰"
+      },
+      "POL": {
+        "code": "PL",
+        "sourceCode": "PL",
+        "label": "波兰"
+      },
+      "AUT": {
+        "code": "AT",
+        "sourceCode": "AT",
+        "label": "奥地利"
+      },
+      "HUN": {
+        "code": "HU",
+        "sourceCode": "HU",
+        "label": "匈牙利"
+      },
+      "MDA": {
+        "code": "MD",
+        "sourceCode": "MD",
+        "label": "摩尔多瓦"
+      },
+      "ROU": {
+        "code": "RO",
+        "sourceCode": "RO",
+        "label": "罗马尼亚"
+      },
+      "LTU": {
+        "code": "LT",
+        "sourceCode": "LT",
+        "label": "立陶宛"
+      },
+      "LVA": {
+        "code": "LV",
+        "sourceCode": "LV",
+        "label": "拉脱维亚"
+      },
+      "EST": {
+        "code": "EE",
+        "sourceCode": "EE",
+        "label": "爱沙尼亚"
+      },
+      "DEU": {
+        "code": "DE",
+        "sourceCode": "DE",
+        "label": "德国"
+      },
+      "BGR": {
+        "code": "BG",
+        "sourceCode": "BG",
+        "label": "保加利亚"
+      },
+      "GRC": {
+        "code": "GR",
+        "sourceCode": "GR",
+        "label": "希腊"
+      },
+      "TUR": {
+        "code": "TR",
+        "sourceCode": "TR",
+        "label": "土耳其"
+      },
+      "ALB": {
+        "code": "AL",
+        "sourceCode": "AL",
+        "label": "阿尔巴尼亚"
+      },
+      "HRV": {
+        "code": "HR",
+        "sourceCode": "HR",
+        "label": "克罗地亚"
+      },
+      "CHE": {
+        "code": "CH",
+        "sourceCode": "CH",
+        "label": "瑞士"
+      },
+      "LUX": {
+        "code": "LU",
+        "sourceCode": "LU",
+        "label": "卢森堡"
+      },
+      "BEL": {
+        "code": "BE",
+        "sourceCode": "BE",
+        "label": "比利时"
+      },
+      "NLD": {
+        "code": "NL",
+        "sourceCode": "NL",
+        "label": "荷兰"
+      },
+      "PRT": {
+        "code": "PT",
+        "sourceCode": "PT",
+        "label": "葡萄牙"
+      },
+      "ESP": {
+        "code": "ES",
+        "sourceCode": "ES",
+        "label": "西班牙"
+      },
+      "IRL": {
+        "code": "IE",
+        "sourceCode": "IE",
+        "label": "爱尔兰"
+      },
+      "NCL": {
+        "code": "NC",
+        "sourceCode": "NC",
+        "label": "新喀里多尼亚"
+      },
+      "SLB": {
+        "code": "SB",
+        "sourceCode": "SB",
+        "label": "所罗门群岛"
+      },
+      "NZL": {
+        "code": "NZ",
+        "sourceCode": "NZ",
+        "label": "新西兰"
+      },
+      "AUS": {
+        "code": "AU",
+        "sourceCode": "AU",
+        "label": "澳大利亚"
+      },
+      "LKA": {
+        "code": "LK",
+        "sourceCode": "LK",
+        "label": "斯里兰卡"
+      },
+      "CHN": {
+        "code": "CN",
+        "sourceCode": "CN",
+        "label": "中华人民共和国"
+      },
+      "TWN": {
+        "code": "TW",
+        "sourceCode": "TW",
+        "label": "中华民国"
+      },
+      "ITA": {
+        "code": "IT",
+        "sourceCode": "IT",
+        "label": "意大利"
+      },
+      "DNK": {
+        "code": "DK",
+        "sourceCode": "DK",
+        "label": "丹麦"
+      },
+      "GBR": {
+        "code": "GB",
+        "sourceCode": "GB",
+        "label": "英国"
+      },
+      "ISL": {
+        "code": "IS",
+        "sourceCode": "IS",
+        "label": "冰岛"
+      },
+      "AZE": {
+        "code": "AZ",
+        "sourceCode": "AZ",
+        "label": "阿塞拜疆"
+      },
+      "GEO": {
+        "code": "GE",
+        "sourceCode": "GE",
+        "label": "格鲁吉亚"
+      },
+      "PHL": {
+        "code": "PH",
+        "sourceCode": "PH",
+        "label": "菲律宾"
+      },
+      "MYS": {
+        "code": "MY",
+        "sourceCode": "MY",
+        "label": "马来西亚"
+      },
+      "BRN": {
+        "code": "BN",
+        "sourceCode": "BN",
+        "label": "文莱"
+      },
+      "SVN": {
+        "code": "SI",
+        "sourceCode": "SI",
+        "label": "斯洛文尼亚"
+      },
+      "FIN": {
+        "code": "FI",
+        "sourceCode": "FI",
+        "label": "芬兰"
+      },
+      "SVK": {
+        "code": "SK",
+        "sourceCode": "SK",
+        "label": "斯洛伐克"
+      },
+      "CZE": {
+        "code": "CZ",
+        "sourceCode": "CZ",
+        "label": "捷克"
+      },
+      "ERI": {
+        "code": "ER",
+        "sourceCode": "ER",
+        "label": "厄立特里亚"
+      },
+      "JPN": {
+        "code": "JP",
+        "sourceCode": "JP",
+        "label": "日本"
+      },
+      "PRY": {
+        "code": "PY",
+        "sourceCode": "PY",
+        "label": "巴拉圭"
+      },
+      "YEM": {
+        "code": "YE",
+        "sourceCode": "YE",
+        "label": "也门"
+      },
+      "SAU": {
+        "code": "SA",
+        "sourceCode": "SA",
+        "label": "沙特阿拉伯"
+      },
+      "ATA": {
+        "code": "AQ",
+        "sourceCode": "AQ",
+        "label": "南极洲"
+      },
+      "CYN": {
+        "code": null,
+        "sourceCode": "-99",
+        "label": "北塞浦路斯土耳其共和国"
+      },
+      "CYP": {
+        "code": "CY",
+        "sourceCode": "CY",
+        "label": "塞浦路斯"
+      },
+      "MAR": {
+        "code": "MA",
+        "sourceCode": "MA",
+        "label": "摩洛哥"
+      },
+      "EGY": {
+        "code": "EG",
+        "sourceCode": "EG",
+        "label": "埃及"
+      },
+      "LBY": {
+        "code": "LY",
+        "sourceCode": "LY",
+        "label": "利比亚"
+      },
+      "ETH": {
+        "code": "ET",
+        "sourceCode": "ET",
+        "label": "埃塞俄比亚"
+      },
+      "DJI": {
+        "code": "DJ",
+        "sourceCode": "DJ",
+        "label": "吉布提"
+      },
+      "SOL": {
+        "code": null,
+        "sourceCode": "-99",
+        "label": "索马里兰"
+      },
+      "UGA": {
+        "code": "UG",
+        "sourceCode": "UG",
+        "label": "乌干达"
+      },
+      "RWA": {
+        "code": "RW",
+        "sourceCode": "RW",
+        "label": "卢旺达"
+      },
+      "BIH": {
+        "code": "BA",
+        "sourceCode": "BA",
+        "label": "波斯尼亚和黑塞哥维那"
+      },
+      "MKD": {
+        "code": "MK",
+        "sourceCode": "MK",
+        "label": "北马其顿"
+      },
+      "SRB": {
+        "code": "RS",
+        "sourceCode": "RS",
+        "label": "塞尔维亚"
+      },
+      "MNE": {
+        "code": "ME",
+        "sourceCode": "ME",
+        "label": "黑山"
+      },
+      "KOS": {
+        "code": "XK",
+        "sourceCode": "XK",
+        "label": "科索沃"
+      },
+      "TTO": {
+        "code": "TT",
+        "sourceCode": "TT",
+        "label": "特立尼达和多巴哥"
+      },
+      "SDS": {
+        "code": "SS",
+        "sourceCode": "SS",
+        "label": "南苏丹"
+      }
+    },
+    "licenseUrl": "https://www.naturalearthdata.com/about/terms-of-use/",
+    "version": "Natural Earth 1:110m / commit ca96624a56bd078437bca8184e78163e5039ad19"
+  }
+]

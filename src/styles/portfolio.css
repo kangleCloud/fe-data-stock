@@ -69,46 +69,13 @@
 .portfolio-metric small {
   color: var(--color-text-secondary);
 }
-.portfolio-positive {
-  color: var(--color-danger);
-}
-.portfolio-negative {
-  color: var(--color-success);
-}
 .portfolio-muted {
   color: var(--color-text-secondary);
-}
-.portfolio-number {
-  font-variant-numeric: tabular-nums;
 }
 .portfolio-charts {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
-}
-.portfolio-error {
-  margin-bottom: 14px;
-}
-.portfolio-preview {
-  padding: 16px;
-  background: var(--color-surface-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  margin-bottom: 16px;
-}
-.portfolio-preview dl {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 0;
-}
-.portfolio-preview dt {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-.portfolio-preview dd {
-  margin: 4px 0 0;
-  font-variant-numeric: tabular-nums;
 }
 .portfolio-drawer .el-drawer__body {
   overflow: auto;
@@ -151,3 +118,15 @@
     width: 100% !important;
   }
 }
+
+.portfolio-drawer .el-descriptions__content {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.portfolio-drawer .portfolio-metric-value {
+  text-align: right;
+}
+
+
+.portfolio-section-gap { margin-top: 16px; }

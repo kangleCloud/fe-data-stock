@@ -1,0 +1,22 @@
+[
+  {
+    "kind": "china",
+    "repository": "wmgeolab/geoBoundaries",
+    "commit": "9469f09592ced973a3448cf66b6100b741b64c0d",
+    "url": "https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09592ced973a3448cf66b6100b741b64c0d/releaseData/gbOpen/CHN/ADM1/geoBoundaries-CHN-ADM1_simplified.geojson",
+    "sha256": "bc4afc7eacf4351ae5b3ae7a612327987ce1123cb5deb8574fb49107091c6623",
+    "bytes": 263343,
+    "features": 34,
+    "license": "Public Domain"
+  },
+  {
+    "kind": "world",
+    "repository": "nvkelso/natural-earth-vector",
+    "commit": "ca96624a56bd078437bca8184e78163e5039ad19",
+    "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_110m_admin_0_countries.geojson",
+    "sha256": "6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f",
+    "bytes": 838726,
+    "features": 177,
+    "license": "Public Domain"
+  }
+]

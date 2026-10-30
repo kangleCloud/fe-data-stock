@@ -1,7 +1,8 @@
-import { BarChart, PieChart, LineChart, TreemapChart } from "echarts/charts";
+import { BarChart, PieChart, LineChart, TreemapChart, MapChart } from "echarts/charts";
 import {
   AriaComponent,
   GridComponent,
+  GeoComponent,
   MarkLineComponent,
   TooltipComponent,
   VisualMapComponent,
@@ -14,8 +15,10 @@ echarts.use([
   PieChart,
   LineChart,
   TreemapChart,
+  MapChart,
   TooltipComponent,
   GridComponent,
+  GeoComponent,
   MarkLineComponent,
   VisualMapComponent,
   AriaComponent,

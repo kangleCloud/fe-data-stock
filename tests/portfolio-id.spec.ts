@@ -2,13 +2,12 @@ import { AxiosHeaders, type AxiosAdapter, type AxiosResponse } from "axios";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getPortfolioAnalysis,
-  getPortfolioContext,
   positions,
-  trades,
+  savePortfolioSnapshot,
 } from "@/api/portfolio";
 import { httpClient, request } from "@/utils/request";
 import { normalizePortfolioIds, portfolioIdString } from "@/utils/portfolioId";
-import type { TradeInput } from "@/types/portfolio";
+import type { SnapshotInput } from "@/types/portfolio";
 const previousAdapter = httpClient.defaults.adapter;
 // 模拟 JSON 已将超安全范围数字解析为浮点数，不能事后 String() 恢复。
 const unsafeNumber = JSON.parse("9007199254740993") as number;
@@ -68,7 +67,7 @@ describe("portfolio ID boundary", () => {
           id: "9223372036854775807",
           currentQuantity: 100,
           version: 3,
-          remainingCost: "9999999999999999.99",
+          totalCost: "9999999999999999.99",
         },
       ],
       total: 25,
@@ -101,32 +100,22 @@ describe("portfolio ID boundary", () => {
       expect(body.quantity).toBe(100);
     });
     const input = {
-      assetType: "STOCK",
-      dictionaryId: "9007199254740993",
-      tradeType: "BUY",
-      businessDate: "2026-01-01",
-      quantity: 100,
-      price: "10.00000001",
-      grossAmount: "1000.00",
-      actualFee: "0",
-    } as TradeInput;
-    expect(await trades.create(input)).toBe(identifier);
+      assetType: "STOCK", dictionaryId: "9007199254740993",
+      operationType: "INITIAL", snapshotAt: "2026-01-01T10:00:00",
+      quantity: 100, marketValue: "1200.00", totalCost: "1000.00",
+    } as SnapshotInput;
+    expect(await savePortfolioSnapshot(input)).toBe(identifier);
     httpClient.defaults.adapter = responseAdapter(
-      {
-        list: [{ id: identifier, version: 3, currentQuantity: 100 }],
-        total: 1,
-      },
-      (config) => {
-        expect(config.params.id).toBe(identifier);
-      },
+      { id: identifier, version: 3, currentQuantity: 100 },
+      (config) => { expect(config.params.id).toBe(identifier); },
     );
-    expect((await getPortfolioContext(identifier)).id).toBe(identifier);
+    expect((await positions.get(identifier)).id).toBe(identifier);
   });
   it("normalizes historical safe number IDs, and rejects unsafe outgoing IDs before sending", async () => {
     httpClient.defaults.adapter = responseAdapter(
       {
         position: { id: 7, dictionaryId: 9 },
-        costEntries: [{ recordId: 11, entrySeq: 1, quantityDelta: 100 }],
+        snapshots: [{ id: 11, positionId: 7, quantity: 100 }],
       },
       (config) => {
         expect(config.params.id).toBe("7");
@@ -134,7 +123,7 @@ describe("portfolio ID boundary", () => {
     );
     expect(await getPortfolioAnalysis(7)).toEqual({
       position: { id: "7", dictionaryId: "9" },
-      costEntries: [{ recordId: "11", entrySeq: 1, quantityDelta: 100 }],
+      snapshots: [{ id: "11", positionId: "7", quantity: 100 }],
     });
     await expect(getPortfolioAnalysis(unsafeNumber)).rejects.toThrow(
       "安全整数",
