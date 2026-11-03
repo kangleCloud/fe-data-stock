@@ -1,4 +1,4 @@
-import { BarChart, PieChart, LineChart, TreemapChart, MapChart } from "echarts/charts";
+import { BarChart, PieChart, LineChart, TreemapChart, MapChart, LinesChart, ScatterChart } from "echarts/charts";
 import {
   AriaComponent,
   GridComponent,
@@ -16,6 +16,8 @@ echarts.use([
   LineChart,
   TreemapChart,
   MapChart,
+  LinesChart,
+  ScatterChart,
   TooltipComponent,
   GridComponent,
   GeoComponent,

@@ -36,6 +36,12 @@ const emptyMenu = (): MenuRequest => ({ parentId: null, menuName: "", menuType: 
 const menu = reactive(emptyMenu());
 const action = reactive<PermissionRequest>({ permissionName: "", permissionCode: "", permissionType: "MENU_ACTION", menuId: "", apiMethod: "", apiPath: "", authTag: "", sortNo: 10, status: 1, remark: "" });
 const parents = computed(() => validParents(tree.value, type.value, editing.value));
+const parentSelection = computed({
+  get: () => menu.parentId == null || String(menu.parentId) === "0" ? "0" : String(menu.parentId),
+  set: (value: string | undefined) => {
+    menu.parentId = !value || value === "0" ? null : parents.value.find(parent => String(parent.id) === value)?.id ?? value;
+  },
+});
 const builtinPermission = computed(() => editing.value?.nodeType === "BUTTON" && editing.value.isSystem === 1);
 const locked = computed(() => !!editing.value && isProtectedMenu(editing.value));
 async function load(): Promise<void> {
@@ -68,7 +74,7 @@ async function open(nodeType: MenuNodeType, row?: MenuManagementNode, parent?: M
           const value = detail[key];
           if (value != null) Object.assign(menu, { [key]: value });
         }
-        menu.parentId = detail.parentId ?? null;
+        menu.parentId = detail.parentId == null || String(detail.parentId) === "0" ? null : detail.parentId;
         menu.isExternal = detail.menuType === "LINK" ? 1 : detail.isExternal ?? 0;
       }
     } else {
@@ -172,7 +178,7 @@ onMounted(load);
       <el-form label-position="top" :disabled="busy" @submit.prevent="save">
         <el-form-item label="节点类型"><el-radio-group v-model="type" :disabled="!!editing || type === 'BUTTON'"><el-radio-button v-if="type !== 'BUTTON'" value="DIRECTORY">目录</el-radio-button><el-radio-button v-if="type !== 'BUTTON'" value="MENU">页面菜单</el-radio-button><el-radio-button v-else value="BUTTON">按钮</el-radio-button></el-radio-group></el-form-item>
         <template v-if="type !== 'BUTTON'">
-          <el-form-item label="上级目录"><el-select v-model="menu.parentId" :disabled="locked" clearable placeholder="根节点"><el-option v-for="parent in parents" :key="parent.nodeKey" :label="nodeLabel(parent)" :value="parent.id" /></el-select></el-form-item>
+          <el-form-item label="上级目录"><el-select v-model="parentSelection" :disabled="locked" clearable placeholder="请选择上级目录"><el-option label="根目录" value="0" /><el-option v-for="parent in parents" :key="parent.nodeKey" :label="nodeLabel(parent)" :value="String(parent.id)" /></el-select></el-form-item>
           <el-form-item label="菜单名称" required><el-input v-model="menu.menuName" maxlength="50" /></el-form-item>
           <el-form-item label="路由名称" required><el-input v-model.trim="menu.routeName" :disabled="locked" /></el-form-item>
           <el-form-item :label="menu.isExternal ? '外链地址' : '路由地址'" required><el-input v-model.trim="menu.routeLink" :disabled="locked" /></el-form-item>

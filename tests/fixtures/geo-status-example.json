@@ -1,0 +1,55 @@
+{
+  "cacheVersion": "fixture-cache-v12",
+  "redisAvailable": true,
+  "strategy": "PREFER_PRIMARY",
+  "providers": {
+    "DBIP": {
+      "enabled": true,
+      "health": "UNAVAILABLE",
+      "databaseVersion": null,
+      "digest": null,
+      "loadedAt": null,
+      "expiresAt": null,
+      "updateStatus": "NOT_ATTEMPTED",
+      "updateFailureCode": null
+    },
+    "MAXMIND": {
+      "enabled": false,
+      "health": "DISABLED",
+      "databaseVersion": null,
+      "digest": null,
+      "loadedAt": null,
+      "expiresAt": null,
+      "updateStatus": "NOT_ATTEMPTED",
+      "updateFailureCode": null
+    }
+  },
+  "cache": {
+    "available": false,
+    "scope": "PYTHON_BATCH_DISTINCT_IP",
+    "reportedAt": null,
+    "hits": null,
+    "misses": null,
+    "stale": null,
+    "hitRate": null,
+    "levelCounts": {
+      "COUNTRY": null,
+      "PROVINCE": null,
+      "CITY": null,
+      "UNKNOWN": null
+    }
+  },
+  "quality": {
+    "available": false,
+    "scope": "PYTHON_BATCH_DISTINCT_IP",
+    "reportedAt": null,
+    "total": null,
+    "unknown": null,
+    "untrusted": null,
+    "nonPublic": null,
+    "serviceUnavailable": null,
+    "conflicts": null,
+    "localDegraded": null,
+    "versionStale": null
+  }
+}

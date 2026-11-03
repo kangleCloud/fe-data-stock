@@ -28,6 +28,20 @@ describe("risk map component lifecycle", () => {
     expect(wrapper.text()).toContain("超出安全绘图精度"); expect(wrapper.text()).toContain("9,007,199,254,740,993"); expect(wrapper.text()).toContain("中国来源缺省份"); expect(wrapper.text()).toContain("UNKNOWN"); expect(wrapper.text()).toContain("INTERNAL");
     const option = wrapper.getComponent({ name: "BaseChart" }).props("option"); expect(option.aria.label.description).toContain("无统计的地域仅显示边界"); expect(option.animation).toBe(false); expect(option.series[0].roam).toBe(false); expect(option.series[0].data).toEqual([]);
   });
+  it("keeps static directed arrows and exact counts independent of heatmap precision", async () => {
+    const wrapper = render(); await ready(wrapper);
+    await wrapper.setProps({ regions: [{ regionCode: "CN-44", requestCount: "90071992547409930" }, { regionCode: "CN-31", requestCount: "9" }], serverTarget: { configured: true, alias: "target", regionCode: "CN-31", longitude: "121.47", latitude: "31.23", locationSource: "MANUAL", locationStatus: "LOCATED", resolveStatus: "NOT_ATTEMPTED", resolvedAt: null, updatedAt: null } });
+    const option = wrapper.getComponent({ name: "BaseChart" }).props("option"); expect(option.series[1].symbol).toEqual(["none", "arrow"]); expect(option.series[1].effect.show).toBe(false); expect(option.series[1].data[0].coords[1]).toEqual([121.47, 31.23]); expect(option.series[1].data[0].count).toBe("90071992547409930");
+    expect(wrapper.text()).toContain("同地域汇聚"); expect(wrapper.text()).toContain("不是真实网络路径");
+  });
+  it("supports full viewport and ESC cleanup and emits only real boundary codes for drilldown", async () => {
+    const wrapper = render(); await ready(wrapper);
+    await wrapper.findAll("button").find((button) => button.text() === "地图全屏")!.trigger("click"); expect(wrapper.classes()).toContain("risk-map-expanded");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); await flushPromises(); expect(wrapper.classes()).not.toContain("risk-map-expanded");
+    const chart = wrapper.getComponent({ name: "BaseChart" }); chart.vm.$emit("regionSelect", "CN-31"); chart.vm.$emit("regionSelect", "UNKNOWN");
+    expect(wrapper.emitted("regionSelect")).toEqual([["CN-31", "china"]]);
+    expect(chart.props("option").geo.roam).toBe(true); expect(chart.props("height")).toBe("520px");
+  });
   it("keeps a clear failure state after both sources fail without retrying on toggles", async () => {
     vi.mocked(fetch).mockRejectedValue(new Error("offline")); const wrapper = render(); await vi.waitFor(() => expect(wrapper.text()).toContain("地图暂不可用"));
     expect(fetch).toHaveBeenCalledTimes(2); await wrapper.findAll("button")[0]!.trigger("click"); await flushPromises(); expect(fetch).toHaveBeenCalledTimes(2);

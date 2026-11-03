@@ -42,8 +42,8 @@ defineProps<{ status: string }>();
 .risk-eyebrow { letter-spacing: .12em; }
 .risk-filters { margin-bottom: 16px; }
 .risk-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
-.risk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
-.risk-side { display: grid; gap: 12px; }
+.risk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.9fr) minmax(0, 1fr); gap: 12px; }
+.risk-side { align-content: start; display: grid; gap: 12px; }
 .risk-panel { min-width: 0; padding: 16px; border: 1px solid var(--risk-border); border-radius: 10px; background: var(--risk-panel); }
 .risk-panel h2 { font-size: 16px; margin: 0 0 16px; }
 .risk-bottom { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); gap: 12px; margin: 12px 0; }

@@ -1,4 +1,4 @@
-# 风控地图增量（2026-10-30）
+# 风控地图资源配置
 
 ## 固定真实资产
 
@@ -21,15 +21,3 @@
 每个页面访问创建独立loader：默认中国，世界按切换加载。本地 `BASE_URL + maps/risk-v1/…` 优先；本地404/网络/结构/编码/SHA错误才尝试同固定commit外部URL一次。每种地图缓存成功和失败Promise，包含并发单飞，十秒业务统计刷新与反复切换不会重下载。每次尝试最多5秒，包含fetch、正文读取和校验；卸载或失权销毁组件时abort并丢弃迟到结果，图表由BaseChart dispose。
 
 地图使用原生fetch，不经过鉴权Axios。GET、credentials:omit、referrerPolicy:no-referrer、redirect:error；仅静态Accept头、无请求体，不携带日志/IP/token/cookie/内部服务字段。补偿站点仍可见浏览器出口IP。两源均失败时显示“地图暂不可用”，其他统计和排行继续显示。无需在线IP定位服务。资源SHA校验优先Web Crypto；HTTP内网离线环境使用同一SHA-256算法的无依赖回退，标准向量、中文及两份实际资产均与Node crypto交叉验证，不跳过校验。
-
-## 验证记录
-
-pnpm lint、pnpm type-check、pnpm test、pnpm build、git diff --check均通过；51个测试文件394项（本轮地图2个新文件19项）。新增文件另外执行git diff --no-index --check，结果无空白错误。构建产物dist/maps与原资产两份SHA逐一一致。注册MapChart/GeoComponent后共享BaseChart chunk约674.43kB（gzip227.61kB），构建有大于500kB提示，未掩盖。
-
-地图测试含实际资产及SHA/许可、完整编码/几何校验、本地成功零外部、BASE_URL子路径、404/非法/网络/结构/编码失败补偿、外部5秒超时/双失败缓存、并发单飞、十秒更新/切换缓存、无凭据/无Referrer/禁止重定向、精确汇总/无geometry/巨大计数、卸载取消。标准SHA向量/中文/真实两资产验证HTTP内网回退算法。地图动画始终关闭，断言无漫游/动画及可访问无数据描述，适配reduced-motion。既有页面权限回归继续通过。
-
-浏览器已实际加载并渲染两份本地资源，中国与世界切换正常；默认桌面和真实375px视口均目视核对，地域排行持续存在。控制台warn/error列表为空。截图 `/tmp/risk-map-china.png`、`/tmp/risk-map-world.png`、`/tmp/risk-map-375.png` 为明确标注的非生产夹具。修复ECharts自动ARIA在无统计边界读出NaN的问题，改为清晰的边界/精确列表说明。临时预览文件/本机服务/浏览器标签已关闭，视口覆盖已reset。
-
-外部补偿的真实浏览器网络连通、生产登录授权/真实统计、Nginx部署BASE_URL路径、系统reduced-motion设置与各浏览器兼容仍需部署环境联调；外部失败路径和子路径已做离线可执行回归，不冒称生产验收。
-
-本轮SHA基线 `/tmp/risk-map-fe-baseline.json` 共243路径，含未提交/删除/被忽略本机文件。相对该基线只修改src/charts/echarts.ts、src/views/risk/dashboard/index.vue、tests/risk-dashboard.spec.ts、docs/risk-v1-frontend.md四个原文件，新增11个地图代码/资产/文档/测试文件。生成的components.d.ts在校验候选SHA与基线相同后恢复；持仓、认证、私有配置及其他既有文件SHA未改变。未修改其他仓库或根共享协议，不提交、不部署、不执行SQL、不启用Review。

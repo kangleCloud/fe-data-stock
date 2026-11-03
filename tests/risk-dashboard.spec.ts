@@ -3,16 +3,20 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RiskDashboard from "@/views/risk/dashboard/index.vue";
 import { useAuthStore } from "@/stores/auth";
+import { getGeoObservation } from "@/api/geoObservation";
+import geoFixture from "./fixtures/geo-status-example.json";
 import { riskFixture } from "./fixtures/risk";
 import wire from "./fixtures/risk-v1-wire.json";
 const api = vi.hoisted(() => ({ getRiskDashboard: vi.fn(), getRiskInterfaces: vi.fn(), getRiskExceptions: vi.fn(), getRiskArchives: vi.fn() }));
 vi.mock("@/api/risk", () => api);
+vi.mock("@/api/geoObservation", () => ({ getGeoObservation: vi.fn().mockRejectedValue(new Error("offline observation")) }));
 const wrappers: ReturnType<typeof mount>[] = [];
 function render(permissions = ["system:risk:view"]) {
   const pinia = createPinia(); setActivePinia(pinia); useAuthStore().permissionCodes = permissions;
   const wrapper = mount(RiskDashboard, { global: { plugins: [pinia], stubs: { BaseChart: true, RiskRegionMap: true } } }); wrappers.push(wrapper); return wrapper;
 }
 beforeEach(() => {
+  vi.mocked(getGeoObservation).mockReset().mockRejectedValue(new Error("offline observation"));
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-27T04:00:00Z"));
   Object.values(api).forEach((method) => method.mockReset());
   api.getRiskDashboard.mockResolvedValue(riskFixture());
@@ -25,6 +29,16 @@ describe("real risk dashboard component", () => {
     const wrapper = render(["system:risk:exception:view"]); await flushPromises();
     expect(wrapper.text()).toContain("无系统风控查看权限");
     expect(Object.values(api).every((method) => method.mock.calls.length === 0)).toBe(true);
+  });
+  it("shares one polling cycle and preserves observation on independent geo failure", async () => {
+    vi.mocked(getGeoObservation).mockResolvedValue(geoFixture);
+    const wrapper = render(); await flushPromises(); expect(wrapper.text()).toContain(geoFixture.cacheVersion); expect(getGeoObservation).toHaveBeenCalledTimes(1);
+    vi.mocked(getGeoObservation).mockRejectedValue(new Error("offline")); await vi.advanceTimersByTimeAsync(10_000); await flushPromises();
+    expect(getGeoObservation).toHaveBeenCalledTimes(2); expect(api.getRiskDashboard).toHaveBeenCalledTimes(2); expect(wrapper.text()).toContain("观测服务不可用"); expect(wrapper.text()).toContain(geoFixture.cacheVersion);
+    wrapper.unmount(); await vi.advanceTimersByTimeAsync(30_000); expect(getGeoObservation).toHaveBeenCalledTimes(2);
+  });
+  it("never requests observations without risk permission", async () => {
+    render([]); await flushPromises(); expect(getGeoObservation).not.toHaveBeenCalled();
   });
   it("shows exact long counts, separate unknown/internal, safe text and truthful map fallback", async () => {
     const wrapper = render(); await flushPromises();

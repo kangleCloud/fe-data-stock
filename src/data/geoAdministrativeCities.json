@@ -1,0 +1,4190 @@
+{
+  "version": "mca-2023-202301",
+  "source": "https://www.mca.gov.cn/mzsj/xzqh/2023/202301xzqh.html",
+  "sourceSha256": "4909c8bc2384429a5da76c954c13bc3c7dec4bf2153b4a6dabaf0d1ce332771f",
+  "selection": "Official hierarchy/indentation; province rows and prefecture rows; municipalities explicitly city; starred province-direct cities only; no district records",
+  "provinces": {
+    "110000": {
+      "regionCode": "CN-11",
+      "name": "北京市",
+      "aliases": [
+        "北京市",
+        "北京",
+        "Beijing Shi"
+      ],
+      "maxmindIso": "BJ"
+    },
+    "120000": {
+      "regionCode": "CN-12",
+      "name": "天津市",
+      "aliases": [
+        "天津市",
+        "天津",
+        "Tianjin Shi"
+      ],
+      "maxmindIso": "TJ"
+    },
+    "130000": {
+      "regionCode": "CN-13",
+      "name": "河北省",
+      "aliases": [
+        "河北省",
+        "河北",
+        "Hebei Sheng"
+      ],
+      "maxmindIso": "HE"
+    },
+    "140000": {
+      "regionCode": "CN-14",
+      "name": "山西省",
+      "aliases": [
+        "山西省",
+        "山西",
+        "Shanxi"
+      ],
+      "maxmindIso": "SX"
+    },
+    "150000": {
+      "regionCode": "CN-15",
+      "name": "内蒙古自治区",
+      "aliases": [
+        "内蒙古自治区",
+        "内蒙古",
+        "Inner Mongolia Autonomous Region"
+      ],
+      "maxmindIso": "NM"
+    },
+    "210000": {
+      "regionCode": "CN-21",
+      "name": "辽宁省",
+      "aliases": [
+        "辽宁省",
+        "辽宁",
+        "Liaoning"
+      ],
+      "maxmindIso": "LN"
+    },
+    "220000": {
+      "regionCode": "CN-22",
+      "name": "吉林省",
+      "aliases": [
+        "吉林省",
+        "吉林",
+        "Jilin"
+      ],
+      "maxmindIso": "JL"
+    },
+    "230000": {
+      "regionCode": "CN-23",
+      "name": "黑龙江省",
+      "aliases": [
+        "黑龙江省",
+        "黑龙江",
+        "Hēilóngjiāng",
+        "Heilongjiang"
+      ],
+      "maxmindIso": "HL"
+    },
+    "310000": {
+      "regionCode": "CN-31",
+      "name": "上海市",
+      "aliases": [
+        "上海市",
+        "上海",
+        "Shanghai Shi"
+      ],
+      "maxmindIso": "SH"
+    },
+    "320000": {
+      "regionCode": "CN-32",
+      "name": "江苏省",
+      "aliases": [
+        "江苏省",
+        "江苏",
+        "Jiangsu"
+      ],
+      "maxmindIso": "JS"
+    },
+    "330000": {
+      "regionCode": "CN-33",
+      "name": "浙江省",
+      "aliases": [
+        "浙江省",
+        "浙江",
+        "Zhejiang"
+      ],
+      "maxmindIso": "ZJ"
+    },
+    "340000": {
+      "regionCode": "CN-34",
+      "name": "安徽省",
+      "aliases": [
+        "安徽省",
+        "安徽",
+        "Anhui"
+      ],
+      "maxmindIso": "AH"
+    },
+    "350000": {
+      "regionCode": "CN-35",
+      "name": "福建省",
+      "aliases": [
+        "福建省",
+        "福建",
+        "Fujian"
+      ],
+      "maxmindIso": "FJ"
+    },
+    "360000": {
+      "regionCode": "CN-36",
+      "name": "江西省",
+      "aliases": [
+        "江西省",
+        "江西",
+        "Jiangxi"
+      ],
+      "maxmindIso": "JX"
+    },
+    "370000": {
+      "regionCode": "CN-37",
+      "name": "山东省",
+      "aliases": [
+        "山东省",
+        "山东",
+        "Shandong"
+      ],
+      "maxmindIso": "SD"
+    },
+    "410000": {
+      "regionCode": "CN-41",
+      "name": "河南省",
+      "aliases": [
+        "河南省",
+        "河南",
+        "Henan"
+      ],
+      "maxmindIso": "HA"
+    },
+    "420000": {
+      "regionCode": "CN-42",
+      "name": "湖北省",
+      "aliases": [
+        "湖北省",
+        "湖北",
+        "Hubei"
+      ],
+      "maxmindIso": "HB"
+    },
+    "430000": {
+      "regionCode": "CN-43",
+      "name": "湖南省",
+      "aliases": [
+        "湖南省",
+        "湖南",
+        "Hunan"
+      ],
+      "maxmindIso": "HN"
+    },
+    "440000": {
+      "regionCode": "CN-44",
+      "name": "广东省",
+      "aliases": [
+        "广东省",
+        "广东",
+        "Guangdong"
+      ],
+      "maxmindIso": "GD"
+    },
+    "450000": {
+      "regionCode": "CN-45",
+      "name": "广西壮族自治区",
+      "aliases": [
+        "广西壮族自治区",
+        "广西",
+        "Guangxi Zhuang Autonomous Region"
+      ],
+      "maxmindIso": "GX"
+    },
+    "460000": {
+      "regionCode": "CN-46",
+      "name": "海南省",
+      "aliases": [
+        "海南省",
+        "海南",
+        "Hainan"
+      ],
+      "maxmindIso": "HI"
+    },
+    "500000": {
+      "regionCode": "CN-50",
+      "name": "重庆市",
+      "aliases": [
+        "重庆市",
+        "重庆",
+        "Chongqing Shi"
+      ],
+      "maxmindIso": "CQ"
+    },
+    "510000": {
+      "regionCode": "CN-51",
+      "name": "四川省",
+      "aliases": [
+        "四川省",
+        "四川",
+        "Sichuan"
+      ],
+      "maxmindIso": "SC"
+    },
+    "520000": {
+      "regionCode": "CN-52",
+      "name": "贵州省",
+      "aliases": [
+        "贵州省",
+        "贵州",
+        "Guizhou"
+      ],
+      "maxmindIso": "GZ"
+    },
+    "530000": {
+      "regionCode": "CN-53",
+      "name": "云南省",
+      "aliases": [
+        "云南省",
+        "云南",
+        "Yunnan"
+      ],
+      "maxmindIso": "YN"
+    },
+    "540000": {
+      "regionCode": "CN-54",
+      "name": "西藏自治区",
+      "aliases": [
+        "西藏自治区",
+        "西藏",
+        "Tibet Autonomous Region"
+      ],
+      "maxmindIso": "XZ"
+    },
+    "610000": {
+      "regionCode": "CN-61",
+      "name": "陕西省",
+      "aliases": [
+        "陕西省",
+        "陕西",
+        "Shaanxi"
+      ],
+      "maxmindIso": "SN"
+    },
+    "620000": {
+      "regionCode": "CN-62",
+      "name": "甘肃省",
+      "aliases": [
+        "甘肃省",
+        "甘肃",
+        "Gansu"
+      ],
+      "maxmindIso": "GS"
+    },
+    "630000": {
+      "regionCode": "CN-63",
+      "name": "青海省",
+      "aliases": [
+        "青海省",
+        "青海",
+        "Qinghai"
+      ],
+      "maxmindIso": "QH"
+    },
+    "640000": {
+      "regionCode": "CN-64",
+      "name": "宁夏回族自治区",
+      "aliases": [
+        "宁夏回族自治区",
+        "宁夏",
+        "Ningxia Hui Autonomous Region"
+      ],
+      "maxmindIso": "NX"
+    },
+    "650000": {
+      "regionCode": "CN-65",
+      "name": "新疆维吾尔自治区",
+      "aliases": [
+        "新疆维吾尔自治区",
+        "新疆",
+        "Xinjiang Uyghur Autonomous Region"
+      ],
+      "maxmindIso": "XJ"
+    }
+  },
+  "cities": {
+    "110000": {
+      "provinceCode": "110000",
+      "name": "北京市",
+      "aliases": [
+        "北京市",
+        "北京",
+        "Beijing"
+      ],
+      "kind": "MUNICIPALITY"
+    },
+    "120000": {
+      "provinceCode": "120000",
+      "name": "天津市",
+      "aliases": [
+        "天津市",
+        "天津",
+        "Tianjin",
+        "Tianjin Municipality"
+      ],
+      "kind": "MUNICIPALITY"
+    },
+    "130100": {
+      "provinceCode": "130000",
+      "name": "石家庄市",
+      "aliases": [
+        "石家庄市",
+        "石家庄",
+        "Shijiazhuang Shi",
+        "Shijiazhuang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130200": {
+      "provinceCode": "130000",
+      "name": "唐山市",
+      "aliases": [
+        "唐山市",
+        "唐山",
+        "Tangshan Shi",
+        "Tangshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130300": {
+      "provinceCode": "130000",
+      "name": "秦皇岛市",
+      "aliases": [
+        "秦皇岛市",
+        "秦皇岛",
+        "Qinhuangdao Shi",
+        "Qinhuangdao"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130400": {
+      "provinceCode": "130000",
+      "name": "邯郸市",
+      "aliases": [
+        "邯郸市",
+        "邯郸",
+        "Hanshan Qu",
+        "Handan Shi",
+        "Handan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130500": {
+      "provinceCode": "130000",
+      "name": "邢台市",
+      "aliases": [
+        "邢台市",
+        "邢台",
+        "Xingtai Xian",
+        "Xingtai County",
+        "Xingtai"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130600": {
+      "provinceCode": "130000",
+      "name": "保定市",
+      "aliases": [
+        "保定市",
+        "保定",
+        "Baoding Shi",
+        "Baoding"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130700": {
+      "provinceCode": "130000",
+      "name": "张家口市",
+      "aliases": [
+        "张家口市",
+        "张家口",
+        "Zhangjiakou Shi",
+        "Zhangjiakou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130800": {
+      "provinceCode": "130000",
+      "name": "承德市",
+      "aliases": [
+        "承德市",
+        "承德",
+        "Chengde Prefecture"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "130900": {
+      "provinceCode": "130000",
+      "name": "沧州市",
+      "aliases": [
+        "沧州市",
+        "沧州",
+        "Cangzhou Shi",
+        "Cangzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "131000": {
+      "provinceCode": "130000",
+      "name": "廊坊市",
+      "aliases": [
+        "廊坊市",
+        "廊坊",
+        "Langfang Shi",
+        "Langfang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "131100": {
+      "provinceCode": "130000",
+      "name": "衡水市",
+      "aliases": [
+        "衡水市",
+        "衡水",
+        "Hengshui Shi",
+        "Hengshui"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140100": {
+      "provinceCode": "140000",
+      "name": "太原市",
+      "aliases": [
+        "太原市",
+        "太原",
+        "Taiyuan Shi",
+        "Taiyuan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140200": {
+      "provinceCode": "140000",
+      "name": "大同市",
+      "aliases": [
+        "大同市",
+        "大同",
+        "Datong Xian",
+        "Datong Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140300": {
+      "provinceCode": "140000",
+      "name": "阳泉市",
+      "aliases": [
+        "阳泉市",
+        "阳泉",
+        "Yangquan Shi",
+        "Yangquan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140400": {
+      "provinceCode": "140000",
+      "name": "长治市",
+      "aliases": [
+        "长治市",
+        "长治",
+        "Changzhi",
+        "Changzhi Xian",
+        "Changzhi Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140500": {
+      "provinceCode": "140000",
+      "name": "晋城市",
+      "aliases": [
+        "晋城市",
+        "晋城",
+        "Jincheng Shi",
+        "Jincheng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140600": {
+      "provinceCode": "140000",
+      "name": "朔州市",
+      "aliases": [
+        "朔州市",
+        "朔州",
+        "Shuozhou",
+        "Shuozhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140700": {
+      "provinceCode": "140000",
+      "name": "晋中市",
+      "aliases": [
+        "晋中市",
+        "晋中",
+        "Jinzhong Shi",
+        "Jinzhong"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140800": {
+      "provinceCode": "140000",
+      "name": "运城市",
+      "aliases": [
+        "运城市",
+        "运城",
+        "Yanhu Qu",
+        "Yuncheng Shi",
+        "Yuncheng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "140900": {
+      "provinceCode": "140000",
+      "name": "忻州市",
+      "aliases": [
+        "忻州市",
+        "忻州",
+        "Xinzhou",
+        "Xinzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "141000": {
+      "provinceCode": "140000",
+      "name": "临汾市",
+      "aliases": [
+        "临汾市",
+        "临汾",
+        "Linfen Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "141100": {
+      "provinceCode": "140000",
+      "name": "吕梁市",
+      "aliases": [
+        "吕梁市",
+        "吕梁",
+        "Lüliang",
+        "Lueliang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150100": {
+      "provinceCode": "150000",
+      "name": "呼和浩特市",
+      "aliases": [
+        "呼和浩特市",
+        "呼和浩特",
+        "Hohhot Shi",
+        "Hohhot"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150200": {
+      "provinceCode": "150000",
+      "name": "包头市",
+      "aliases": [
+        "包头市",
+        "包头",
+        "Baotou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150300": {
+      "provinceCode": "150000",
+      "name": "乌海市",
+      "aliases": [
+        "乌海市",
+        "乌海",
+        "Wuhai Shi",
+        "Wuhai"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150400": {
+      "provinceCode": "150000",
+      "name": "赤峰市",
+      "aliases": [
+        "赤峰市",
+        "赤峰",
+        "Chifeng Shi",
+        "Chifeng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150500": {
+      "provinceCode": "150000",
+      "name": "通辽市",
+      "aliases": [
+        "通辽市",
+        "通辽",
+        "Tongliao",
+        "Tongliao Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150600": {
+      "provinceCode": "150000",
+      "name": "鄂尔多斯市",
+      "aliases": [
+        "鄂尔多斯市",
+        "鄂尔多斯",
+        "Ordos Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150700": {
+      "provinceCode": "150000",
+      "name": "呼伦贝尔市",
+      "aliases": [
+        "呼伦贝尔市",
+        "呼伦贝尔",
+        "Hulunbuir Region",
+        "Hulunbuir"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150800": {
+      "provinceCode": "150000",
+      "name": "巴彦淖尔市",
+      "aliases": [
+        "巴彦淖尔市",
+        "巴彦淖尔",
+        "Bayannur Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "150900": {
+      "provinceCode": "150000",
+      "name": "乌兰察布市",
+      "aliases": [
+        "乌兰察布市",
+        "乌兰察布",
+        "Wulanchabu Shi",
+        "Ulanqab"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "152200": {
+      "provinceCode": "150000",
+      "name": "兴安盟",
+      "aliases": [
+        "兴安盟",
+        "Hinggan Meng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "152500": {
+      "provinceCode": "150000",
+      "name": "锡林郭勒盟",
+      "aliases": [
+        "锡林郭勒盟",
+        "Xilin Gol Meng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "152900": {
+      "provinceCode": "150000",
+      "name": "阿拉善盟",
+      "aliases": [
+        "阿拉善盟",
+        "Alxa Meng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210100": {
+      "provinceCode": "210000",
+      "name": "沈阳市",
+      "aliases": [
+        "沈阳市",
+        "沈阳",
+        "Shenyang Shi",
+        "Shenyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210200": {
+      "provinceCode": "210000",
+      "name": "大连市",
+      "aliases": [
+        "大连市",
+        "大连",
+        "Dalian Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210300": {
+      "provinceCode": "210000",
+      "name": "鞍山市",
+      "aliases": [
+        "鞍山市",
+        "鞍山",
+        "Anshan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210400": {
+      "provinceCode": "210000",
+      "name": "抚顺市",
+      "aliases": [
+        "抚顺市",
+        "抚顺",
+        "Fushun Xian",
+        "Fushun Shi",
+        "Fushun"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210500": {
+      "provinceCode": "210000",
+      "name": "本溪市",
+      "aliases": [
+        "本溪市",
+        "本溪",
+        "Benxi Manzu Zizhixian",
+        "Benxi Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210600": {
+      "provinceCode": "210000",
+      "name": "丹东市",
+      "aliases": [
+        "丹东市",
+        "丹东",
+        "Dandong Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210700": {
+      "provinceCode": "210000",
+      "name": "锦州市",
+      "aliases": [
+        "锦州市",
+        "锦州",
+        "Jinzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210800": {
+      "provinceCode": "210000",
+      "name": "营口市",
+      "aliases": [
+        "营口市",
+        "营口",
+        "Yingkou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "210900": {
+      "provinceCode": "210000",
+      "name": "阜新市",
+      "aliases": [
+        "阜新市",
+        "阜新",
+        "Fuxin Shi",
+        "Fuxin Mongolzu Zizhixian"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "211000": {
+      "provinceCode": "210000",
+      "name": "辽阳市",
+      "aliases": [
+        "辽阳市",
+        "辽阳",
+        "Liaoyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "211100": {
+      "provinceCode": "210000",
+      "name": "盘锦市",
+      "aliases": [
+        "盘锦市",
+        "盘锦",
+        "Panjin Shi",
+        "Panjin"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "211200": {
+      "provinceCode": "210000",
+      "name": "铁岭市",
+      "aliases": [
+        "铁岭市",
+        "铁岭",
+        "Tieling Xian",
+        "Tieling Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "211300": {
+      "provinceCode": "210000",
+      "name": "朝阳市",
+      "aliases": [
+        "朝阳市",
+        "朝阳",
+        "Chaoyang Xian",
+        "Chaoyang Shi",
+        "Chaoyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "211400": {
+      "provinceCode": "210000",
+      "name": "葫芦岛市",
+      "aliases": [
+        "葫芦岛市",
+        "葫芦岛",
+        "Huludao Shi",
+        "Huludao"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220100": {
+      "provinceCode": "220000",
+      "name": "长春市",
+      "aliases": [
+        "长春市",
+        "长春",
+        "Changchun Shi",
+        "Changchun"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220200": {
+      "provinceCode": "220000",
+      "name": "吉林市",
+      "aliases": [
+        "吉林市",
+        "吉林",
+        "Jilin Shi",
+        "Jilin"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220300": {
+      "provinceCode": "220000",
+      "name": "四平市",
+      "aliases": [
+        "四平市",
+        "四平",
+        "Siping Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220400": {
+      "provinceCode": "220000",
+      "name": "辽源市",
+      "aliases": [
+        "辽源市",
+        "辽源",
+        "Liaoyuan Shi",
+        "Longshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220500": {
+      "provinceCode": "220000",
+      "name": "通化市",
+      "aliases": [
+        "通化市",
+        "通化",
+        "Tonghua Xian",
+        "Tonghua Shi",
+        "Tonghua"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220600": {
+      "provinceCode": "220000",
+      "name": "白山市",
+      "aliases": [
+        "白山市",
+        "白山",
+        "Baishan Shi",
+        "Baishan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220700": {
+      "provinceCode": "220000",
+      "name": "松原市",
+      "aliases": [
+        "松原市",
+        "松原",
+        "Songyuan",
+        "Songyuan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "220800": {
+      "provinceCode": "220000",
+      "name": "白城市",
+      "aliases": [
+        "白城市",
+        "白城",
+        "Baicheng Shi",
+        "Baicheng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "222400": {
+      "provinceCode": "220000",
+      "name": "延边朝鲜族自治州",
+      "aliases": [
+        "延边朝鲜族自治州",
+        "Yanbian Chaoxianzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230100": {
+      "provinceCode": "230000",
+      "name": "哈尔滨市",
+      "aliases": [
+        "哈尔滨市",
+        "哈尔滨",
+        "Harbin Shi",
+        "Harbin"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230200": {
+      "provinceCode": "230000",
+      "name": "齐齐哈尔市",
+      "aliases": [
+        "齐齐哈尔市",
+        "齐齐哈尔",
+        "Qiqihar Shi",
+        "Qiqihar"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230300": {
+      "provinceCode": "230000",
+      "name": "鸡西市",
+      "aliases": [
+        "鸡西市",
+        "鸡西",
+        "Jixi Shi",
+        "Jixi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230400": {
+      "provinceCode": "230000",
+      "name": "鹤岗市",
+      "aliases": [
+        "鹤岗市",
+        "鹤岗",
+        "Hegang Shi",
+        "Hegang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230500": {
+      "provinceCode": "230000",
+      "name": "双鸭山市",
+      "aliases": [
+        "双鸭山市",
+        "双鸭山",
+        "Shuangyashan Shi",
+        "Shuangyashan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230600": {
+      "provinceCode": "230000",
+      "name": "大庆市",
+      "aliases": [
+        "大庆市",
+        "大庆",
+        "Daqing Shi",
+        "Daqing"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230700": {
+      "provinceCode": "230000",
+      "name": "伊春市",
+      "aliases": [
+        "伊春市",
+        "伊春",
+        "Yichun Shi",
+        "Yichun Qu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230800": {
+      "provinceCode": "230000",
+      "name": "佳木斯市",
+      "aliases": [
+        "佳木斯市",
+        "佳木斯",
+        "Jiamusi Shi",
+        "Jiamusi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "230900": {
+      "provinceCode": "230000",
+      "name": "七台河市",
+      "aliases": [
+        "七台河市",
+        "七台河",
+        "Qitaihe Shi",
+        "Qitaihe"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "231000": {
+      "provinceCode": "230000",
+      "name": "牡丹江市",
+      "aliases": [
+        "牡丹江市",
+        "牡丹江",
+        "Mudanjiang Shi",
+        "Mudanjiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "231100": {
+      "provinceCode": "230000",
+      "name": "黑河市",
+      "aliases": [
+        "黑河市",
+        "黑河",
+        "Heihe"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "231200": {
+      "provinceCode": "230000",
+      "name": "绥化市",
+      "aliases": [
+        "绥化市",
+        "绥化",
+        "Suihua Shi",
+        "Suihua"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "232700": {
+      "provinceCode": "230000",
+      "name": "大兴安岭地区",
+      "aliases": [
+        "大兴安岭地区",
+        "Daxing’anling Diqu",
+        "Daxing'anling Diqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "310000": {
+      "provinceCode": "310000",
+      "name": "上海市",
+      "aliases": [
+        "上海市",
+        "上海",
+        "Shanghai",
+        "Shanghai Municipality"
+      ],
+      "kind": "MUNICIPALITY"
+    },
+    "320100": {
+      "provinceCode": "320000",
+      "name": "南京市",
+      "aliases": [
+        "南京市",
+        "南京",
+        "Nanjing Shi",
+        "Nanjing"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320200": {
+      "provinceCode": "320000",
+      "name": "无锡市",
+      "aliases": [
+        "无锡市",
+        "无锡",
+        "Wuxi Shi",
+        "Wuxi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320300": {
+      "provinceCode": "320000",
+      "name": "徐州市",
+      "aliases": [
+        "徐州市",
+        "徐州",
+        "Xuzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320400": {
+      "provinceCode": "320000",
+      "name": "常州市",
+      "aliases": [
+        "常州市",
+        "常州",
+        "Changzhou Shi",
+        "Changzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320500": {
+      "provinceCode": "320000",
+      "name": "苏州市",
+      "aliases": [
+        "苏州市",
+        "苏州",
+        "Suzhou Shi",
+        "Suzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320600": {
+      "provinceCode": "320000",
+      "name": "南通市",
+      "aliases": [
+        "南通市",
+        "南通",
+        "Nantong Shi",
+        "Nantong"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320700": {
+      "provinceCode": "320000",
+      "name": "连云港市",
+      "aliases": [
+        "连云港市",
+        "连云港",
+        "Lianyungang Shi",
+        "Lianyungang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320800": {
+      "provinceCode": "320000",
+      "name": "淮安市",
+      "aliases": [
+        "淮安市",
+        "淮安",
+        "Huai’an Shi",
+        "Huai'an Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "320900": {
+      "provinceCode": "320000",
+      "name": "盐城市",
+      "aliases": [
+        "盐城市",
+        "盐城",
+        "Yancheng Shi",
+        "Yancheng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "321000": {
+      "provinceCode": "320000",
+      "name": "扬州市",
+      "aliases": [
+        "扬州市",
+        "扬州",
+        "Yangzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "321100": {
+      "provinceCode": "320000",
+      "name": "镇江市",
+      "aliases": [
+        "镇江市",
+        "镇江",
+        "Zhenjiang Shi",
+        "Zhenjiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "321200": {
+      "provinceCode": "320000",
+      "name": "泰州市",
+      "aliases": [
+        "泰州市",
+        "泰州",
+        "Taizhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "321300": {
+      "provinceCode": "320000",
+      "name": "宿迁市",
+      "aliases": [
+        "宿迁市",
+        "宿迁",
+        "Suqian Shi",
+        "Suqian"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330100": {
+      "provinceCode": "330000",
+      "name": "杭州市",
+      "aliases": [
+        "杭州市",
+        "杭州",
+        "Hangzhou Shi",
+        "Hangzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330200": {
+      "provinceCode": "330000",
+      "name": "宁波市",
+      "aliases": [
+        "宁波市",
+        "宁波",
+        "Ningbo Shi",
+        "Ningbo"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330300": {
+      "provinceCode": "330000",
+      "name": "温州市",
+      "aliases": [
+        "温州市",
+        "温州",
+        "Wenzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330400": {
+      "provinceCode": "330000",
+      "name": "嘉兴市",
+      "aliases": [
+        "嘉兴市",
+        "嘉兴",
+        "Jiaxing Shi",
+        "Jiaxing"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330500": {
+      "provinceCode": "330000",
+      "name": "湖州市",
+      "aliases": [
+        "湖州市",
+        "湖州",
+        "Huzhou Shi",
+        "Huzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330600": {
+      "provinceCode": "330000",
+      "name": "绍兴市",
+      "aliases": [
+        "绍兴市",
+        "绍兴",
+        "Shaoxing Xian",
+        "Shaoxing Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330700": {
+      "provinceCode": "330000",
+      "name": "金华市",
+      "aliases": [
+        "金华市",
+        "金华",
+        "Jinhua Shi",
+        "Jinhua"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330800": {
+      "provinceCode": "330000",
+      "name": "衢州市",
+      "aliases": [
+        "衢州市",
+        "衢州",
+        "Quzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "330900": {
+      "provinceCode": "330000",
+      "name": "舟山市",
+      "aliases": [
+        "舟山市",
+        "舟山",
+        "Zhoushan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "331000": {
+      "provinceCode": "330000",
+      "name": "台州市",
+      "aliases": [
+        "台州市",
+        "台州",
+        "Taizhou Shi",
+        "Taizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "331100": {
+      "provinceCode": "330000",
+      "name": "丽水市",
+      "aliases": [
+        "丽水市",
+        "丽水",
+        "Lishui Shi",
+        "Lishui"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340100": {
+      "provinceCode": "340000",
+      "name": "合肥市",
+      "aliases": [
+        "合肥市",
+        "合肥",
+        "Hefei Shi",
+        "Hefei"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340200": {
+      "provinceCode": "340000",
+      "name": "芜湖市",
+      "aliases": [
+        "芜湖市",
+        "芜湖",
+        "Wuhu Xian",
+        "Wuhu Shi",
+        "Wuhu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340300": {
+      "provinceCode": "340000",
+      "name": "蚌埠市",
+      "aliases": [
+        "蚌埠市",
+        "蚌埠",
+        "Bengbu Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340400": {
+      "provinceCode": "340000",
+      "name": "淮南市",
+      "aliases": [
+        "淮南市",
+        "淮南",
+        "Huainan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340500": {
+      "provinceCode": "340000",
+      "name": "马鞍山市",
+      "aliases": [
+        "马鞍山市",
+        "马鞍山",
+        "Ma’anshan Shi",
+        "Ma'anshan Shi",
+        "Ma’anshan",
+        "Ma'anshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340600": {
+      "provinceCode": "340000",
+      "name": "淮北市",
+      "aliases": [
+        "淮北市",
+        "淮北",
+        "Huaibei Shi",
+        "Huaibei"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340700": {
+      "provinceCode": "340000",
+      "name": "铜陵市",
+      "aliases": [
+        "铜陵市",
+        "铜陵",
+        "Tongling Xian",
+        "Tongling Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "340800": {
+      "provinceCode": "340000",
+      "name": "安庆市",
+      "aliases": [
+        "安庆市",
+        "安庆",
+        "Anqing Shi",
+        "Anqing"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341000": {
+      "provinceCode": "340000",
+      "name": "黄山市",
+      "aliases": [
+        "黄山市",
+        "黄山",
+        "Huangshan Shi",
+        "Huangshan Qu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341100": {
+      "provinceCode": "340000",
+      "name": "滁州市",
+      "aliases": [
+        "滁州市",
+        "滁州",
+        "Chuzhou",
+        "Chuzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341200": {
+      "provinceCode": "340000",
+      "name": "阜阳市",
+      "aliases": [
+        "阜阳市",
+        "阜阳",
+        "Fuyang Shi",
+        "Fuyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341300": {
+      "provinceCode": "340000",
+      "name": "宿州市",
+      "aliases": [
+        "宿州市",
+        "宿州",
+        "Suzhou",
+        "Suzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341500": {
+      "provinceCode": "340000",
+      "name": "六安市",
+      "aliases": [
+        "六安市",
+        "六安",
+        "Lu’an Shi",
+        "Lu'an Shi",
+        "Lu’an",
+        "Lu'an"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341600": {
+      "provinceCode": "340000",
+      "name": "亳州市",
+      "aliases": [
+        "亳州市",
+        "亳州",
+        "Bozhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341700": {
+      "provinceCode": "340000",
+      "name": "池州市",
+      "aliases": [
+        "池州市",
+        "池州",
+        "Chizhou",
+        "Chizhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "341800": {
+      "provinceCode": "340000",
+      "name": "宣城市",
+      "aliases": [
+        "宣城市",
+        "宣城",
+        "Xuancheng Shi",
+        "Xuancheng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350100": {
+      "provinceCode": "350000",
+      "name": "福州市",
+      "aliases": [
+        "福州市",
+        "福州",
+        "Fuzhou Shi",
+        "Fuzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350200": {
+      "provinceCode": "350000",
+      "name": "厦门市",
+      "aliases": [
+        "厦门市",
+        "厦门",
+        "Xiamen Shi",
+        "Xiamen"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350300": {
+      "provinceCode": "350000",
+      "name": "莆田市",
+      "aliases": [
+        "莆田市",
+        "莆田",
+        "Putian Shi",
+        "Putian"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350400": {
+      "provinceCode": "350000",
+      "name": "三明市",
+      "aliases": [
+        "三明市",
+        "三明",
+        "Sanming Shi",
+        "Sanming"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350500": {
+      "provinceCode": "350000",
+      "name": "泉州市",
+      "aliases": [
+        "泉州市",
+        "泉州",
+        "Quanzhou Shi",
+        "Quanzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350600": {
+      "provinceCode": "350000",
+      "name": "漳州市",
+      "aliases": [
+        "漳州市",
+        "漳州",
+        "Zhangzhou Shi",
+        "Zhangzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350700": {
+      "provinceCode": "350000",
+      "name": "南平市",
+      "aliases": [
+        "南平市",
+        "南平",
+        "Nanping Shi",
+        "Nanping"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350800": {
+      "provinceCode": "350000",
+      "name": "龙岩市",
+      "aliases": [
+        "龙岩市",
+        "龙岩",
+        "Longyan Shi",
+        "Longyan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "350900": {
+      "provinceCode": "350000",
+      "name": "宁德市",
+      "aliases": [
+        "宁德市",
+        "宁德",
+        "Ningde Shi",
+        "Ningde"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360100": {
+      "provinceCode": "360000",
+      "name": "南昌市",
+      "aliases": [
+        "南昌市",
+        "南昌",
+        "Nanchang Xian",
+        "Nanchang Shi",
+        "Nanchang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360200": {
+      "provinceCode": "360000",
+      "name": "景德镇市",
+      "aliases": [
+        "景德镇市",
+        "景德镇",
+        "Jingdezhen Shi",
+        "Jingdezhen"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360300": {
+      "provinceCode": "360000",
+      "name": "萍乡市",
+      "aliases": [
+        "萍乡市",
+        "萍乡",
+        "Pingxiang Shi",
+        "Pingxiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360400": {
+      "provinceCode": "360000",
+      "name": "九江市",
+      "aliases": [
+        "九江市",
+        "九江",
+        "Jiujiang Xian",
+        "Jiujiang Shi",
+        "Jiujiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360500": {
+      "provinceCode": "360000",
+      "name": "新余市",
+      "aliases": [
+        "新余市",
+        "新余",
+        "Xinyu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360600": {
+      "provinceCode": "360000",
+      "name": "鹰潭市",
+      "aliases": [
+        "鹰潭市",
+        "鹰潭",
+        "Yingtan Shi",
+        "Yingtan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360700": {
+      "provinceCode": "360000",
+      "name": "赣州市",
+      "aliases": [
+        "赣州市",
+        "赣州",
+        "Ganzhou Shi",
+        "Ganzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360800": {
+      "provinceCode": "360000",
+      "name": "吉安市",
+      "aliases": [
+        "吉安市",
+        "吉安",
+        "Ji’an Xian",
+        "Ji'an Xian",
+        "Ji’an Shi",
+        "Ji'an Shi",
+        "Ji’an",
+        "Ji'an"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "360900": {
+      "provinceCode": "360000",
+      "name": "宜春市",
+      "aliases": [
+        "宜春市",
+        "宜春",
+        "Yichun Shi",
+        "Yichun"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "361000": {
+      "provinceCode": "360000",
+      "name": "抚州市",
+      "aliases": [
+        "抚州市",
+        "抚州",
+        "Fuzhou Shi",
+        "Fuzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "361100": {
+      "provinceCode": "360000",
+      "name": "上饶市",
+      "aliases": [
+        "上饶市",
+        "上饶",
+        "Shangrao",
+        "Shangrao Xian",
+        "Shangrao Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370100": {
+      "provinceCode": "370000",
+      "name": "济南市",
+      "aliases": [
+        "济南市",
+        "济南",
+        "Jinan Shi",
+        "Jinan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370200": {
+      "provinceCode": "370000",
+      "name": "青岛市",
+      "aliases": [
+        "青岛市",
+        "青岛",
+        "Qingdao Shi",
+        "Qingdao"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370300": {
+      "provinceCode": "370000",
+      "name": "淄博市",
+      "aliases": [
+        "淄博市",
+        "淄博",
+        "Zibo Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370400": {
+      "provinceCode": "370000",
+      "name": "枣庄市",
+      "aliases": [
+        "枣庄市",
+        "枣庄",
+        "Zaozhuang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370500": {
+      "provinceCode": "370000",
+      "name": "东营市",
+      "aliases": [
+        "东营市",
+        "东营",
+        "Dongying Shi",
+        "Dongying",
+        "Dongying Qu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370600": {
+      "provinceCode": "370000",
+      "name": "烟台市",
+      "aliases": [
+        "烟台市",
+        "烟台",
+        "Yantai Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370700": {
+      "provinceCode": "370000",
+      "name": "潍坊市",
+      "aliases": [
+        "潍坊市",
+        "潍坊",
+        "Weifang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370800": {
+      "provinceCode": "370000",
+      "name": "济宁市",
+      "aliases": [
+        "济宁市",
+        "济宁",
+        "Jining Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "370900": {
+      "provinceCode": "370000",
+      "name": "泰安市",
+      "aliases": [
+        "泰安市",
+        "泰安",
+        "Tai’an Shi",
+        "Tai'an Shi",
+        "Tai’an",
+        "Tai'an"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "371000": {
+      "provinceCode": "370000",
+      "name": "威海市",
+      "aliases": [
+        "威海市",
+        "威海",
+        "Weihai Shi",
+        "Weihai"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "371100": {
+      "provinceCode": "370000",
+      "name": "日照市",
+      "aliases": [
+        "日照市",
+        "日照",
+        "Rizhao Shi",
+        "Rizhao"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "371300": {
+      "provinceCode": "370000",
+      "name": "临沂市",
+      "aliases": [
+        "临沂市",
+        "临沂",
+        "Linyi Shi",
+        "Linyi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "371400": {
+      "provinceCode": "370000",
+      "name": "德州市",
+      "aliases": [
+        "德州市",
+        "德州",
+        "Dezhou Shi",
+        "Dezhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "371500": {
+      "provinceCode": "370000",
+      "name": "聊城市",
+      "aliases": [
+        "聊城市",
+        "聊城",
+        "Liaocheng Shi",
+        "Liaocheng"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "371600": {
+      "provinceCode": "370000",
+      "name": "滨州市",
+      "aliases": [
+        "滨州市",
+        "滨州",
+        "Binzhou Shi",
+        "Binzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "371700": {
+      "provinceCode": "370000",
+      "name": "菏泽市",
+      "aliases": [
+        "菏泽市",
+        "菏泽",
+        "Heze Shi",
+        "Heze"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410100": {
+      "provinceCode": "410000",
+      "name": "郑州市",
+      "aliases": [
+        "郑州市",
+        "郑州",
+        "Zhengzhou Shi",
+        "Zhengzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410200": {
+      "provinceCode": "410000",
+      "name": "开封市",
+      "aliases": [
+        "开封市",
+        "开封",
+        "Xiangfu",
+        "Kaifeng Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410300": {
+      "provinceCode": "410000",
+      "name": "洛阳市",
+      "aliases": [
+        "洛阳市",
+        "洛阳",
+        "Luoyang Shi",
+        "Luoyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410400": {
+      "provinceCode": "410000",
+      "name": "平顶山市",
+      "aliases": [
+        "平顶山市",
+        "平顶山",
+        "Pingdingshan Shi",
+        "Pingdingshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410500": {
+      "provinceCode": "410000",
+      "name": "安阳市",
+      "aliases": [
+        "安阳市",
+        "安阳",
+        "Anyang",
+        "Anyang Xian",
+        "Anyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410600": {
+      "provinceCode": "410000",
+      "name": "鹤壁市",
+      "aliases": [
+        "鹤壁市",
+        "鹤壁",
+        "Hebi Shi",
+        "Hebi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410700": {
+      "provinceCode": "410000",
+      "name": "新乡市",
+      "aliases": [
+        "新乡市",
+        "新乡",
+        "Xinxiang Xian",
+        "Xinxiang Shi",
+        "Xinxiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410800": {
+      "provinceCode": "410000",
+      "name": "焦作市",
+      "aliases": [
+        "焦作市",
+        "焦作",
+        "Jiaozuo Shi",
+        "Jiaozuo"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "410900": {
+      "provinceCode": "410000",
+      "name": "濮阳市",
+      "aliases": [
+        "濮阳市",
+        "濮阳",
+        "Puyang Xian",
+        "Puyang Shi",
+        "Puyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411000": {
+      "provinceCode": "410000",
+      "name": "许昌市",
+      "aliases": [
+        "许昌市",
+        "许昌",
+        "Jian'an District",
+        "Xuchang Shi",
+        "Xuchang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411100": {
+      "provinceCode": "410000",
+      "name": "漯河市",
+      "aliases": [
+        "漯河市",
+        "漯河",
+        "Luohe Shi",
+        "Luohe"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411200": {
+      "provinceCode": "410000",
+      "name": "三门峡市",
+      "aliases": [
+        "三门峡市",
+        "三门峡",
+        "Sanmenxia Shi",
+        "Sanmenxia"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411300": {
+      "provinceCode": "410000",
+      "name": "南阳市",
+      "aliases": [
+        "南阳市",
+        "南阳",
+        "Nanyang Shi",
+        "Nanyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411400": {
+      "provinceCode": "410000",
+      "name": "商丘市",
+      "aliases": [
+        "商丘市",
+        "商丘",
+        "Shangqiu Shi",
+        "Shangqiu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411500": {
+      "provinceCode": "410000",
+      "name": "信阳市",
+      "aliases": [
+        "信阳市",
+        "信阳",
+        "Xinyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411600": {
+      "provinceCode": "410000",
+      "name": "周口市",
+      "aliases": [
+        "周口市",
+        "周口",
+        "Zhoukou Shi",
+        "Zhoukou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "411700": {
+      "provinceCode": "410000",
+      "name": "驻马店市",
+      "aliases": [
+        "驻马店市",
+        "驻马店",
+        "Zhumadian Shi",
+        "Zhumadian"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "419001": {
+      "provinceCode": "410000",
+      "name": "济源市",
+      "aliases": [
+        "济源市",
+        "济源",
+        "Jiyuan Shi",
+        "Jiyuan"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "420100": {
+      "provinceCode": "420000",
+      "name": "武汉市",
+      "aliases": [
+        "武汉市",
+        "武汉",
+        "Wuhan Shi",
+        "Wuhan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "420200": {
+      "provinceCode": "420000",
+      "name": "黄石市",
+      "aliases": [
+        "黄石市",
+        "黄石",
+        "Huangshi Shi",
+        "Huangshi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "420300": {
+      "provinceCode": "420000",
+      "name": "十堰市",
+      "aliases": [
+        "十堰市",
+        "十堰",
+        "Shiyan Shi",
+        "Shiyan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "420500": {
+      "provinceCode": "420000",
+      "name": "宜昌市",
+      "aliases": [
+        "宜昌市",
+        "宜昌",
+        "Yichangshi",
+        "Yichang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "420600": {
+      "provinceCode": "420000",
+      "name": "襄阳市",
+      "aliases": [
+        "襄阳市",
+        "襄阳",
+        "Xiangyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "420700": {
+      "provinceCode": "420000",
+      "name": "鄂州市",
+      "aliases": [
+        "鄂州市",
+        "鄂州",
+        "Ezhou Shi",
+        "E’zhou",
+        "E'zhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "420800": {
+      "provinceCode": "420000",
+      "name": "荆门市",
+      "aliases": [
+        "荆门市",
+        "荆门",
+        "Jingmen Shi",
+        "Jingmen"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "420900": {
+      "provinceCode": "420000",
+      "name": "孝感市",
+      "aliases": [
+        "孝感市",
+        "孝感",
+        "Xiaogan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "421000": {
+      "provinceCode": "420000",
+      "name": "荆州市",
+      "aliases": [
+        "荆州市",
+        "荆州",
+        "Jingzhou Shi",
+        "Jingzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "421100": {
+      "provinceCode": "420000",
+      "name": "黄冈市",
+      "aliases": [
+        "黄冈市",
+        "黄冈",
+        "Huanggang Shi",
+        "Huanggang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "421200": {
+      "provinceCode": "420000",
+      "name": "咸宁市",
+      "aliases": [
+        "咸宁市",
+        "咸宁",
+        "Xianning Prefecture",
+        "Xianning"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "421300": {
+      "provinceCode": "420000",
+      "name": "随州市",
+      "aliases": [
+        "随州市",
+        "随州",
+        "Suizhou Shi",
+        "Suizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "422800": {
+      "provinceCode": "420000",
+      "name": "恩施土家族苗族自治州",
+      "aliases": [
+        "恩施土家族苗族自治州",
+        "Enshi Tujiazu Miaozu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "429004": {
+      "provinceCode": "420000",
+      "name": "仙桃市",
+      "aliases": [
+        "仙桃市",
+        "仙桃",
+        "Xiantao Shi",
+        "Xiantao"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "429005": {
+      "provinceCode": "420000",
+      "name": "潜江市",
+      "aliases": [
+        "潜江市",
+        "潜江",
+        "Qianjiang Shi",
+        "Qianjiang"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "429006": {
+      "provinceCode": "420000",
+      "name": "天门市",
+      "aliases": [
+        "天门市",
+        "天门",
+        "Tianmen Xian",
+        "Tianmen"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "430100": {
+      "provinceCode": "430000",
+      "name": "长沙市",
+      "aliases": [
+        "长沙市",
+        "长沙",
+        "Changsha County",
+        "Changsha Shi",
+        "Changsha"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430200": {
+      "provinceCode": "430000",
+      "name": "株洲市",
+      "aliases": [
+        "株洲市",
+        "株洲",
+        "Zhuzhou Xian",
+        "Zhuzhou Shi",
+        "Zhuzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430300": {
+      "provinceCode": "430000",
+      "name": "湘潭市",
+      "aliases": [
+        "湘潭市",
+        "湘潭",
+        "Xiangtan Xian",
+        "Xiangtan Shi",
+        "Xiangtan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430400": {
+      "provinceCode": "430000",
+      "name": "衡阳市",
+      "aliases": [
+        "衡阳市",
+        "衡阳",
+        "Hengyang Xian",
+        "Hengyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430500": {
+      "provinceCode": "430000",
+      "name": "邵阳市",
+      "aliases": [
+        "邵阳市",
+        "邵阳",
+        "Shaoyang Xian",
+        "Shaoyang County",
+        "Shaoyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430600": {
+      "provinceCode": "430000",
+      "name": "岳阳市",
+      "aliases": [
+        "岳阳市",
+        "岳阳",
+        "Yueyang Shi",
+        "Yueyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430700": {
+      "provinceCode": "430000",
+      "name": "常德市",
+      "aliases": [
+        "常德市",
+        "常德",
+        "Changde Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430800": {
+      "provinceCode": "430000",
+      "name": "张家界市",
+      "aliases": [
+        "张家界市",
+        "张家界",
+        "Zhangjiajie Shi",
+        "Zhangjiajie"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "430900": {
+      "provinceCode": "430000",
+      "name": "益阳市",
+      "aliases": [
+        "益阳市",
+        "益阳",
+        "Yiyang Shi",
+        "Heshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "431000": {
+      "provinceCode": "430000",
+      "name": "郴州市",
+      "aliases": [
+        "郴州市",
+        "郴州",
+        "Prefecture of Chenzhou",
+        "Chenzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "431100": {
+      "provinceCode": "430000",
+      "name": "永州市",
+      "aliases": [
+        "永州市",
+        "永州",
+        "Yongzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "431200": {
+      "provinceCode": "430000",
+      "name": "怀化市",
+      "aliases": [
+        "怀化市",
+        "怀化",
+        "Huaihua Prefecture",
+        "Huaihua"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "431300": {
+      "provinceCode": "430000",
+      "name": "娄底市",
+      "aliases": [
+        "娄底市",
+        "娄底",
+        "Loudi Shi",
+        "Loudi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "433100": {
+      "provinceCode": "430000",
+      "name": "湘西土家族苗族自治州",
+      "aliases": [
+        "湘西土家族苗族自治州",
+        "Xiangxi Tujiazu Miaozu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440100": {
+      "provinceCode": "440000",
+      "name": "广州市",
+      "aliases": [
+        "广州市",
+        "广州",
+        "Guangzhou Shi",
+        "Guangzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440200": {
+      "provinceCode": "440000",
+      "name": "韶关市",
+      "aliases": [
+        "韶关市",
+        "韶关",
+        "Shaoguan Shi",
+        "Shaoguan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440300": {
+      "provinceCode": "440000",
+      "name": "深圳市",
+      "aliases": [
+        "深圳市",
+        "深圳",
+        "Shenzhen"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440400": {
+      "provinceCode": "440000",
+      "name": "珠海市",
+      "aliases": [
+        "珠海市",
+        "珠海",
+        "Zhuhai Shi",
+        "Zhuhai"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440500": {
+      "provinceCode": "440000",
+      "name": "汕头市",
+      "aliases": [
+        "汕头市",
+        "汕头",
+        "Shantou Shi",
+        "Shantou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440600": {
+      "provinceCode": "440000",
+      "name": "佛山市",
+      "aliases": [
+        "佛山市",
+        "佛山",
+        "Foshan Shi",
+        "Foshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440700": {
+      "provinceCode": "440000",
+      "name": "江门市",
+      "aliases": [
+        "江门市",
+        "江门",
+        "Jiangmen Shi",
+        "Jiangmen"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440800": {
+      "provinceCode": "440000",
+      "name": "湛江市",
+      "aliases": [
+        "湛江市",
+        "湛江",
+        "Zhanjiang Shi",
+        "Zhanjiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "440900": {
+      "provinceCode": "440000",
+      "name": "茂名市",
+      "aliases": [
+        "茂名市",
+        "茂名",
+        "Maoming Shi",
+        "Maoming"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441200": {
+      "provinceCode": "440000",
+      "name": "肇庆市",
+      "aliases": [
+        "肇庆市",
+        "肇庆",
+        "Zhaoqing Shi",
+        "Zhaoqing"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441300": {
+      "provinceCode": "440000",
+      "name": "惠州市",
+      "aliases": [
+        "惠州市",
+        "惠州",
+        "Huizhou",
+        "Huizhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441400": {
+      "provinceCode": "440000",
+      "name": "梅州市",
+      "aliases": [
+        "梅州市",
+        "梅州",
+        "Meizhou",
+        "Meizhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441500": {
+      "provinceCode": "440000",
+      "name": "汕尾市",
+      "aliases": [
+        "汕尾市",
+        "汕尾",
+        "Shanwei",
+        "Shanwei Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441600": {
+      "provinceCode": "440000",
+      "name": "河源市",
+      "aliases": [
+        "河源市",
+        "河源",
+        "Heyuan",
+        "Heyuan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441700": {
+      "provinceCode": "440000",
+      "name": "阳江市",
+      "aliases": [
+        "阳江市",
+        "阳江",
+        "Yangjiang Shi",
+        "Yangjiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441800": {
+      "provinceCode": "440000",
+      "name": "清远市",
+      "aliases": [
+        "清远市",
+        "清远",
+        "Qingyuan Shi",
+        "Qingyuan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "441900": {
+      "provinceCode": "440000",
+      "name": "东莞市",
+      "aliases": [
+        "东莞市",
+        "东莞",
+        "Dongguan Shi",
+        "Dongguan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "442000": {
+      "provinceCode": "440000",
+      "name": "中山市",
+      "aliases": [
+        "中山市",
+        "中山",
+        "Zhongshan Prefecture",
+        "Zhongshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "445100": {
+      "provinceCode": "440000",
+      "name": "潮州市",
+      "aliases": [
+        "潮州市",
+        "潮州",
+        "Chaozhou Shi",
+        "Chaozhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "445200": {
+      "provinceCode": "440000",
+      "name": "揭阳市",
+      "aliases": [
+        "揭阳市",
+        "揭阳",
+        "Jieyang",
+        "Jieyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "445300": {
+      "provinceCode": "440000",
+      "name": "云浮市",
+      "aliases": [
+        "云浮市",
+        "云浮",
+        "Yunfu Shi",
+        "Yunfu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450100": {
+      "provinceCode": "450000",
+      "name": "南宁市",
+      "aliases": [
+        "南宁市",
+        "南宁",
+        "Nanning Shi",
+        "Nanning"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450200": {
+      "provinceCode": "450000",
+      "name": "柳州市",
+      "aliases": [
+        "柳州市",
+        "柳州",
+        "Liuzhou Shi",
+        "Liuzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450300": {
+      "provinceCode": "450000",
+      "name": "桂林市",
+      "aliases": [
+        "桂林市",
+        "桂林",
+        "Guilin Shi",
+        "Guilin"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450400": {
+      "provinceCode": "450000",
+      "name": "梧州市",
+      "aliases": [
+        "梧州市",
+        "梧州",
+        "Wuzhou Shi",
+        "Wuzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450500": {
+      "provinceCode": "450000",
+      "name": "北海市",
+      "aliases": [
+        "北海市",
+        "北海",
+        "Beihai Shi",
+        "Beihai"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450600": {
+      "provinceCode": "450000",
+      "name": "防城港市",
+      "aliases": [
+        "防城港市",
+        "防城港",
+        "Fangchenggang Shi",
+        "Fangchenggang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450700": {
+      "provinceCode": "450000",
+      "name": "钦州市",
+      "aliases": [
+        "钦州市",
+        "钦州",
+        "Qinnan Qu",
+        "Qinzhou Shi",
+        "Qinzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450800": {
+      "provinceCode": "450000",
+      "name": "贵港市",
+      "aliases": [
+        "贵港市",
+        "贵港",
+        "Gangbei Qu",
+        "Guigang",
+        "Guigang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "450900": {
+      "provinceCode": "450000",
+      "name": "玉林市",
+      "aliases": [
+        "玉林市",
+        "玉林",
+        "Yuzhou Qu",
+        "Yulin Shi",
+        "Yulin"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "451000": {
+      "provinceCode": "450000",
+      "name": "百色市",
+      "aliases": [
+        "百色市",
+        "百色",
+        "Youjiang Qu",
+        "Baise Shi",
+        "Baise"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "451100": {
+      "provinceCode": "450000",
+      "name": "贺州市",
+      "aliases": [
+        "贺州市",
+        "贺州",
+        "Babu Qu",
+        "Hezhou",
+        "Hezhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "451200": {
+      "provinceCode": "450000",
+      "name": "河池市",
+      "aliases": [
+        "河池市",
+        "河池",
+        "Jinchengjiang Qu",
+        "Hechi Shi",
+        "Hechi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "451300": {
+      "provinceCode": "450000",
+      "name": "来宾市",
+      "aliases": [
+        "来宾市",
+        "来宾",
+        "Xingbin Qu",
+        "Laibin",
+        "Laibin Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "451400": {
+      "provinceCode": "450000",
+      "name": "崇左市",
+      "aliases": [
+        "崇左市",
+        "崇左",
+        "Chongzuo Shi",
+        "Chongzuo"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "460100": {
+      "provinceCode": "460000",
+      "name": "海口市",
+      "aliases": [
+        "海口市",
+        "海口",
+        "Haikou Shi",
+        "Haikou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "460200": {
+      "provinceCode": "460000",
+      "name": "三亚市",
+      "aliases": [
+        "三亚市",
+        "三亚",
+        "Sanya Shi",
+        "Sanya"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "460300": {
+      "provinceCode": "460000",
+      "name": "三沙市",
+      "aliases": [
+        "三沙市",
+        "三沙",
+        "Sansha"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "460400": {
+      "provinceCode": "460000",
+      "name": "儋州市",
+      "aliases": [
+        "儋州市",
+        "儋州",
+        "Danzhou Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "469001": {
+      "provinceCode": "460000",
+      "name": "五指山市",
+      "aliases": [
+        "五指山市",
+        "五指山",
+        "Wuzhishan Shi",
+        "Wuzhishan",
+        "Wuzhishan City"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "469002": {
+      "provinceCode": "460000",
+      "name": "琼海市",
+      "aliases": [
+        "琼海市",
+        "琼海",
+        "Qionghai County",
+        "Qionghai"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "469005": {
+      "provinceCode": "460000",
+      "name": "文昌市",
+      "aliases": [
+        "文昌市",
+        "文昌",
+        "Wenchang Shi"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "469006": {
+      "provinceCode": "460000",
+      "name": "万宁市",
+      "aliases": [
+        "万宁市",
+        "万宁",
+        "Wanning Shi",
+        "Wanning"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "469007": {
+      "provinceCode": "460000",
+      "name": "东方市",
+      "aliases": [
+        "东方市",
+        "东方",
+        "Dongfang Shi",
+        "Dongfang City"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "500000": {
+      "provinceCode": "500000",
+      "name": "重庆市",
+      "aliases": [
+        "重庆市",
+        "重庆",
+        "Chongqing"
+      ],
+      "kind": "MUNICIPALITY"
+    },
+    "510100": {
+      "provinceCode": "510000",
+      "name": "成都市",
+      "aliases": [
+        "成都市",
+        "成都",
+        "Chengdu Shi",
+        "Chengdu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "510300": {
+      "provinceCode": "510000",
+      "name": "自贡市",
+      "aliases": [
+        "自贡市",
+        "自贡",
+        "Zigong Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "510400": {
+      "provinceCode": "510000",
+      "name": "攀枝花市",
+      "aliases": [
+        "攀枝花市",
+        "攀枝花",
+        "Panzhihua Shi",
+        "Panzhihua"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "510500": {
+      "provinceCode": "510000",
+      "name": "泸州市",
+      "aliases": [
+        "泸州市",
+        "泸州",
+        "Luzhou Shi",
+        "Luzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "510600": {
+      "provinceCode": "510000",
+      "name": "德阳市",
+      "aliases": [
+        "德阳市",
+        "德阳",
+        "Deyang",
+        "Deyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "510700": {
+      "provinceCode": "510000",
+      "name": "绵阳市",
+      "aliases": [
+        "绵阳市",
+        "绵阳",
+        "Mianyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "510800": {
+      "provinceCode": "510000",
+      "name": "广元市",
+      "aliases": [
+        "广元市",
+        "广元",
+        "Guangyuan",
+        "Guangyuan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "510900": {
+      "provinceCode": "510000",
+      "name": "遂宁市",
+      "aliases": [
+        "遂宁市",
+        "遂宁",
+        "Suining Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511000": {
+      "provinceCode": "510000",
+      "name": "内江市",
+      "aliases": [
+        "内江市",
+        "内江",
+        "Neijiang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511100": {
+      "provinceCode": "510000",
+      "name": "乐山市",
+      "aliases": [
+        "乐山市",
+        "乐山",
+        "Leshan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511300": {
+      "provinceCode": "510000",
+      "name": "南充市",
+      "aliases": [
+        "南充市",
+        "南充",
+        "Nanchong Shi",
+        "Nanchong"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511400": {
+      "provinceCode": "510000",
+      "name": "眉山市",
+      "aliases": [
+        "眉山市",
+        "眉山",
+        "Meishan",
+        "Meishan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511500": {
+      "provinceCode": "510000",
+      "name": "宜宾市",
+      "aliases": [
+        "宜宾市",
+        "宜宾",
+        "Yibin Xian",
+        "Cuiping Qu",
+        "Yibin Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511600": {
+      "provinceCode": "510000",
+      "name": "广安市",
+      "aliases": [
+        "广安市",
+        "广安",
+        "Guang’an",
+        "Guang'an",
+        "Guang’an Qu",
+        "Guang'an Qu",
+        "Guang’an Shi",
+        "Guang'an Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511700": {
+      "provinceCode": "510000",
+      "name": "达州市",
+      "aliases": [
+        "达州市",
+        "达州",
+        "Dazhou Shi",
+        "Dazhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511800": {
+      "provinceCode": "510000",
+      "name": "雅安市",
+      "aliases": [
+        "雅安市",
+        "雅安",
+        "Ya’an Shi",
+        "Ya'an Shi",
+        "Ya'an"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "511900": {
+      "provinceCode": "510000",
+      "name": "巴中市",
+      "aliases": [
+        "巴中市",
+        "巴中",
+        "Bazhong Shi",
+        "Bazhong"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "512000": {
+      "provinceCode": "510000",
+      "name": "资阳市",
+      "aliases": [
+        "资阳市",
+        "资阳",
+        "Ziyang",
+        "Ziyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "513200": {
+      "provinceCode": "510000",
+      "name": "阿坝藏族羌族自治州",
+      "aliases": [
+        "阿坝藏族羌族自治州",
+        "Aba Zangzu Qiangzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "513300": {
+      "provinceCode": "510000",
+      "name": "甘孜藏族自治州",
+      "aliases": [
+        "甘孜藏族自治州",
+        "Garzê Zangzu Zizhizhou",
+        "Garze Zangzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "513400": {
+      "provinceCode": "510000",
+      "name": "凉山彝族自治州",
+      "aliases": [
+        "凉山彝族自治州",
+        "Liangshan Yizu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "520100": {
+      "provinceCode": "520000",
+      "name": "贵阳市",
+      "aliases": [
+        "贵阳市",
+        "贵阳",
+        "Guiyang Shi",
+        "Guiyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "520200": {
+      "provinceCode": "520000",
+      "name": "六盘水市",
+      "aliases": [
+        "六盘水市",
+        "六盘水",
+        "Lupanshui Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "520300": {
+      "provinceCode": "520000",
+      "name": "遵义市",
+      "aliases": [
+        "遵义市",
+        "遵义",
+        "Zunyi Xian",
+        "Zunyi Shi",
+        "Zunyi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "520400": {
+      "provinceCode": "520000",
+      "name": "安顺市",
+      "aliases": [
+        "安顺市",
+        "安顺",
+        "Anshun Shi",
+        "Anshun"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "520500": {
+      "provinceCode": "520000",
+      "name": "毕节市",
+      "aliases": [
+        "毕节市",
+        "毕节",
+        "Bijie Shi",
+        "Bijie Diqu",
+        "Bijie"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "520600": {
+      "provinceCode": "520000",
+      "name": "铜仁市",
+      "aliases": [
+        "铜仁市",
+        "铜仁",
+        "Bijiang District",
+        "Tongren Diqu",
+        "Tongren"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "522300": {
+      "provinceCode": "520000",
+      "name": "黔西南布依族苗族自治州",
+      "aliases": [
+        "黔西南布依族苗族自治州",
+        "Qianxinan Buyei and Miao Autonomous Prefecture"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "522600": {
+      "provinceCode": "520000",
+      "name": "黔东南苗族侗族自治州",
+      "aliases": [
+        "黔东南苗族侗族自治州",
+        "Qiandongnan Miao and Dong Autonomous Prefecture"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "522700": {
+      "provinceCode": "520000",
+      "name": "黔南布依族苗族自治州",
+      "aliases": [
+        "黔南布依族苗族自治州",
+        "Qiannan Bouyeizu Miaozu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530100": {
+      "provinceCode": "530000",
+      "name": "昆明市",
+      "aliases": [
+        "昆明市",
+        "昆明",
+        "Kunming Shi",
+        "Kunming"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530300": {
+      "provinceCode": "530000",
+      "name": "曲靖市",
+      "aliases": [
+        "曲靖市",
+        "曲靖",
+        "Qujing Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530400": {
+      "provinceCode": "530000",
+      "name": "玉溪市",
+      "aliases": [
+        "玉溪市",
+        "玉溪",
+        "Yuxi Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530500": {
+      "provinceCode": "530000",
+      "name": "保山市",
+      "aliases": [
+        "保山市",
+        "保山",
+        "Baoshan Shi",
+        "Baoshan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530600": {
+      "provinceCode": "530000",
+      "name": "昭通市",
+      "aliases": [
+        "昭通市",
+        "昭通",
+        "Zhaotong Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530700": {
+      "provinceCode": "530000",
+      "name": "丽江市",
+      "aliases": [
+        "丽江市",
+        "丽江",
+        "Lijiang Shi",
+        "Lijiang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530800": {
+      "provinceCode": "530000",
+      "name": "普洱市",
+      "aliases": [
+        "普洱市",
+        "普洱",
+        "Simao Qu",
+        "Pu'er City"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "530900": {
+      "provinceCode": "530000",
+      "name": "临沧市",
+      "aliases": [
+        "临沧市",
+        "临沧",
+        "Lincang Shi",
+        "Lincang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "532300": {
+      "provinceCode": "530000",
+      "name": "楚雄彝族自治州",
+      "aliases": [
+        "楚雄彝族自治州",
+        "Chuxiong Yizu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "532500": {
+      "provinceCode": "530000",
+      "name": "红河哈尼族彝族自治州",
+      "aliases": [
+        "红河哈尼族彝族自治州",
+        "Honghe Hanizu Yizu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "532600": {
+      "provinceCode": "530000",
+      "name": "文山壮族苗族自治州",
+      "aliases": [
+        "文山壮族苗族自治州",
+        "Wenshan Zhuangzu Miaozu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "532800": {
+      "provinceCode": "530000",
+      "name": "西双版纳傣族自治州",
+      "aliases": [
+        "西双版纳傣族自治州",
+        "Xishuangbanna Daizu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "532900": {
+      "provinceCode": "530000",
+      "name": "大理白族自治州",
+      "aliases": [
+        "大理白族自治州",
+        "Dali Baizu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "533100": {
+      "provinceCode": "530000",
+      "name": "德宏傣族景颇族自治州",
+      "aliases": [
+        "德宏傣族景颇族自治州",
+        "Dehong Daizu Jingpozu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "533300": {
+      "provinceCode": "530000",
+      "name": "怒江傈僳族自治州",
+      "aliases": [
+        "怒江傈僳族自治州",
+        "Nujiang Lisuzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "533400": {
+      "provinceCode": "530000",
+      "name": "迪庆藏族自治州",
+      "aliases": [
+        "迪庆藏族自治州",
+        "Dêqên Tibetan Autonomous Prefecture",
+        "Deqen Tibetan Autonomous Prefecture"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "540100": {
+      "provinceCode": "540000",
+      "name": "拉萨市",
+      "aliases": [
+        "拉萨市",
+        "拉萨",
+        "Lhasa Shi",
+        "Lhasa",
+        "Lhasa Chengguanqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "540200": {
+      "provinceCode": "540000",
+      "name": "日喀则市",
+      "aliases": [
+        "日喀则市",
+        "日喀则",
+        "Samzhubzê, Xigazê",
+        "Samzhubze, Xigaze",
+        "Rikaze Diqu",
+        "Xigazê",
+        "Xigaze"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "540300": {
+      "provinceCode": "540000",
+      "name": "昌都市",
+      "aliases": [
+        "昌都市",
+        "昌都",
+        "Qamdo Xian",
+        "Qamdo Shi",
+        "Qamdo"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "540400": {
+      "provinceCode": "540000",
+      "name": "林芝市",
+      "aliases": [
+        "林芝市",
+        "林芝",
+        "Nyingchi County",
+        "Nyingchi Prefecture",
+        "Nyingchi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "540500": {
+      "provinceCode": "540000",
+      "name": "山南市",
+      "aliases": [
+        "山南市",
+        "山南",
+        "Shannan Diqu",
+        "Lhoka"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "540600": {
+      "provinceCode": "540000",
+      "name": "那曲市",
+      "aliases": [
+        "那曲市",
+        "那曲",
+        "Nagqu Shi",
+        "Nagqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "542500": {
+      "provinceCode": "540000",
+      "name": "阿里地区",
+      "aliases": [
+        "阿里地区",
+        "Gar",
+        "Ngari Diqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610100": {
+      "provinceCode": "610000",
+      "name": "西安市",
+      "aliases": [
+        "西安市",
+        "西安",
+        "Xi’an Shi",
+        "Xi'an Shi",
+        "Xi’an",
+        "Xi'an"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610200": {
+      "provinceCode": "610000",
+      "name": "铜川市",
+      "aliases": [
+        "铜川市",
+        "铜川",
+        "Tongchuan Shi",
+        "Tongchuan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610300": {
+      "provinceCode": "610000",
+      "name": "宝鸡市",
+      "aliases": [
+        "宝鸡市",
+        "宝鸡",
+        "Baoji Shi",
+        "Baoji"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610400": {
+      "provinceCode": "610000",
+      "name": "咸阳市",
+      "aliases": [
+        "咸阳市",
+        "咸阳",
+        "Xianyang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610500": {
+      "provinceCode": "610000",
+      "name": "渭南市",
+      "aliases": [
+        "渭南市",
+        "渭南",
+        "Weinan Shi",
+        "Weinan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610600": {
+      "provinceCode": "610000",
+      "name": "延安市",
+      "aliases": [
+        "延安市",
+        "延安",
+        "Yan’an Shi",
+        "Yan'an Shi",
+        "Yan’an",
+        "Yan'an"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610700": {
+      "provinceCode": "610000",
+      "name": "汉中市",
+      "aliases": [
+        "汉中市",
+        "汉中",
+        "Hanzhong Shi",
+        "Hanzhong"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610800": {
+      "provinceCode": "610000",
+      "name": "榆林市",
+      "aliases": [
+        "榆林市",
+        "榆林",
+        "Yulin Shi",
+        "Yulinshi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "610900": {
+      "provinceCode": "610000",
+      "name": "安康市",
+      "aliases": [
+        "安康市",
+        "安康",
+        "Ankang",
+        "Ankang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "611000": {
+      "provinceCode": "610000",
+      "name": "商洛市",
+      "aliases": [
+        "商洛市",
+        "商洛",
+        "Shangluo",
+        "Shangluo Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620100": {
+      "provinceCode": "620000",
+      "name": "兰州市",
+      "aliases": [
+        "兰州市",
+        "兰州",
+        "Lanzhou Shi",
+        "Lanzhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620200": {
+      "provinceCode": "620000",
+      "name": "嘉峪关市",
+      "aliases": [
+        "嘉峪关市",
+        "嘉峪关",
+        "Jiayuguan Shi",
+        "Jiayuguan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620300": {
+      "provinceCode": "620000",
+      "name": "金昌市",
+      "aliases": [
+        "金昌市",
+        "金昌",
+        "Jinchang",
+        "Jinchang Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620400": {
+      "provinceCode": "620000",
+      "name": "白银市",
+      "aliases": [
+        "白银市",
+        "白银",
+        "Baiyin Prefecture",
+        "Baiyin",
+        "Baiyin District"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620500": {
+      "provinceCode": "620000",
+      "name": "天水市",
+      "aliases": [
+        "天水市",
+        "天水",
+        "Tianshui Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620600": {
+      "provinceCode": "620000",
+      "name": "武威市",
+      "aliases": [
+        "武威市",
+        "武威",
+        "Wuwei Shi",
+        "Wuwei"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620700": {
+      "provinceCode": "620000",
+      "name": "张掖市",
+      "aliases": [
+        "张掖市",
+        "张掖",
+        "Ganzhou Qu",
+        "Zhangye Shi",
+        "Zhangye"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620800": {
+      "provinceCode": "620000",
+      "name": "平凉市",
+      "aliases": [
+        "平凉市",
+        "平凉",
+        "Kongdong Qu",
+        "Pingliang Shi",
+        "Pingliang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "620900": {
+      "provinceCode": "620000",
+      "name": "酒泉市",
+      "aliases": [
+        "酒泉市",
+        "酒泉",
+        "Jiuquan",
+        "Suzhou Qu",
+        "Jiuquan Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "621000": {
+      "provinceCode": "620000",
+      "name": "庆阳市",
+      "aliases": [
+        "庆阳市",
+        "庆阳",
+        "Qingyang Shi",
+        "Qingyang"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "621100": {
+      "provinceCode": "620000",
+      "name": "定西市",
+      "aliases": [
+        "定西市",
+        "定西",
+        "Dingxi Shi",
+        "Dingxi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "621200": {
+      "provinceCode": "620000",
+      "name": "陇南市",
+      "aliases": [
+        "陇南市",
+        "陇南",
+        "Longnan Shi",
+        "Longnan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "622900": {
+      "provinceCode": "620000",
+      "name": "临夏回族自治州",
+      "aliases": [
+        "临夏回族自治州",
+        "Linxia Huizu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "623000": {
+      "provinceCode": "620000",
+      "name": "甘南藏族自治州",
+      "aliases": [
+        "甘南藏族自治州",
+        "Gannan Zangzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "630100": {
+      "provinceCode": "630000",
+      "name": "西宁市",
+      "aliases": [
+        "西宁市",
+        "西宁",
+        "Xining Shi",
+        "Xining"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "630200": {
+      "provinceCode": "630000",
+      "name": "海东市",
+      "aliases": [
+        "海东市",
+        "海东",
+        "Haidong Diqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "632200": {
+      "provinceCode": "630000",
+      "name": "海北藏族自治州",
+      "aliases": [
+        "海北藏族自治州",
+        "Haibei Tibetan Autonomous Prefecture"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "632300": {
+      "provinceCode": "630000",
+      "name": "黄南藏族自治州",
+      "aliases": [
+        "黄南藏族自治州",
+        "Huangnan Zangzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "632500": {
+      "provinceCode": "630000",
+      "name": "海南藏族自治州",
+      "aliases": [
+        "海南藏族自治州",
+        "Hainan Zangzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "632600": {
+      "provinceCode": "630000",
+      "name": "果洛藏族自治州",
+      "aliases": [
+        "果洛藏族自治州",
+        "Golog Tibetan Autonomous Prefecture"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "632700": {
+      "provinceCode": "630000",
+      "name": "玉树藏族自治州",
+      "aliases": [
+        "玉树藏族自治州",
+        "Yushu Zangzu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "632800": {
+      "provinceCode": "630000",
+      "name": "海西蒙古族藏族自治州",
+      "aliases": [
+        "海西蒙古族藏族自治州",
+        "Haixi Mengguzu Zangzu Zizhizhou",
+        "Haixi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "640100": {
+      "provinceCode": "640000",
+      "name": "银川市",
+      "aliases": [
+        "银川市",
+        "银川",
+        "Yinchuan Shi",
+        "Yinchuan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "640200": {
+      "provinceCode": "640000",
+      "name": "石嘴山市",
+      "aliases": [
+        "石嘴山市",
+        "石嘴山",
+        "Shizuishan Shi",
+        "Shizuishan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "640300": {
+      "provinceCode": "640000",
+      "name": "吴忠市",
+      "aliases": [
+        "吴忠市",
+        "吴忠",
+        "Wuzhong Shi",
+        "Wuzhong"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "640400": {
+      "provinceCode": "640000",
+      "name": "固原市",
+      "aliases": [
+        "固原市",
+        "固原",
+        "Guyuan Shi",
+        "Guyuan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "640500": {
+      "provinceCode": "640000",
+      "name": "中卫市",
+      "aliases": [
+        "中卫市",
+        "中卫",
+        "Zhongwei",
+        "Zhongwei Shi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "650100": {
+      "provinceCode": "650000",
+      "name": "乌鲁木齐市",
+      "aliases": [
+        "乌鲁木齐市",
+        "乌鲁木齐",
+        "Wulumuqi",
+        "Urumqi Shi",
+        "Ürümqi",
+        "UEruemqi"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "650200": {
+      "provinceCode": "650000",
+      "name": "克拉玛依市",
+      "aliases": [
+        "克拉玛依市",
+        "克拉玛依",
+        "Kelamayi Shi",
+        "Karamay",
+        "Kelamayi Qu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "650400": {
+      "provinceCode": "650000",
+      "name": "吐鲁番市",
+      "aliases": [
+        "吐鲁番市",
+        "吐鲁番",
+        "Gaochang",
+        "Tulufan",
+        "Turpan"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "650500": {
+      "provinceCode": "650000",
+      "name": "哈密市",
+      "aliases": [
+        "哈密市",
+        "哈密",
+        "Hami Shi",
+        "Hami"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "652300": {
+      "provinceCode": "650000",
+      "name": "昌吉回族自治州",
+      "aliases": [
+        "昌吉回族自治州",
+        "Changji Huizu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "652700": {
+      "provinceCode": "650000",
+      "name": "博尔塔拉蒙古自治州",
+      "aliases": [
+        "博尔塔拉蒙古自治州",
+        "Bortala"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "652800": {
+      "provinceCode": "650000",
+      "name": "巴音郭楞蒙古自治州",
+      "aliases": [
+        "巴音郭楞蒙古自治州",
+        "Bayinguoleng Menggu Zizhizhou"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "652900": {
+      "provinceCode": "650000",
+      "name": "阿克苏地区",
+      "aliases": [
+        "阿克苏地区",
+        "Aksu Diqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "653000": {
+      "provinceCode": "650000",
+      "name": "克孜勒苏柯尔克孜自治州",
+      "aliases": [
+        "克孜勒苏柯尔克孜自治州",
+        "Kezilesu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "653100": {
+      "provinceCode": "650000",
+      "name": "喀什地区",
+      "aliases": [
+        "喀什地区",
+        "Kashi Diqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "653200": {
+      "provinceCode": "650000",
+      "name": "和田地区",
+      "aliases": [
+        "和田地区",
+        "Hetian"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "654000": {
+      "provinceCode": "650000",
+      "name": "伊犁哈萨克自治州",
+      "aliases": [
+        "伊犁哈萨克自治州",
+        "Yili",
+        "Ghulja"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "654200": {
+      "provinceCode": "650000",
+      "name": "塔城地区",
+      "aliases": [
+        "塔城地区",
+        "Tacheng Diqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "654300": {
+      "provinceCode": "650000",
+      "name": "阿勒泰地区",
+      "aliases": [
+        "阿勒泰地区",
+        "Aletai Diqu"
+      ],
+      "kind": "PREFECTURE"
+    },
+    "659001": {
+      "provinceCode": "650000",
+      "name": "石河子市",
+      "aliases": [
+        "石河子市",
+        "石河子",
+        "Shihezi Shi",
+        "Shihezi"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659002": {
+      "provinceCode": "650000",
+      "name": "阿拉尔市",
+      "aliases": [
+        "阿拉尔市",
+        "阿拉尔",
+        "Aral Shi"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659003": {
+      "provinceCode": "650000",
+      "name": "图木舒克市",
+      "aliases": [
+        "图木舒克市",
+        "图木舒克",
+        "Tumxuk"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659004": {
+      "provinceCode": "650000",
+      "name": "五家渠市",
+      "aliases": [
+        "五家渠市",
+        "五家渠",
+        "Wujiaqu Shi"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659005": {
+      "provinceCode": "650000",
+      "name": "北屯市",
+      "aliases": [
+        "北屯市",
+        "北屯"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659006": {
+      "provinceCode": "650000",
+      "name": "铁门关市",
+      "aliases": [
+        "铁门关市",
+        "铁门关"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659007": {
+      "provinceCode": "650000",
+      "name": "双河市",
+      "aliases": [
+        "双河市",
+        "双河"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659008": {
+      "provinceCode": "650000",
+      "name": "可克达拉市",
+      "aliases": [
+        "可克达拉市",
+        "可克达拉"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659009": {
+      "provinceCode": "650000",
+      "name": "昆玉市",
+      "aliases": [
+        "昆玉市",
+        "昆玉",
+        "Kunyu"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659010": {
+      "provinceCode": "650000",
+      "name": "胡杨河市",
+      "aliases": [
+        "胡杨河市",
+        "胡杨河"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659011": {
+      "provinceCode": "650000",
+      "name": "新星市",
+      "aliases": [
+        "新星市",
+        "新星"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    },
+    "659012": {
+      "provinceCode": "650000",
+      "name": "白杨市",
+      "aliases": [
+        "白杨市",
+        "白杨"
+      ],
+      "kind": "PROVINCE_DIRECT_CITY"
+    }
+  },
+  "aliasesSource": {
+    "url": "https://download.geonames.org/export/dump/CN.zip",
+    "sha256": "a449866f0537cee083fc6a96b7068eb1a861094b33355c2ba99d46d3f2eacbcc",
+    "modified": "Fri, 30 Oct 2026 02:49:01 GMT",
+    "license": "CC BY 4.0",
+    "attribution": "GeoNames https://www.geonames.org/",
+    "mapping": "Exact Chinese alias intersection within unique ADM1 parent; store source name/asciiname as exact aliases, no fuzzy/pinyin generation; no coordinates retained"
+  }
+}

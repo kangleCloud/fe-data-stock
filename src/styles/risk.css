@@ -26,3 +26,5 @@
 .risk-screen p { overflow-wrap: anywhere; }
 @media (max-width: 640px) { .risk-screen .risk-controls label { flex: 1 1 130px; } }
 @media (prefers-reduced-motion: reduce) { .risk-screen button { transition: none; } }
+
+.risk-screen td { white-space: nowrap; }

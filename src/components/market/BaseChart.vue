@@ -17,9 +17,13 @@ const props = withDefaults(
     option: EChartsCoreOption;
     accessibleLabel: string;
     height?: string;
+    interactiveMap?: boolean;
   }>(),
   { height: "300px" },
 );
+
+const emit = defineEmits<{ regionSelect: [name: string] }>();
+defineExpose({ resetView: () => chart.value?.setOption({ geo: { zoom: 1, center: null } }), zoom: (factor: number) => chart.value?.dispatchAction({ type: "geoRoam", geoIndex: 0, zoom: factor }) });
 
 const container = ref<HTMLElement>();
 const chart = shallowRef<EChartsType>();
@@ -47,6 +51,7 @@ onMounted(async () => {
   chart.value = markRaw(echarts.init(container.value, undefined, {
     renderer: "canvas",
   }));
+  if (props.interactiveMap) chart.value.on("click", (event: unknown) => { const name = (event as { name?: unknown }).name; if (typeof name === "string") emit("regionSelect", name); });
   observer = new ResizeObserver(() => chart.value?.resize());
   observer.observe(container.value);
   render();

@@ -1,0 +1,5 @@
+export type RiskResolveFailureCode = "HTTP_ERROR" | "TIMEOUT" | "REDIRECT_REJECTED" | "INVALID_RESPONSE" | "IP_MISMATCH" | "REGION_UNAVAILABLE" | "LOCATION_UNAVAILABLE" | "RESOLUTION_UNAVAILABLE";
+export interface RiskLocation { regionCode: string; longitude: string; latitude: string }
+export interface RiskServerTarget { geoStatus?: import("@/types/geoObservation").GeoStatusProjection | null; configured: boolean; alias: string | null; regionCode: string | null; longitude: string | null; latitude: string | null; locationSource: "MANUAL" | "IP_LOOKUP" | null; locationStatus: "UNCONFIGURED" | "LOCATED" | "UNRESOLVED"; resolveStatus: "NOT_ATTEMPTED" | "SUCCEEDED" | "FAILED"; resolvedAt: string | null; updatedAt: string | null }
+export interface RiskServerConfig extends Omit<RiskServerTarget, "regionCode" | "longitude" | "latitude"> { version: string | null; publicIp: string | null; manualLocation: RiskLocation | null; resolvedLocation: RiskLocation | null; resolveFailureCode: RiskResolveFailureCode | null }
+export interface RiskServerSave { version: string | null; alias: string; publicIp: string; manualLocation: RiskLocation | null }

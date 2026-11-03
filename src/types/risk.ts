@@ -8,6 +8,8 @@ export interface RiskInterface extends RiskLatency { pathTemplate: string; metho
 export interface RiskException { id: string; minuteAt: string; regionCode: string; requestType: RiskRequestType; pathTemplate: string; status: string; reasonCode: string; count: RiskCount; firstAt: string; lastAt: string }
 export interface RiskArchive { id: string; batchId: string; businessDate: string; state: "PENDING" | "COMMITTED" | "CLEANED" | "FAILED"; recordCount: RiskCount; checksum: string; committedAt: string | null; cleanedAt: string | null; failureCode: string | null }
 export interface RiskDashboard {
+  geoCoverage?: import("@/types/geoDrilldown").DashboardGeoCoverage;
+  serverTarget?: import("@/types/riskServer").RiskServerTarget;
   metrics: RiskLatency & { requestCount: RiskCount; apiCount: RiskCount; httpErrorCount: RiskCount; httpErrorRate: string | null; sseEndedCount: RiskCount; clientAbortCount: RiskCount; upstreamFailureCount: RiskCount };
   trend: { minuteAt: string; requestCount: RiskCount; apiCount: RiskCount; httpErrorCount: RiskCount }[];
   dailySources: { businessDate: string; sourceCount: RiskCount; approximate: true }[];
