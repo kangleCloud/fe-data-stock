@@ -37,6 +37,9 @@ function resolveComponent(componentPath: string, routePath: string, depth: numbe
     .replace(/^\/+/, "")
     .replace(/^views\//, "")
     .replace(/\.vue$/, "");
+  if (depth === 0 && normalized === "risk/server-config/index") {
+    return { component: () => import("@/components/risk/RiskServerConfigAdmin.vue") };
+  }
   const moduleKey = `../views/${normalized}.vue`;
   if (Object.hasOwn(viewModules, moduleKey)) {
     return { component: viewModules[moduleKey] as RouteComponent };

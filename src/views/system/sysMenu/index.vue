@@ -115,7 +115,8 @@ async function save(): Promise<void> {
       const payload = { ...action, permissionName: action.permissionName.trim(), permissionCode: action.permissionCode.trim(), authTag: action.authTag.trim() };
       if (editing.value) await api.updateMenuAction({ ...payload, id: editing.value.id }); else await api.createMenuAction(payload);
     } else {
-      const payload = { ...menu, menuName: menu.menuName.trim(), menuType: type.value === "DIRECTORY" ? "CONTENTS" as const : menu.isExternal ? "LINK" as const : "MENU" as const, componentPath: type.value === "DIRECTORY" ? "Layout" : menu.isExternal ? "" : menu.componentPath, isCache: menu.isExternal ? 0 : menu.isCache };
+      // 更新接口忽略null字段，根目录必须显式发送0才能覆盖已有父级。
+      const payload = { ...menu, parentId: menu.parentId ?? 0, menuName: menu.menuName.trim(), menuType: type.value === "DIRECTORY" ? "CONTENTS" as const : menu.isExternal ? "LINK" as const : "MENU" as const, componentPath: type.value === "DIRECTORY" ? "Layout" : menu.isExternal ? "" : menu.componentPath, isCache: menu.isExternal ? 0 : menu.isCache };
       if (editing.value) await api.updateMenu({ ...payload, id: editing.value.id }); else await api.createMenu(payload);
     }
     const parentId = type.value === "BUTTON" ? action.menuId : menu.parentId;

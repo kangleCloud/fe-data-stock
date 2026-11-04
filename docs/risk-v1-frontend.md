@@ -1,28 +1,21 @@
-# 风控前端接口与展示边界
+# API访问大屏
 
-## 页面与接口
+动态组件risk/dashboard/index，沿既有登录权限。统一request读取dashboard、interfaces/page、sources/page及exceptions/page；异常要求risk:view和exception:view交集权限。只统计API，2xx/3xx成功，4xx/5xx失败含499；状态0及1xx计其他。失败比例为失败/(成功+失败)，分母0显示—。来源IP及method+path接口按整个筛选范围精确去重。
 
-看板动态组件`risk/dashboard/index`，建议路由`/risk/dashboard`，由受控动态视图注册表识别。全部业务接口通过统一request处理前缀及`CommonResult.content`。
+六KPI为总量、成功、失败、失败率、IP及接口数；地图背景与半透明面板，左接口/IP榜、右成功失败趋势/HTTP状态、底部地域/城市或境外一级。明细/失败/Geo按需抽屉，后台服务器配置页仍为带侧栏浅色表单，保存停留原页。
 
-四个GET接口为`/risk/dashboard`、`/risk/interfaces/page`、`/risk/exceptions/page`、`/risk/archives/page`，分页保持list/total。失败保留成功画面并提示，不视为0或空成功。归档仅按日期和分页查询。
+筛选支持最近90自然日内、最多31天闭区间，日期/地域/方法/路径字面包含/IP/HTTP状态。整数string及BigInt保留精度；不安全趋势不转Number绘图。每10秒非重入刷新，隐藏暂停，筛选/权限/卸载丢弃旧响应，失败保留旧数据并标记。图表和地图实例不因统计刷新销毁。
 
-全部页面请求要求`system:risk:view`，异常再要求`system:risk:exception:view`，归档再要求`system:risk:archive:view`，按AND判断。异常和归档按需读取，失权清除显示并丢弃在途响应。
+1920×1080和2560×1440单屏布局，宽小于1280或可用高小于720回到流式；键盘焦点可见，关闭动画，DB-IP署名保留。黄金响应仅复制到tests/fixtures，不进入生产包。实际联调与离线合成预览须分别记录。
 
-## 统计与交互
+## 本轮验证（2026-11-04）
 
-- 上海日期支持今日/昨日/近7日、自定义闭区间最多31天，拒绝非法、逆序和未来日期；筛选变更重置页码。
-- 汇总结束后十秒刷新，隐藏暂停、恢复刷新、非重入；筛选/权限变化与卸载使迟到结果失效。
-- 未成功更新时标明旧结果，展示更新时间、生成时刻、采集心跳、延迟、最后事件、完整性和固定警告。
-- 累计整数保留字符串并以BigInt格式化；超安全整数改看精确表格。
-- HTTP错误不含499，499及上游失败尝试单列。REST P95与SSE连接时长P95独立，明确分桶近似、溢出及无样本。SSE结束数不推导在线人数或消息量。
-- 每日来源HLL为估算，不跨日合计；UNKNOWN与INTERNAL独立。质量只按日期，不随地域/类型缩小。
+最终全套61文件439项通过；lint、strict type-check与build通过，diff-check通过。最终测试的lint mock写法修正后，相关10项组件测试与lint再次通过。既有共享BaseChart约696.44kB/gzip234.20kB的chunk警告保留。
 
-页面复用BaseChart/ECharts，使用安全Vue插值和richText tooltip，窄屏表格独立横向滚动且可键盘聚焦，不加载外部字体或跟踪脚本。地图、目标弧线始终关闭流动特效；漫游缩放可用。
+根java-service-response.json同字节消费副本SHA256=62610317a5f25d0af42ceae740e6332a30be815f7e2971be7e3ceb22aa69f30f；Python真实Collector三批原文经Java实际解析/入库/查询产物/tmp/risk-minute-java-collector-query.json的消费副本SHA256=6345030977258970f2c1044ca2b4c6cb98373bb7e693dec39cb4230b0d9b1c11，测试资源不进生产包。统一request实际消费核对12=成功7+失败3+其他2，失败率0.300000、精确IP4、接口2、499失败2；北京城市110000计9与全范围覆盖12分开，3个业务日期保留。组件六KPI断言一致。真实MySQL8及生产网络未验，不能以H2/离线adapter代替。
 
-地图资源与下载配置见[risk-map-assets.md](risk-map-assets.md)，服务器配置、地域细分与代表点见[risk-region-centers.md](risk-region-centers.md)。地图不可用时显示真实排行和其他统计，不伪造边界或点位。
+实际Chrome普通视口：1920×1080与2560×1440单屏，375回流。最终PNG截图为/tmp/access-dashboard-final-1920.png、/tmp/access-dashboard-final-2560.png、/tmp/access-dashboard-final-375.png（375×2687全页）；均使用Collector→Java离线响应且标明非真实联调。紧凑城市卡直接可见北京市/9，分母、起点、编码在点击覆盖Tips；统计口径Enter打开、Space关闭，覆盖Tips Enter打开已实操。Tips截图/tmp/access-dashboard-statistics-tip.png与/tmp/access-dashboard-coverage-tip.png。世界地图切换、IP抽屉与ESC关闭已实操。最初缺失图例模块警告已通过页面文字图例修复；视口切换曾有ResizeObserver通知循环警告，不宣称整个浏览器历史始终无告警。
 
-## 测试资产边界
+全屏：顶部整个大屏requestFullscreen、退出、fullscreenchange与ESC已有真实组件测试；浏览器自动化点击未获全屏权限，原生Chrome操作工具随后超时，因此浏览器原生全屏进入列为未验，不绕过、不将尝试当通过。
 
-根`docs/risk-v1/`与`docs/geoip-v1/`为各自黄金样例权威源。`tests/fixtures/`中的响应及wire样例仅用于离线回归，生产src与public不导入纯fixture。`src/data/`保留运行需要的行政字典、地图映射和代表点。
-
-检查命令为`pnpm lint`、`pnpm type-check`、相关`pnpm exec vitest run …`、`pnpm build`及`git diff --check`。构建的共享图表chunk存在大于500kB提示。离线测试不替代真实登录菜单权限、Java/Python/Redis/MySQL及生产BASE_URL/CSP联调。
+基线/tmp/risk-redesign-fe-baseline.json：仅19个原有风控代码/测试/文档路径有意变化，新增2个测试数据副本与1个Service消费测试。旧RiskDashboardFrame及risk-v1-wire夹具删除；退出类型/SSE/P95/HLL/归档的API、类型及展示；后台服务器配置表单、Admin包装、通用布局/动态路由、菜单根目录修复、持仓与私有环境文件逐字节保持。预览HTML、服务和本轮最后标签已清理、尺寸已恢复；更早失去调试连接的标签交由工具自动清理。未改其他仓库或根契约，未提交、部署、SQL、Redis操作或Review。

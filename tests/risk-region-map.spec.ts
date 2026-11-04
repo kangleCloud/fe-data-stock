@@ -18,9 +18,13 @@ describe("risk map component lifecycle", () => {
     await wrapper.findAll("button")[1]!.trigger("click"); await ready(wrapper); expect(fetch).toHaveBeenCalledTimes(2);
     expect(wrapper.get('button[aria-pressed="true"]').text()).toBe("世界");
     await wrapper.findAll("button")[0]!.trigger("click"); await ready(wrapper); expect(fetch).toHaveBeenCalledTimes(2);
+    const chartInstance = wrapper.getComponent({ name: "BaseChart" }).vm;
     vi.useFakeTimers();
     for (let tick = 0; tick < 3; tick++) { await vi.advanceTimersByTimeAsync(10_000); await wrapper.setProps({ regions: [{ regionCode: "CN-31", requestCount: String(tick + 9) }] }); }
     expect(fetch).toHaveBeenCalledTimes(2); expect(wrapper.text()).toContain("11");
+    expect(wrapper.getComponent({ name: "BaseChart" }).vm).toBe(chartInstance);
+    expect(wrapper.getComponent({ name: "BaseChart" }).props("option").geo).not.toHaveProperty("zoom");
+    expect(wrapper.getComponent({ name: "BaseChart" }).props("option").geo).not.toHaveProperty("center");
   });
   it("renders neutral boundaries for unsafe counts, unknowns and country-without-province separately", async () => {
     const wrapper = render(); await ready(wrapper);
@@ -36,10 +40,11 @@ describe("risk map component lifecycle", () => {
   });
   it("supports full viewport and ESC cleanup and emits only real boundary codes for drilldown", async () => {
     const wrapper = render(); await ready(wrapper);
-    await wrapper.findAll("button").find((button) => button.text() === "地图全屏")!.trigger("click"); expect(wrapper.classes()).toContain("risk-map-expanded");
+    await wrapper.findAll("button").find((button) => button.attributes("aria-label") === "地图全屏")!.trigger("click"); expect(wrapper.classes()).toContain("risk-map-expanded");
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); await flushPromises(); expect(wrapper.classes()).not.toContain("risk-map-expanded");
     const chart = wrapper.getComponent({ name: "BaseChart" }); chart.vm.$emit("regionSelect", "CN-31"); chart.vm.$emit("regionSelect", "UNKNOWN");
     expect(wrapper.emitted("regionSelect")).toEqual([["CN-31", "china"]]);
+    expect(wrapper.find("select").exists()).toBe(false); expect(wrapper.find('button[aria-label="查看地图操作说明"]').exists()).toBe(false);
     expect(chart.props("option").geo.roam).toBe(true); expect(chart.props("height")).toBe("520px");
   });
   it("keeps a clear failure state after both sources fail without retrying on toggles", async () => {

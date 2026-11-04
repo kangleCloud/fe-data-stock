@@ -21,7 +21,7 @@ describe("menu management page", () => {
     expect(wrapper.text()).toContain("菜单数据加载失败：暂不可用"); expect(wrapper.findAll("button").some((item) => item.text() === "新增目录")).toBe(false);
     button("刷新").click(); await flushPromises(); expect(wrapper.text()).toContain("资料"); wrapper.unmount();
   });
-  it.each([0, "0", null])("displays root parent %s as 根目录 and saves the root value", async parentId => {
+  it.each([0, "0", null])("displays root parent %s as 根目录 and explicitly saves parentId 0", async parentId => {
     mocks.auth.permissionCodes.push("system:menu:update");
     mocks.detail.mockResolvedValue({ id: 1, parentId, menuName: "系统", menuType: "CONTENTS", routeName: "System", routeLink: "/system", componentPath: "Layout" });
     const wrapper = mount(MenuPage, { attachTo: document.body }); await flushPromises();
@@ -30,10 +30,10 @@ describe("menu management page", () => {
     expect(select.props("modelValue")).toBe("0");
     expect(document.querySelector(".el-drawer")?.textContent).toContain("根目录");
     button("保存").click(); await flushPromises();
-    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ id: 1, parentId: null }));
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ id: 1, parentId: 0 }));
     wrapper.unmount();
   });
-  it("lets an existing page move from a directory to root", async () => {
+  it("sends a non-null root parent to overwrite the existing directory on update", async () => {
     mocks.auth.permissionCodes.push("system:menu:update");
     mocks.detail.mockResolvedValue({ id: 2, parentId: "1", menuName: "资料", menuType: "MENU", routeName: "Info", routeLink: "/info", componentPath: "risk/server-config/index" });
     const wrapper = mount(MenuPage, { attachTo: document.body }); await flushPromises();
@@ -43,7 +43,7 @@ describe("menu management page", () => {
     expect(document.querySelector(".el-drawer")?.textContent).toContain("系统");
     select.vm.$emit("update:modelValue", "0"); await flushPromises();
     button("保存").click(); await flushPromises();
-    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ id: 2, parentId: null }));
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ id: 2, parentId: 0 }));
     wrapper.unmount();
   });
   it("validates button fields, prevents duplicate saves, and refreshes permissions after success", async () => {

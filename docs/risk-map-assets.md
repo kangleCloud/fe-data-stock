@@ -14,7 +14,7 @@
 
 省级数字编码CN-11等及字母编码CN-BJ等显式归一。HK/MO/TW，以及CN-91/CN-HK、CN-92/CN-MO、CN-71/CN-TW分别映射到HK/MO/TW边界，不改业务筛选或后端值。世界视图只将映射表中已知的中国大陆省份累计CN，CN国家行本身累计一次，其他地域行各处理一次；不按CN前缀猜未知省份。中国视图的CN国家行作为缺省份单列。
 
-世界低分辨率图没有HK/MO几何，保留单列；Natural Earth无ISO2的CYN/SOL边界不分配猜测国家码，只画原始边界，不放业务计数。UNKNOWN/INTERNAL、未知编码或无geometry来源单列；原始地域排行始终保留。只渲染真实requestCount，与每日来源HLL无关。所有累计用BigInt，超出安全整数时中性边界加精确计数，不给出有误热力值。
+世界低分辨率图没有HK/MO几何，保留单列；Natural Earth无ISO2的CYN/SOL边界不分配猜测国家码，只画原始边界，不放业务计数。UNKNOWN/INTERNAL、未知编码或无geometry来源单列；原始地域排行始终保留。只渲染真实requestCount。所有累计用BigInt，超出安全整数时中性边界加精确计数，不给出有误热力值。
 
 ## 加载与隐私
 

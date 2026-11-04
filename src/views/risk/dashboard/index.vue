@@ -1,111 +1,92 @@
 <script setup lang="ts">
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { Collection, CircleCheck, Warning, WarningFilled, Connection, Grid, List, TrendCharts, Location, DataAnalysis, Refresh, FullScreen, Close, Calendar, Monitor } from "@element-plus/icons-vue";
+import RiskBars from "@/components/risk/RiskBars.vue";
+import type { RiskMapKind } from "@/utils/riskMap";
+import { canonicalRiskRegion } from "@/utils/riskMap";
 import { RouterLink } from "vue-router";
-import { riskConfigPermission } from "@/utils/riskServer";
-import { useAuthStore } from "@/stores/auth";
-import GeoBreakdownPanel from "@/components/risk/GeoBreakdownPanel.vue";
-import GeoServerStatus from "@/components/risk/GeoServerStatus.vue";
-import GeoObservationPanel from "@/components/risk/GeoObservationPanel.vue";
-import { geoObservationSections } from "@/utils/geoObservation";
-import { computed } from "vue";
 import type { EChartsCoreOption } from "echarts/core";
 import BaseChart from "@/components/market/BaseChart.vue";
 import RiskRegionMap from "@/components/risk/RiskRegionMap.vue";
-import RiskDashboardFrame from "@/components/risk/RiskDashboardFrame.vue";
+import GeoBreakdownPanel from "@/components/risk/GeoBreakdownPanel.vue";
+import GeoObservationPanel from "@/components/risk/GeoObservationPanel.vue";
 import { useRiskDashboard } from "@/composables/useRiskDashboard";
-import type { RiskArchive, RiskException, RiskInterface } from "@/types/risk";
-import { riskCount, riskLatency, riskPreset, riskRate, riskRegion, riskRequestTypes } from "@/utils/risk";
-import { riskTime, riskBusinessDate } from "@/utils/riskTime";
+import { useAuthStore } from "@/stores/auth";
+import { riskConfigPermission } from "@/utils/riskServer";
+import { geoObservationSections } from "@/utils/geoObservation";
+import { riskCount, riskPreset, riskRate, riskRegion } from "@/utils/risk";
+import { riskTime } from "@/utils/riskTime";
 import "@/styles/risk.css";
-
-const { drilldown, geoObservation, geoError, geoUpdatedAt, allowed, exceptionAllowed, archiveAllowed, filters, validation, dashboard, acceptedFilters, queryLabel, error, loading, activeTab, pageNum, pageSize, details, detailSnapshot, detailError, detailLoading, refresh, refreshDetails } = useRiskDashboard();
-function preset(days: 1 | 2 | 7) { const [startDate, endDate] = riskPreset(days); filters.value = { ...filters.value, startDate, endDate }; }
-const completenessLabels = { READY: "数据就绪", EMPTY: "范围内无有效请求", PARTIAL: "数据不完整", UNAVAILABLE: "数据不可用" };
-const warningLabels: Record<string, string> = { COLLECTOR_OFFLINE: "采集心跳超时", HEARTBEAT_MISSING: "缺少采集心跳", GEO_UNAVAILABLE: "地域库不可用", QUALITY_ISSUES: "存在数据质量问题" };
-const status = computed(() => dashboard.value ? `${completenessLabels[dashboard.value.metadata.completeness]} · 每10秒刷新（隐藏时暂停）` : loading.value ? "正在读取真实数据" : "尚无成功结果");
-const cards = computed(() => {
-  const data = dashboard.value?.metrics;
-  return [
-    ["请求总数", data ? riskCount(data.requestCount) : "—"], ["API 请求", data ? riskCount(data.apiCount) : "—"],
-    ["HTTP 错误率", data ? riskRate(data.httpErrorRate) : "—"], ["REST P95（近似）", data ? riskLatency(data.restP95Micros, data.restP95Overflow) : "—"],
-    ["SSE 已结束连接", data ? riskCount(data.sseEndedCount) : "—"], ["SSE 时长 P95（近似）", data ? riskLatency(data.sseP95Micros, data.sseP95Overflow) : "—"],
-  ];
-});
-// 图形只承载可安全表示的数值；原始精确计数始终在相邻表格展示。
-const trendSafe = computed(() => dashboard.value?.trend.every((row) => [row.requestCount, row.apiCount, row.httpErrorCount].every((value) => /^\d+$/.test(value) && BigInt(value) <= BigInt(Number.MAX_SAFE_INTEGER))) ?? true);
-const trendOption = computed<EChartsCoreOption>(() => ({
-  animation: false, aria: { enabled: true }, color: ["#39d9ed", "#8ebcff", "#ffb7ae"],
-  tooltip: { trigger: "axis", renderMode: "richText" },
-  grid: { left: 65, right: 20, top: 20, bottom: 55 },
-  xAxis: { type: "category", data: dashboard.value?.trend.map((row) => riskTime(row.minuteAt, "minute")), axisLabel: { color: "#abc7e0", formatter: (value: string) => filters.value.startDate === filters.value.endDate ? value.slice(11) : value.slice(5) } },
-  yAxis: { type: "value", axisLabel: { color: "#abc7e0" } },
-  series: [ ["全部请求", "requestCount"], ["API", "apiCount"], ["HTTP 错误", "httpErrorCount"] ].map(([name, key]) => ({ name, type: "line", showSymbol: dashboard.value?.trend.length === 1, data: trendSafe.value ? dashboard.value?.trend.map((row) => Number(row[key as "requestCount"])) ?? [] : [] })),
-}));
-function distributionOption(rows: { name: string; value: string }[], kind: "pie" | "bar"): EChartsCoreOption | undefined {
-  if (!rows.length || rows.some((row) => !/^\d+$/.test(row.value) || BigInt(row.value) > BigInt(Number.MAX_SAFE_INTEGER))) return undefined;
-  const colors = ["#39d9ed", "#8ebcff", "#c4adff", "#ffd28c", "#ffb7ae", "#a4dac2"];
-  const data = rows.map((row) => ({ name: row.name, value: Number(row.value) }));
-  return kind === "pie" ? { animation: false, aria: { enabled: true }, color: colors, tooltip: { renderMode: "richText" }, series: [{ type: "pie", radius: ["50%", "75%"], label: { show: false }, data }] } : {
-    animation: false, aria: { enabled: true }, color: colors, tooltip: { trigger: "axis", renderMode: "richText" },
-    grid: { left: 60, right: 20, top: 10, bottom: 35 }, xAxis: { type: "value", axisLabel: { color: "#abc7e0" } }, yAxis: { type: "category", data: rows.map((row) => row.name), axisLabel: { color: "#abc7e0" } }, series: [{ type: "bar", data }],
-  };
+const screenRef = ref<HTMLElement>();
+const isFullscreen = ref(false);
+const fullscreenError = ref("");
+function syncFullscreen() { isFullscreen.value = document.fullscreenElement === screenRef.value; }
+async function toggleFullscreen() {
+  fullscreenError.value = "";
+  try {
+    if (document.fullscreenElement === screenRef.value) await document.exitFullscreen();
+    else if (screenRef.value?.requestFullscreen) await screenRef.value.requestFullscreen();
+    else fullscreenError.value = "当前浏览器不支持全屏";
+    syncFullscreen();
+  } catch { fullscreenError.value = "无法进入全屏，请检查浏览器权限"; }
 }
-const typeOption = computed(() => distributionOption(dashboard.value?.requestTypes.map((row) => ({ name: row.requestType, value: row.requestCount })) ?? [], "pie"));
-const statusOption = computed(() => distributionOption(dashboard.value?.statuses.map((row) => ({ name: row.status, value: row.requestCount })) ?? [], "bar"));
-const interfaceRows = computed(() => activeTab.value === "interfaces" ? details.value?.list as RiskInterface[] | undefined : undefined);
-const exceptionRows = computed(() => activeTab.value === "exceptions" && exceptionAllowed.value ? details.value?.list as RiskException[] | undefined : undefined);
-const archiveRows = computed(() => activeTab.value === "archives" && archiveAllowed.value ? details.value?.list as RiskArchive[] | undefined : undefined);
-const regions = computed(() => Array.from(new Set([...(dashboard.value?.regions.map((row) => row.regionCode) ?? []), ...(filters.value.regionCode ? [filters.value.regionCode] : []), "UNKNOWN", "INTERNAL"])));
-const expectedDetail = computed(() => `${activeTab.value}:${JSON.stringify({ ...filters.value, pageNum: pageNum.value, pageSize: pageSize.value })}`);
-const tabAllowed = computed(() => activeTab.value === "interfaces" || (activeTab.value === "exceptions" ? exceptionAllowed.value : archiveAllowed.value));
+function escapeFullscreen(event: KeyboardEvent) { if (event.key === "Escape" && document.fullscreenElement === screenRef.value) void document.exitFullscreen().catch(() => undefined); }
+onMounted(() => { document.addEventListener("fullscreenchange", syncFullscreen); document.addEventListener("keydown", escapeFullscreen); });
+onBeforeUnmount(() => { document.removeEventListener("fullscreenchange", syncFullscreen); document.removeEventListener("keydown", escapeFullscreen); if (document.fullscreenElement === screenRef.value) void document.exitFullscreen().catch(() => undefined); });
+const state = useRiskDashboard();
+const { drawer, filters, dashboard, allowed, validation, error, loading, refresh, drilldown, activeTab, pageNum, pageSize, details, detailError, detailLoading, refreshDetails, exceptionAllowed, geoObservation, geoError, geoUpdatedAt } = state;
+const configAllowed = computed(() => riskConfigPermission(useAuthStore().permissionCodes, "view"));
+function preset(days: 1 | 2 | 7) { const [startDate, endDate] = riskPreset(days); filters.value = { ...filters.value, startDate, endDate }; }
+function openDetail(tab: "interfaces" | "sources" | "exceptions") { activeTab.value = tab; drawer.value = "details"; }
+const mapMessages = ref<string[]>([]);
+const mapKind = ref<RiskMapKind>("china");
+function mapViewChange(kind: RiskMapKind) { mapKind.value = kind; drilldown.clear(); }
+const completenessLabels = { READY: "数据就绪", EMPTY: "范围内无请求", PARTIAL: "数据不完整", UNAVAILABLE: "数据不可用" };
+const cards = computed(() => { const m = dashboard.value?.metrics; return [
+  { label: "请求总量", value: m ? riskCount(m.requestCount) : "—", icon: Collection },
+  { label: "成功请求", value: m ? riskCount(m.successCount) : "—", icon: CircleCheck },
+  { label: "失败请求", value: m ? riskCount(m.failureCount) : "—", icon: Warning, danger: true },
+  { label: "失败率", value: m ? riskRate(m.failureRate) : "—", icon: WarningFilled, danger: true },
+  { label: "来源 IP", value: m ? riskCount(m.sourceCount) : "—", icon: Connection },
+  { label: "接口数", value: m ? riskCount(m.interfaceCount) : "—", icon: Grid },
+]; });
+const statusRows = computed(() => dashboard.value?.statuses.map(row => ({ key: String(row.httpStatus), label: row.httpStatus === 0 ? "未知" : String(row.httpStatus), count: row.requestCount, tone: row.httpStatus >= 400 ? "danger" as const : row.httpStatus < 200 ? "muted" as const : undefined })) ?? []);
+const sourceRows = computed(() => dashboard.value?.topSources.map((row, i) => ({ key: String(i), label: row.sourceIp ?? "未知来源", count: row.requestCount })) ?? []);
+const regionRows = computed(() => dashboard.value?.regions.slice(0, 10).map(row => { const code = canonicalRiskRegion(row.regionCode); const key = mapKind.value === "world" && /^CN-\d{2}$/.test(code) ? "CN" : code; return { key: row.regionCode, label: riskRegion(row.regionCode), count: row.requestCount, selectable: mapKind.value === "china" ? /^CN-\d{2}$/.test(key) : /^[A-Z]{2}$/.test(key) }; }) ?? []);
+function selectRankedRegion(raw: string) { const code = canonicalRiskRegion(raw); drilldown.select(mapKind.value === "world" && /^CN-\d{2}$/.test(code) ? "CN" : code, mapKind.value); }
+const targetStatus = computed(() => { const target = dashboard.value?.serverTarget; return !target?.configured ? "未配置" : target.locationStatus === "LOCATED" ? `${target.alias || "服务器"} · 已定位` : "尚无有效位置"; });
+const safeTrend = computed(() => dashboard.value?.trend.every(r => [r.successCount, r.failureCount].every(v => /^\d+$/.test(v) && BigInt(v) <= BigInt(Number.MAX_SAFE_INTEGER))) ?? true);
+const trendOption = computed<EChartsCoreOption>(() => ({ animation: false, color: ["#18e4ed", "#ff828e"], tooltip: { trigger: "axis", renderMode: "richText", backgroundColor: "#05223d", borderColor: "#2bc5e4", textStyle: { color: "#e5f6ff" } }, grid: { left: 40, right: 12, bottom: 28, top: 18 }, xAxis: { type: "category", boundaryGap: false, data: dashboard.value?.trend.map(r => riskTime(r.minuteAt, "axis", filters.value.startDate !== filters.value.endDate)), axisLine: { lineStyle: { color: "#23617e" } }, axisTick: { show: false }, axisLabel: { color: "#aacde2", fontSize: 11, hideOverlap: true } }, yAxis: { type: "value", splitNumber: 4, axisLabel: { color: "#aacde2", fontSize: 11 }, splitLine: { lineStyle: { color: "#175173", opacity: .55 } } }, series: ([['成功', 'successCount'], ['失败', 'failureCount']] as const).map(([name, key]) => ({ name, type: "line", lineStyle: { width: 2 }, areaStyle: { opacity: .08 }, showSymbol: dashboard.value?.trend.length === 1, data: safeTrend.value ? dashboard.value?.trend.map(r => Number(r[key])) : [] })) }));
+const detailRows = computed(() => details.value?.list.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value === null ? "—" : typeof value === "string" && /Count$/.test(key) ? riskCount(value) : String(value)]))) ?? []);
+const columns = computed(() => activeTab.value === "interfaces" ? [['method','方法'],['pathTemplate','接口'],['requestCount','请求'],['successCount','成功'],['failureCount','失败'],['otherCount','未知/其他'],['failureRate','失败比例'],['sourceCount','IP数']] : activeTab.value === "sources" ? [['sourceIp','来源IP'],['regionCode','地域'],['provinceName','省/一级'],['cityName','城市'],['requestCount','请求'],['successCount','成功'],['failureCount','失败'],['otherCount','未知/其他'],['failureRate','失败比例']] : [['minuteAt','分钟'],['method','方法'],['pathTemplate','接口'],['sourceIp','IP'],['httpStatus','状态'],['regionCode','地域'],['requestCount','请求']]);
 </script>
-
 <template>
-  <p v-if="!allowed" role="alert">无系统风控查看权限（system:risk:view）。</p>
-  <RiskDashboardFrame v-else :status="status">
-    <template #filters>
-      <RouterLink v-if="riskConfigPermission(useAuthStore().permissionCodes, 'view')" to="/risk/server-config">服务器目标配置</RouterLink>
-      <form class="risk-controls" @submit.prevent="refresh">
-        <button type="button" @click="preset(1)">今日</button><button type="button" @click="preset(2)">昨日</button><button type="button" @click="preset(7)">近7日</button>
-        <label>开始日期<input v-model="filters.startDate" type="date"></label><label>结束日期<input v-model="filters.endDate" type="date"></label>
-        <label>地域<select v-model="filters.regionCode"><option :value="undefined">全部地域</option><option v-for="region in regions" :key="region" :value="region">{{ riskRegion(region) }}</option></select></label>
-        <label>请求类型<select v-model="filters.requestType"><option :value="undefined">全部请求</option><option v-for="kind in riskRequestTypes" :key="kind" :value="kind">{{ kind }}</option></select></label>
-        <button type="submit" :disabled="!!validation || loading">{{ loading ? '读取中…' : '刷新数据' }}</button>
-      </form>
-      <p v-if="validation" role="alert">{{ validation }}</p><p v-if="error" class="risk-warning" role="alert">{{ error }}</p>
-      <p v-if="dashboard && acceptedFilters !== queryLabel()" class="risk-warning" role="status">显示上次成功筛选的数据，当前筛选尚未加载成功。</p>
-      <div v-if="dashboard" class="risk-freshness">
-        <span>北京时间 · 数据更新：{{ riskTime(dashboard.metadata.dataUpdatedAt) }}</span><span>生成：{{ riskTime(dashboard.metadata.generatedAt) }}</span><span>心跳：{{ riskTime(dashboard.metadata.collectorHeartbeatAt) }}</span><span>采集延迟：{{ riskCount(dashboard.metadata.lagSeconds) }} 秒</span><span>最后事件：{{ riskTime(dashboard.metadata.lastEventTime) }}</span>
-        <span v-for="warning in dashboard.metadata.warnings" :key="warning" class="risk-warning">{{ warningLabels[warning] ?? warning }}</span>
-      </div>
-      <details class="risk-notes"><summary>统计口径与限制</summary><p>HTTP 错误率为最终400–599状态（不含499）；304正常，499客户端中断单列。上游失败尝试不等同最终HTTP错误。REST P95仅API有效耗时，为直方图分桶近似；SSE连接时长独立统计，结束日志不代表在线人数或消息数。每日来源HLL为估算，跨日不能相加。质量仅按日期过滤，不随地域与类型缩小。</p></details>
+  <main ref="screenRef" class="risk-screen access-screen">
+    <p v-if="!allowed" role="alert">无系统风控查看权限</p>
+    <template v-else>
+      <header class="access-header">
+        <div class="access-brand"><svg class="access-shield" viewBox="0 0 32 36" aria-hidden="true"><path d="M16 2 29 7v10c0 8-6 13-13 17C9 30 3 25 3 17V7Z" /><path d="m10 17 4 4 8-9" /></svg><h1>系统访问态势中心</h1></div>
+        <div class="risk-controls access-filters"><div class="preset-group"><button :aria-pressed="filters.startDate === riskPreset(1)[0] && filters.endDate === riskPreset(1)[1]" @click="preset(1)">今日</button><button :aria-pressed="filters.startDate === riskPreset(2)[0] && filters.endDate === riskPreset(2)[1]" @click="preset(2)">昨日</button><button :aria-pressed="filters.startDate === riskPreset(7)[0] && filters.endDate === riskPreset(7)[1]" @click="preset(7)">近7日</button></div><div class="access-date-range"><Calendar aria-hidden="true" /><label><span class="risk-sr-only">开始日期</span><input aria-label="开始日期" v-model="filters.startDate" type="date"></label><span aria-hidden="true">—</span><label><span class="risk-sr-only">结束日期</span><input aria-label="结束日期" v-model="filters.endDate" type="date"></label></div></div>
+        <span class="access-live" :class="dashboard?.metadata.completeness?.toLowerCase()"><i aria-hidden="true" />{{ dashboard ? completenessLabels[dashboard.metadata.completeness] : '等待数据' }}</span>
+        <div class="access-header-actions"><button type="button" class="icon-button" aria-label="刷新" :disabled="loading || !!validation" @click="refresh"><Refresh aria-hidden="true" /></button><button type="button" class="icon-button" :aria-label="isFullscreen ? '退出整个大屏全屏' : '整个大屏全屏'" @click="toggleFullscreen"><Close v-if="isFullscreen" aria-hidden="true" /><FullScreen v-else aria-hidden="true" /></button></div>
+      </header>
+      <section class="access-kpis"><article v-for="card in cards" :key="card.label" class="panel kpi" :class="{ danger: card.danger }"><component :is="card.icon" class="kpi-icon" aria-hidden="true" /><div><h2>{{ card.label }}</h2><strong :class="{ long: card.value.length > 15, compact: card.value.length > 7 }">{{ card.value }}</strong></div></article></section>
+      <aside class="access-left">
+        <section class="panel ranking"><h2><List aria-hidden="true" />接口请求 TOP 10 <button class="panel-detail" aria-label="查看接口排行明细" @click="openDetail('interfaces')">明细</button></h2><ol class="interface-ranking"><li v-for="(r,i) in dashboard?.topInterfaces" :key="r.method + r.pathTemplate"><span class="risk-rank">{{ i+1 }}</span><span class="method-tag" :class="r.method.toLowerCase()">{{ r.method }}</span><span class="interface-path" :title="r.pathTemplate">{{ r.pathTemplate }}</span><strong>{{ riskCount(r.requestCount) }}</strong></li></ol><p v-if="!dashboard?.topInterfaces.length" class="access-empty">暂无接口数据</p></section>
+        <section class="panel ranking"><h2><Connection aria-hidden="true" />来源 IP TOP 10 <button class="panel-detail" aria-label="查看来源排行明细" @click="openDetail('sources')">明细</button></h2><RiskBars :rows="sourceRows" label="来源 IP 请求排行" ranked /><p v-if="!sourceRows.length" class="access-empty">暂无来源数据</p></section>
+      </aside>
+      <div class="access-map"><RiskRegionMap backdrop :regions="dashboard?.regions ?? []" :server-target="dashboard?.serverTarget" @region-select="drilldown.select" @view-change="mapViewChange" @status-change="mapMessages = $event" /><div class="access-map-caption" aria-hidden="true"><span>低</span><i /><span>高</span><small>地域请求量</small></div></div>
+      <aside class="access-right"><section class="panel trend-panel"><h2><TrendCharts aria-hidden="true" />成功 / 失败趋势</h2><div class="trend-legend"><span>成功</span><span>失败</span></div><BaseChart v-if="dashboard?.trend.length && safeTrend" :option="trendOption" height="100%" accessible-label="成功和失败请求趋势" /><p v-else class="access-empty">{{ safeTrend ? '暂无趋势数据' : '计数超过绘图精度，请查看明细' }}</p></section><section class="panel status-panel"><h2><DataAnalysis aria-hidden="true" />HTTP 状态分布</h2><RiskBars :rows="statusRows" label="HTTP 状态请求分布" /><p v-if="!statusRows.length" class="access-empty">暂无状态数据</p><small class="status-other">未知 / 其他 {{ riskCount(dashboard?.metrics.otherCount) }}</small></section></aside>
+      <section class="access-bottom">
+        <section class="panel"><h2><Location aria-hidden="true" />地域请求排行</h2><RiskBars :rows="regionRows" label="地域请求排行" @select="selectRankedRegion" /><p v-if="!regionRows.length" class="access-empty">暂无地域数据</p></section>
+        <section class="panel"><h2><Grid aria-hidden="true" />城市 / 境外一级行政区</h2><GeoBreakdownPanel compact bars v-if="drilldown.selected.value" :data="drilldown.data.value" :kind="drilldown.accepted.value?.kind ?? drilldown.selected.value.kind" :selected-code="drilldown.accepted.value?.code ?? drilldown.selected.value.code" :loading="drilldown.loading.value" :failed="drilldown.failed.value" :stale="drilldown.stale.value" /><p v-else class="access-empty">点选地图或地域排行查看细分</p></section>
+        <section class="panel access-data-status"><h2><WarningFilled aria-hidden="true" />数据状态</h2><div class="access-alert" role="status"><p v-if="fullscreenError">{{ fullscreenError }}</p><p v-if="validation || error">{{ validation || error }}</p><p v-else-if="dashboard && state.acceptedFilters.value !== state.queryLabel()">显示上次成功筛选结果</p></div><dl><div><dt>数据完整性</dt><dd :class="dashboard?.metadata.completeness === 'READY' ? 'is-ready' : 'is-warning'">{{ dashboard ? completenessLabels[dashboard.metadata.completeness] : '尚无成功数据' }}</dd></div><div><dt>采集延迟</dt><dd>{{ riskCount(dashboard?.metadata.lagSeconds) }} 秒</dd></div><div><dt>服务器目标</dt><dd>{{ targetStatus }}</dd></div></dl><ul class="access-health-messages"><li v-for="message in mapMessages" :key="message"><Warning aria-hidden="true" />{{ message }}</li><li v-for="warning in dashboard?.metadata.warnings" :key="warning"><Warning aria-hidden="true" />{{ warning }}</li></ul></section>
+      </section>
+      <footer class="access-footer"><nav aria-label="访问诊断"><button @click="openDetail('interfaces')"><List aria-hidden="true" />接口明细</button><button @click="openDetail('sources')"><Connection aria-hidden="true" />来源 IP</button><button v-if="exceptionAllowed" @click="openDetail('exceptions')"><Warning aria-hidden="true" />失败请求</button><button @click="drawer = 'geo'; refresh()"><Location aria-hidden="true" />Geo 诊断</button><RouterLink v-if="configAllowed" to="/risk/server-config"><Monitor aria-hidden="true" />服务器配置</RouterLink></nav><span class="access-updated"><Refresh aria-hidden="true" />更新 {{ riskTime(dashboard?.metadata.dataUpdatedAt) }}</span><span class="access-attribution">IP Geolocation by <a href="https://db-ip.com/" target="_blank" rel="noopener noreferrer">DB-IP</a></span></footer>
+      <el-drawer :model-value="!!drawer" :title="drawer === 'geo' ? 'Geo 诊断' : '访问明细'" size="min(100%, 1000px)" @close="drawer = null">
+        <GeoObservationPanel v-if="drawer === 'geo'" :sections="geoObservation ? geoObservationSections(geoObservation) : []" :unavailable="geoError" :stale="geoError && !!geoObservation" :updated-at-text="riskTime(geoUpdatedAt)" />
+        <template v-else><form class="detail-filters" @submit.prevent="refreshDetails"><label v-for="field in (['regionCode','method','pathTemplate','sourceIp'] as const)" :key="field">{{ ({regionCode:'地域编码',method:'方法',pathTemplate:'路径包含',sourceIp:'来源IP'})[field] }}<input v-model="filters[field]"></label><label>HTTP状态<input v-model.number="filters.httpStatus" type="number" min="0" max="599"></label><button :disabled="detailLoading || !!validation">查询</button></form><p v-if="detailError" role="alert">{{ detailError }}</p><p v-if="detailLoading">读取中…</p><p v-if="details && state.detailSnapshot.value !== `${activeTab}:${JSON.stringify({...filters,pageNum,pageSize})}`" role="status">以下为上次成功查询的明细，当前筛选尚未生效。</p><div class="detail-table"><table><thead><tr><th v-for="c in columns" :key="c[0]">{{ c[1] }}</th></tr></thead><tbody><tr v-for="(r,i) in detailRows" :key="i"><td v-for="c in columns" :key="c[0]">{{ r[c[0]!] }}</td></tr></tbody></table></div><p v-if="details && !details.list.length">本页无记录</p><button :disabled="pageNum <= 1 || detailLoading" @click="pageNum--">上一页</button> 第 {{ pageNum }} 页 <button :disabled="!details || pageNum * pageSize >= details.total || detailLoading" @click="pageNum++">下一页</button></template>
+      </el-drawer>
     </template>
-    <template #metrics><article v-for="card in cards" :key="card[0]" class="risk-metric"><h2>{{ card[0] }}</h2><strong>{{ card[1] }}</strong></article></template>
-    <template #interfaces>
-      <ol v-if="dashboard?.topInterfaces.length" class="risk-ranking"><li v-for="(row, index) in dashboard.topInterfaces" :key="`${row.method}:${row.pathTemplate}:${row.requestType}`"><span class="risk-rank">{{ index + 1 }}</span><span>{{ row.method }} {{ row.pathTemplate }} <small>{{ row.requestType }}</small></span><strong>{{ riskCount(row.requestCount) }}</strong></li></ol><p v-else class="risk-muted">{{ dashboard ? '无排行数据' : '尚无成功结果' }}</p>
-    </template>
-    <template #requestTypes><BaseChart v-if="typeOption" :option="typeOption" accessible-label="请求类型占比，精确计数见相邻列表" height="180px" /><ul class="risk-list"><li v-for="row in dashboard?.requestTypes" :key="row.requestType"><button type="button" class="risk-link" @click="filters.requestType = row.requestType">{{ row.requestType }}</button><strong>{{ riskCount(row.requestCount) }}</strong></li></ul><p v-if="!dashboard?.requestTypes.length" class="risk-muted">暂无类型统计</p></template>
-    <template #regions>
-      <RiskRegionMap @view-change="drilldown.clear" @region-select="drilldown.select" :regions="dashboard?.regions ?? []" :server-target="dashboard?.serverTarget"><template #details><p v-if="drilldown.selected.value">当前细分选择：{{ drilldown.selected.value.code }}</p><GeoBreakdownPanel v-if="drilldown.selected.value" :data="drilldown.data.value" :kind="drilldown.accepted.value?.kind ?? drilldown.selected.value.kind" :selected-code="drilldown.accepted.value?.code ?? drilldown.selected.value.code" :loading="drilldown.loading.value" :failed="drilldown.failed.value" :stale="drilldown.stale.value" /></template></RiskRegionMap>
-      <ul class="risk-list"><li v-for="row in dashboard?.regions" :key="row.regionCode"><button type="button" class="risk-link" @click="filters.regionCode = row.regionCode">{{ riskRegion(row.regionCode) }}</button><strong>{{ riskCount(row.requestCount) }}</strong></li></ul>
-      <p v-if="!dashboard?.regions.length" class="risk-muted">暂无地域统计</p>
-
-      <div v-if="dashboard?.geoCoverage"><p>全范围细分覆盖：{{ ({ NOT_COLLECTED: '历史未采集细分', PARTIAL: '混合范围，部分未采集', COLLECTED: '范围内已采集' })[dashboard.geoCoverage.coverage.status] ?? '不支持的覆盖状态' }} · 起点（北京时间）{{ riskTime(dashboard.geoCoverage.coverage.startedAt, 'minute') }}</p><p>已采集 {{ riskCount(dashboard.geoCoverage.coverage.collectedRequestCount) }} / 总量 {{ riskCount(dashboard.geoCoverage.coverage.totalRequestCount) }} · 未采集 {{ riskCount(dashboard.geoCoverage.coverage.uncollectedRequestCount) }}</p><p>国内已采集 {{ riskCount(dashboard.geoCoverage.china.collectedRequestCount) }} · 已识别省 {{ riskCount(dashboard.geoCoverage.china.provinceIdentifiedRequestCount) }} · 省覆盖率 {{ dashboard.geoCoverage.china.provinceCoverageRate === null ? '—（无已采集分母）' : riskRate(dashboard.geoCoverage.china.provinceCoverageRate) }}</p><p>境外已采集 {{ riskCount(dashboard.geoCoverage.foreign.collectedRequestCount) }} · 已识别一级 {{ riskCount(dashboard.geoCoverage.foreign.subdivisionIdentifiedRequestCount) }} · 一级覆盖率 {{ dashboard.geoCoverage.foreign.subdivisionCoverageRate === null ? '—（无已采集分母）' : riskRate(dashboard.geoCoverage.foreign.subdivisionCoverageRate) }}</p><p>国内未知省 {{ riskCount(dashboard.geoCoverage.china.unknownProvinceRequestCount) }} · 境外未知一级 {{ riskCount(dashboard.geoCoverage.foreign.unknownSubdivisionRequestCount) }} · 国家未知 {{ riskCount(dashboard.geoCoverage.unknownCountryRequestCount) }}</p></div><p v-else>尚无V1.2细分覆盖投影，不推断为零或UNKNOWN。</p>
-      <h3>每日来源估算（HLL）</h3><ul class="risk-list"><li v-for="row in dashboard?.dailySources" :key="row.businessDate"><span>{{ riskBusinessDate(row.businessDate) }}</span><strong>≈ {{ riskCount(row.sourceCount) }}</strong></li></ul><p v-if="!dashboard?.dailySources.length" class="risk-muted">无每日来源样本</p><p class="risk-muted">每日独立去重；不同日期不合计。</p>
-    </template>
-    <template #trend><BaseChart v-if="dashboard?.trend.length && trendSafe" :option="trendOption" accessible-label="请求趋势：全部请求、API及HTTP错误，精确数据见下方列表" height="230px" /><p v-else class="risk-muted">{{ trendSafe ? '暂无趋势数据' : '计数超出安全绘图精度，请查看精确数据' }}</p><details v-if="dashboard?.trend.length"><summary>趋势精确数据</summary><div class="risk-table-wrap"><table><thead><tr><th>分钟</th><th>请求</th><th>API</th><th>错误</th></tr></thead><tbody><tr v-for="row in dashboard.trend" :key="row.minuteAt"><td>{{ riskTime(row.minuteAt, "minute") }}</td><td>{{ riskCount(row.requestCount) }}</td><td>{{ riskCount(row.apiCount) }}</td><td>{{ riskCount(row.httpErrorCount) }}</td></tr></tbody></table></div></details></template>
-    <template #statuses><BaseChart v-if="statusOption" :option="statusOption" accessible-label="HTTP状态请求数，精确计数见相邻列表" height="180px" /><ul class="risk-list"><li v-for="row in dashboard?.statuses" :key="row.status"><span>{{ row.status === 'UNKNOWN' ? '未知HTTP状态' : row.status }}</span><strong>{{ riskCount(row.requestCount) }}</strong></li></ul><p v-if="!dashboard?.statuses.length" class="risk-muted">暂无HTTP状态统计</p><p>499 客户端中断：{{ riskCount(dashboard?.metrics.clientAbortCount) }}</p><p>上游失败尝试：{{ riskCount(dashboard?.metrics.upstreamFailureCount) }}</p><p>HTTP 错误数（不含499）：{{ riskCount(dashboard?.metrics.httpErrorCount) }}</p></template>
-    <template #details>
-      <div class="risk-controls" role="group" aria-label="选择明细"><button type="button" :aria-pressed="activeTab === 'interfaces'" @click="activeTab = 'interfaces'; pageNum = 1">接口明细</button><button v-if="exceptionAllowed" type="button" :aria-pressed="activeTab === 'exceptions'" @click="activeTab = 'exceptions'; pageNum = 1">异常汇总</button><button v-if="archiveAllowed" type="button" :aria-pressed="activeTab === 'archives'" @click="activeTab = 'archives'; pageNum = 1">归档批次</button><button type="button" :disabled="detailLoading || !!validation || !tabAllowed" @click="refreshDetails">刷新明细</button></div>
-      <p v-if="!tabAllowed">无当前详情权限，不读取数据。</p><p v-if="detailError" class="risk-warning" role="alert">{{ detailError }}</p><p v-if="detailLoading" role="status">正在读取明细…</p><p v-if="details && detailSnapshot !== expectedDetail" class="risk-warning">以下为上次成功查询的明细，当前筛选尚未生效。</p>
-      <div v-if="tabAllowed && details" class="risk-table-wrap" tabindex="0" aria-label="明细表格，可横向滚动">
-        <table v-if="interfaceRows"><thead><tr><th>方法 / 接口</th><th>类型</th><th>请求</th><th>HTTP错误</th><th>499</th><th>REST P95近似</th><th>SSE时长P95近似</th></tr></thead><tbody><tr v-for="row in interfaceRows" :key="`${row.method}:${row.pathTemplate}:${row.requestType}`"><td>{{ row.method }} {{ row.pathTemplate }}</td><td>{{ row.requestType }}</td><td>{{ riskCount(row.requestCount) }}</td><td>{{ riskCount(row.httpErrorCount) }}</td><td>{{ riskCount(row.clientAbortCount) }}</td><td>{{ riskLatency(row.restP95Micros, row.restP95Overflow) }}</td><td>{{ riskLatency(row.sseP95Micros, row.sseP95Overflow) }}</td></tr></tbody></table>
-        <table v-if="exceptionRows"><thead><tr><th>分钟 / 地域</th><th>类型 / 路径</th><th>状态 / 原因</th><th>次数</th><th>首次 / 最后</th></tr></thead><tbody><tr v-for="row in exceptionRows" :key="row.id"><td>{{ riskTime(row.minuteAt, "minute") }} / {{ riskRegion(row.regionCode) }}</td><td>{{ row.requestType }} / {{ row.pathTemplate }}</td><td>{{ row.status }} / {{ row.reasonCode }}</td><td>{{ riskCount(row.count) }}</td><td>{{ riskTime(row.firstAt) }} / {{ riskTime(row.lastAt) }}</td></tr></tbody></table>
-        <table v-if="archiveRows"><thead><tr><th>日期 / 批次</th><th>状态</th><th>记录</th><th>校验和</th><th>提交 / 清理</th><th>失败分类</th></tr></thead><tbody><tr v-for="row in archiveRows" :key="row.id"><td>{{ riskBusinessDate(row.businessDate) }} / {{ row.batchId }}</td><td>{{ row.state }}</td><td>{{ riskCount(row.recordCount) }}</td><td>{{ row.checksum }}</td><td>{{ riskTime(row.committedAt) }} / {{ riskTime(row.cleanedAt) }}</td><td>{{ row.failureCode ?? '—' }}</td></tr></tbody></table>
-      </div>
-      <p v-if="details?.list.length === 0">本页无记录。</p><p v-else-if="!details && !detailLoading && !detailError">尚无明细成功结果。</p>
-      <div v-if="details && tabAllowed" class="risk-controls"><button type="button" :disabled="pageNum <= 1 || detailLoading" @click="pageNum--">上一页</button><span>第 {{ pageNum }} 页，共 {{ details.total }} 条</span><button type="button" :disabled="pageNum * pageSize >= details.total || detailLoading" @click="pageNum++">下一页</button><label>每页<select v-model.number="pageSize" @change="pageNum = 1"><option :value="10">10</option><option :value="25">25</option><option :value="100">100</option></select></label></div>
-    </template>
-    <template #quality><p class="risk-muted">仅日期范围，独立于地域与类型筛选。</p><ul class="risk-list"><li v-for="row in dashboard?.quality" :key="row.reasonCode"><span>{{ row.reasonCode }}</span><strong>{{ riskCount(row.count) }}</strong></li></ul><p v-if="!dashboard?.quality.length">{{ dashboard ? '无质量计数记录' : '尚无成功结果' }}</p><p v-if="!exceptionAllowed" class="risk-muted">异常详情需独立权限。</p></template>
-    <template #archives><p>IP Geolocation by <a href="https://db-ip.com/" target="_blank" rel="noopener noreferrer">DB-IP</a></p><GeoServerStatus :status="dashboard?.serverTarget?.geoStatus" :manual="dashboard?.serverTarget?.locationSource === 'MANUAL'" /><GeoObservationPanel :sections="geoObservation ? geoObservationSections(geoObservation) : []" :unavailable="geoError" :stale="geoError && !!geoObservation" :updated-at-text="riskTime(geoUpdatedAt)" /><p>缓存与质量观测为Python批次去重IP累计，非当前筛选请求量；超过60秒可能不完整。刷新时间为本页接收时刻。</p><p>归档批次只按日期查询；详情不会在后台定时拉取。{{ archiveAllowed ? '可在明细区选择归档批次查看。' : '归档详情需独立权限。' }}</p></template>
-  </RiskDashboardFrame>
+  </main>
 </template>

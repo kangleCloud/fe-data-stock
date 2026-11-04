@@ -24,7 +24,7 @@ GET `/risk/geo/status`与汇总共用十秒轮询；两者独立失败保留上�
 
 国内城市最高展示精度为城市；境外只展示一级行政区。GET `/risk/geo/cities`追加provinceCode，GET `/risk/geo/subdivisions`追加countryCode。城市码与父省依据运行字典`src/data/geoAdministrativeCities.json`校验；不使用GeoNames ID补码，境外允许已验证的code=null名称型单元。名称安全插值，不做128字符截断。
 
-coverage始终对照整个日期/type/region筛选范围；排行顶层计数及比例使用选中省/国家分母。NOT_COLLECTED、PARTIAL、未知和真实0分别展示；零分母为“—”。COUNTER与GEO_COUNTER不相加，精确计数及一致性校验失败直接报错。切换选择、视图、筛选或权限丢弃迟到响应，同类失败保留带旧选择标记的数据。
+coverage始终对照整个当前筛选范围；排行顶层计数及比例使用选中省/国家分母。NOT_COLLECTED、PARTIAL、未知和真实0分别展示；零分母为“—”。细分从同一统计行投影，精确计数及一致性校验失败直接报错。切换选择、视图、筛选或权限丢弃迟到响应，同类失败保留带旧选择标记的数据。
 
 ## 资产与时间边界
 

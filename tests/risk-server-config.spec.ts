@@ -17,6 +17,24 @@ describe("risk server configuration page", () => {
     const [route] = buildDynamicRoutes([{ routeName: "RiskConfig", path: "/risk/server-config", component: "risk/server-config/index", hidden: false, meta: { menuName: "服务器配置" } }]); expect(route?.meta?.loadError).toBeUndefined();
     const wrapper = render(["system:risk:config:view"]); await flushPromises(); expect(api.getRiskServerConfig).not.toHaveBeenCalled(); expect(wrapper.find("form").exists()).toBe(false);
   });
+  it("uses the admin shell for a root config menu and avoids nesting it under an existing Layout", async () => {
+    const menu = { routeName: "RiskConfig", path: "/risk/server-config", component: "risk/server-config/index", hidden: false, meta: { menuName: "服务器配置" } };
+    const [root] = buildDynamicRoutes([menu]);
+    const rootModule = await (root!.component as () => Promise<unknown>)();
+    expect(rootModule).toEqual(await import("@/components/risk/RiskServerConfigAdmin.vue"));
+    const [directory] = buildDynamicRoutes([{ routeName: "Admin", path: "/admin", component: "Layout", hidden: false, children: [menu], meta: { menuName: "管理" } }]);
+    const nestedModule = await (directory!.children![0]!.component as () => Promise<unknown>)();
+    expect(nestedModule).toEqual(await import("@/views/risk/server-config/index.vue"));
+  });
+  it("keeps the form visible after a successful save", async () => {
+    const wrapper = render(write); await flushPromises();
+    const inputs = wrapper.findAll("input"); await inputs[0]!.setValue("test"); await inputs[1]!.setValue("8.8.8.8");
+    api.saveRiskServerConfig.mockResolvedValue({ ...result, configured: true, version: "1", alias: "test", publicIp: "8.8.8.8" });
+    await wrapper.get("form").trigger("submit"); await flushPromises();
+    expect(wrapper.text()).toContain("配置已保存/更新");
+    expect(wrapper.find("form").exists()).toBe(true);
+    expect(wrapper.find(".risk-screen").exists()).toBe(false);
+  });
   it("renders unconfigured read-only state and hides update actions", async () => {
     const wrapper = render(read); await flushPromises(); expect(wrapper.text()).toContain("未配置"); expect(wrapper.text()).not.toContain("保存配置"); expect(wrapper.findAll("input").every((input) => input.attributes("disabled") !== undefined)).toBe(true);
   });

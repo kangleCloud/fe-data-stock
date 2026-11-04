@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
       </header>
 
       <main id="main-content" class="admin-content" tabindex="-1">
-        <RouteOutlet />
+        <slot><RouteOutlet /></slot>
       </main>
     </div>
   </div>

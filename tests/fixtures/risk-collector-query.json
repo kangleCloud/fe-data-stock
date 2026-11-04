@@ -1,0 +1,331 @@
+{
+  "dashboard" : {
+    "metrics" : {
+      "requestCount" : "12",
+      "failureRate" : "0.300000",
+      "sourceCount" : "4",
+      "successCount" : "7",
+      "otherCount" : "2",
+      "interfaceCount" : "2",
+      "failureCount" : "3"
+    },
+    "trend" : [ {
+      "requestCount" : "1",
+      "successCount" : "0",
+      "otherCount" : "0",
+      "minuteAt" : "2026-11-02T23:59:00.000+08:00",
+      "failureCount" : "1"
+    }, {
+      "requestCount" : "10",
+      "successCount" : "6",
+      "otherCount" : "2",
+      "minuteAt" : "2026-11-03T11:00:00.000+08:00",
+      "failureCount" : "2"
+    }, {
+      "requestCount" : "1",
+      "successCount" : "1",
+      "otherCount" : "0",
+      "minuteAt" : "2026-11-04T00:00:00.000+08:00",
+      "failureCount" : "0"
+    } ],
+    "statuses" : [ {
+      "requestCount" : "1",
+      "httpStatus" : 0
+    }, {
+      "requestCount" : "1",
+      "httpStatus" : 101
+    }, {
+      "requestCount" : "5",
+      "httpStatus" : 200
+    }, {
+      "requestCount" : "1",
+      "httpStatus" : 204
+    }, {
+      "requestCount" : "1",
+      "httpStatus" : 302
+    }, {
+      "requestCount" : "2",
+      "httpStatus" : 499
+    }, {
+      "requestCount" : "1",
+      "httpStatus" : 503
+    } ],
+    "regions" : [ {
+      "requestCount" : "9",
+      "regionCode" : "CN-11"
+    }, {
+      "requestCount" : "2",
+      "regionCode" : "UNKNOWN"
+    }, {
+      "requestCount" : "1",
+      "regionCode" : "INTERNAL"
+    } ],
+    "topInterfaces" : [ {
+      "requestCount" : "11",
+      "failureRate" : "0.333333",
+      "sourceCount" : "4",
+      "method" : "GET",
+      "pathTemplate" : "/api/\u884c\u60c5/\u67e5\u8be2",
+      "successCount" : "6",
+      "otherCount" : "2",
+      "failureCount" : "3"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "sourceCount" : "1",
+      "method" : "GET",
+      "pathTemplate" : "/api/token/{redacted}",
+      "successCount" : "1",
+      "otherCount" : "0",
+      "failureCount" : "0"
+    } ],
+    "topSources" : [ {
+      "requestCount" : "8",
+      "failureRate" : "0.428571",
+      "regionCode" : "CN-11",
+      "sourceIp" : "114.247.50.2",
+      "cityName" : "\u5317\u4eac\u5e02",
+      "countryCode" : "CN",
+      "provinceCode" : "CN-11",
+      "cityCode" : "110000",
+      "successCount" : "4",
+      "otherCount" : "1",
+      "provinceName" : "\u5317\u4eac\u5e02",
+      "failureCount" : "3"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : null,
+      "regionCode" : "UNKNOWN",
+      "sourceIp" : null,
+      "cityName" : null,
+      "countryCode" : null,
+      "provinceCode" : null,
+      "cityCode" : null,
+      "successCount" : "0",
+      "otherCount" : "1",
+      "provinceName" : null,
+      "failureCount" : "0"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "regionCode" : "UNKNOWN",
+      "sourceIp" : "1.1.1.1",
+      "cityName" : null,
+      "countryCode" : null,
+      "provinceCode" : null,
+      "cityCode" : null,
+      "successCount" : "1",
+      "otherCount" : "0",
+      "provinceName" : null,
+      "failureCount" : "0"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "regionCode" : "INTERNAL",
+      "sourceIp" : "192.0.2.1",
+      "cityName" : null,
+      "countryCode" : null,
+      "provinceCode" : null,
+      "cityCode" : null,
+      "successCount" : "1",
+      "otherCount" : "0",
+      "provinceName" : null,
+      "failureCount" : "0"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "regionCode" : "CN-11",
+      "sourceIp" : "2001:4860:4860::8888",
+      "cityName" : "\u5317\u4eac\u5e02",
+      "countryCode" : "CN",
+      "provinceCode" : "CN-11",
+      "cityCode" : "110000",
+      "successCount" : "1",
+      "otherCount" : "0",
+      "provinceName" : "\u5317\u4eac\u5e02",
+      "failureCount" : "0"
+    } ],
+    "geoCoverage" : {
+      "coverage" : {
+        "status" : "COLLECTED",
+        "startedAt" : "2026-11-02T23:59:00.000+08:00",
+        "collectedRequestCount" : "12",
+        "totalRequestCount" : "12",
+        "uncollectedRequestCount" : "0"
+      },
+      "china" : {
+        "collectedRequestCount" : "9",
+        "provinceIdentifiedRequestCount" : "9",
+        "unknownProvinceRequestCount" : "0",
+        "provinceCoverageRate" : "1.000000"
+      },
+      "foreign" : {
+        "collectedRequestCount" : "0",
+        "subdivisionIdentifiedRequestCount" : "0",
+        "unknownSubdivisionRequestCount" : "0",
+        "subdivisionCoverageRate" : null
+      },
+      "unknownCountryRequestCount" : "3"
+    },
+    "serverTarget" : {
+      "configured" : false,
+      "locationStatus" : "UNCONFIGURED",
+      "resolveStatus" : "NOT_ATTEMPTED",
+      "geoStatus" : { },
+      "alias" : null,
+      "locationSource" : null,
+      "resolvedAt" : null,
+      "updatedAt" : null,
+      "regionCode" : null,
+      "longitude" : null,
+      "latitude" : null
+    },
+    "metadata" : {
+      "generatedAt" : "2026-11-04T00:04:13.582+08:00",
+      "dataUpdatedAt" : "2026-11-04T00:04:13.547+08:00",
+      "collectorHeartbeatAt" : "2026-11-04T00:04:13.532+08:00",
+      "lastEventTime" : "2026-11-03T12:00:00.000+08:00",
+      "lagSeconds" : "0",
+      "completeness" : "READY",
+      "warnings" : [ ]
+    }
+  },
+  "interfaces" : {
+    "list" : [ {
+      "requestCount" : "11",
+      "failureRate" : "0.333333",
+      "sourceCount" : "4",
+      "method" : "GET",
+      "pathTemplate" : "/api/\u884c\u60c5/\u67e5\u8be2",
+      "successCount" : "6",
+      "otherCount" : "2",
+      "failureCount" : "3"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "sourceCount" : "1",
+      "method" : "GET",
+      "pathTemplate" : "/api/token/{redacted}",
+      "successCount" : "1",
+      "otherCount" : "0",
+      "failureCount" : "0"
+    } ],
+    "total" : 2
+  },
+  "sources" : {
+    "list" : [ {
+      "requestCount" : "8",
+      "failureRate" : "0.428571",
+      "regionCode" : "CN-11",
+      "sourceIp" : "114.247.50.2",
+      "cityName" : "\u5317\u4eac\u5e02",
+      "countryCode" : "CN",
+      "provinceCode" : "CN-11",
+      "cityCode" : "110000",
+      "successCount" : "4",
+      "otherCount" : "1",
+      "provinceName" : "\u5317\u4eac\u5e02",
+      "failureCount" : "3"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : null,
+      "regionCode" : "UNKNOWN",
+      "sourceIp" : null,
+      "cityName" : null,
+      "countryCode" : null,
+      "provinceCode" : null,
+      "cityCode" : null,
+      "successCount" : "0",
+      "otherCount" : "1",
+      "provinceName" : null,
+      "failureCount" : "0"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "regionCode" : "UNKNOWN",
+      "sourceIp" : "1.1.1.1",
+      "cityName" : null,
+      "countryCode" : null,
+      "provinceCode" : null,
+      "cityCode" : null,
+      "successCount" : "1",
+      "otherCount" : "0",
+      "provinceName" : null,
+      "failureCount" : "0"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "regionCode" : "INTERNAL",
+      "sourceIp" : "192.0.2.1",
+      "cityName" : null,
+      "countryCode" : null,
+      "provinceCode" : null,
+      "cityCode" : null,
+      "successCount" : "1",
+      "otherCount" : "0",
+      "provinceName" : null,
+      "failureCount" : "0"
+    }, {
+      "requestCount" : "1",
+      "failureRate" : "0.000000",
+      "regionCode" : "CN-11",
+      "sourceIp" : "2001:4860:4860::8888",
+      "cityName" : "\u5317\u4eac\u5e02",
+      "countryCode" : "CN",
+      "provinceCode" : "CN-11",
+      "cityCode" : "110000",
+      "successCount" : "1",
+      "otherCount" : "0",
+      "provinceName" : "\u5317\u4eac\u5e02",
+      "failureCount" : "0"
+    } ],
+    "total" : 5
+  },
+  "exceptions" : {
+    "list" : [ {
+      "requestCount" : "1",
+      "regionCode" : "CN-11",
+      "method" : "GET",
+      "sourceIp" : "114.247.50.2",
+      "pathTemplate" : "/api/\u884c\u60c5/\u67e5\u8be2",
+      "httpStatus" : 499,
+      "minuteAt" : "2026-11-03T11:00:00.000+08:00"
+    }, {
+      "requestCount" : "1",
+      "regionCode" : "CN-11",
+      "method" : "GET",
+      "sourceIp" : "114.247.50.2",
+      "pathTemplate" : "/api/\u884c\u60c5/\u67e5\u8be2",
+      "httpStatus" : 503,
+      "minuteAt" : "2026-11-03T11:00:00.000+08:00"
+    }, {
+      "requestCount" : "1",
+      "regionCode" : "CN-11",
+      "method" : "GET",
+      "sourceIp" : "114.247.50.2",
+      "pathTemplate" : "/api/\u884c\u60c5/\u67e5\u8be2",
+      "httpStatus" : 499,
+      "minuteAt" : "2026-11-02T23:59:00.000+08:00"
+    } ],
+    "total" : 3
+  },
+  "cities" : {
+    "provinceCode" : "CN-11",
+    "coverage" : {
+      "status" : "COLLECTED",
+      "startedAt" : "2026-11-02T23:59:00.000+08:00",
+      "collectedRequestCount" : "12",
+      "totalRequestCount" : "12",
+      "uncollectedRequestCount" : "0"
+    },
+    "collectedRequestCount" : "9",
+    "identifiedRequestCount" : "9",
+    "unknownRequestCount" : "0",
+    "coverageRate" : "1.000000",
+    "items" : [ {
+      "cityCode" : "110000",
+      "cityName" : "\u5317\u4eac\u5e02",
+      "requestCount" : "9"
+    } ]
+  }
+}

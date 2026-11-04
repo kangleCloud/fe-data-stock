@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { riskCount, riskLatency, riskPermission, riskPreset, riskRate, shanghaiDate, validateRiskDates } from "@/utils/risk";
+import { riskCount, riskPermission, riskPreset, riskRate, shanghaiDate, validateRiskDates } from "@/utils/risk";
 import { buildDynamicRoutes, menuComponentPaths } from "@/router/dynamic";
 
 describe("risk filters and presentation", () => {
@@ -11,6 +11,8 @@ describe("risk filters and presentation", () => {
     expect(riskPreset(7, now)).toEqual(["2026-10-21", "2026-10-27"]);
   });
   it("rejects invalid, future, reversed and over-31-day ranges", () => {
+    expect(validateRiskDates("2026-08-06", "2026-08-06", "2026-11-03")).toBe("");
+    expect(validateRiskDates("2026-08-05", "2026-08-05", "2026-11-03")).toContain("最近90");
     expect(validateRiskDates("2026-09-27", "2026-10-27", "2026-10-27")).toBe("");
     for (const pair of [["2026-09-26", "2026-10-27"], ["2026-10-27", "2026-10-26"], ["2026-02-30", "2026-10-27"], ["2026-10-27", "2026-10-28"], ["", "2026-10-27"]]) {
       expect(validateRiskDates(pair[0]!, pair[1]!, "2026-10-27")).not.toBe("");
@@ -19,16 +21,13 @@ describe("risk filters and presentation", () => {
   it("preserves long counts and distinguishes unknown, zero and overflow", () => {
     expect(riskCount("9007199254740993")).toBe("9,007,199,254,740,993");
     expect(riskCount("0")).toBe("0"); expect(riskCount(null)).toBe("—");
-    expect(riskLatency(null, true)).toBe("超出分桶上限");
-    expect(riskLatency(null, false)).toBe("无有效样本");
-    expect(riskLatency("9007199254740993", false)).toBe("9007199254740.993 ms");
-    expect(riskRate(null)).toBe("无有效请求"); expect(riskRate("0.001000")).toBe("0.10%");
+    expect(riskRate(null)).toBe("—"); expect(riskRate("0.001000")).toBe("0.10%");
   });
   it("requires AND permissions for restricted detail", () => {
     expect(riskPermission(["system:risk:exception:view"], "exception")).toBe(false);
     expect(riskPermission(["system:risk:view"], "exception")).toBe(false);
     expect(riskPermission(["system:risk:view", "system:risk:exception:view"], "exception")).toBe(true);
-    expect(riskPermission(["**:**:**"], "archive")).toBe(true);
+    expect(riskPermission(["**:**:**"], "exception")).toBe(true);
   });
   it("registers the exact backend component under the dynamic route", async () => {
     expect(menuComponentPaths).toContain("risk/dashboard/index");

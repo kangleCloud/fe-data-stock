@@ -1,22 +1,18 @@
-/** risk-v1-20261027-r1：所有累计指标及微秒保持十进制字符串。 */
+/** 当前API访问统计；整数始终以十进制字符串传输。 */
 export type RiskCount = string;
-export type RiskRequestType = "API" | "STATIC" | "PAGE" | "SSE" | "RISK_INTERNAL" | "OTHER";
-export interface RiskQuery { startDate: string; endDate: string; regionCode?: string; requestType?: RiskRequestType }
+export interface RiskQuery { startDate: string; endDate: string; regionCode?: string; method?: string; pathTemplate?: string; sourceIp?: string; httpStatus?: number }
 export interface RiskPageQuery extends RiskQuery { pageNum: number; pageSize: number }
-export interface RiskLatency { restP95Micros: RiskCount | null; restP95Overflow: boolean; sseP95Micros: RiskCount | null; sseP95Overflow: boolean }
-export interface RiskInterface extends RiskLatency { pathTemplate: string; method: string; requestType: RiskRequestType; requestCount: RiskCount; httpErrorCount: RiskCount; clientAbortCount: RiskCount }
-export interface RiskException { id: string; minuteAt: string; regionCode: string; requestType: RiskRequestType; pathTemplate: string; status: string; reasonCode: string; count: RiskCount; firstAt: string; lastAt: string }
-export interface RiskArchive { id: string; batchId: string; businessDate: string; state: "PENDING" | "COMMITTED" | "CLEANED" | "FAILED"; recordCount: RiskCount; checksum: string; committedAt: string | null; cleanedAt: string | null; failureCode: string | null }
+export interface RiskTotals { requestCount: string; successCount: string; failureCount: string; otherCount: string; failureRate: string | null }
+export interface RiskInterface extends RiskTotals { method: string; pathTemplate: string; sourceCount: string }
+export interface RiskSource extends RiskTotals { sourceIp: string | null; regionCode: string; countryCode: string | null; provinceCode: string | null; provinceName: string | null; cityCode: string | null; cityName: string | null }
+export interface RiskException { minuteAt: string; method: string; pathTemplate: string; sourceIp: string | null; httpStatus: number; regionCode: string; requestCount: string }
 export interface RiskDashboard {
+  metrics: RiskTotals & { sourceCount: string; interfaceCount: string };
+  trend: (Omit<RiskTotals, "failureRate"> & { minuteAt: string })[];
+  statuses: { httpStatus: number; requestCount: string }[];
+  regions: { regionCode: string; requestCount: string }[];
+  topInterfaces: RiskInterface[]; topSources: RiskSource[];
   geoCoverage?: import("@/types/geoDrilldown").DashboardGeoCoverage;
   serverTarget?: import("@/types/riskServer").RiskServerTarget;
-  metrics: RiskLatency & { requestCount: RiskCount; apiCount: RiskCount; httpErrorCount: RiskCount; httpErrorRate: string | null; sseEndedCount: RiskCount; clientAbortCount: RiskCount; upstreamFailureCount: RiskCount };
-  trend: { minuteAt: string; requestCount: RiskCount; apiCount: RiskCount; httpErrorCount: RiskCount }[];
-  dailySources: { businessDate: string; sourceCount: RiskCount; approximate: true }[];
-  regions: { regionCode: string; requestCount: RiskCount }[];
-  requestTypes: { requestType: RiskRequestType; requestCount: RiskCount }[];
-  statuses: { status: string; requestCount: RiskCount }[];
-  topInterfaces: RiskInterface[];
-  quality: { reasonCode: string; count: RiskCount }[];
-  metadata: { generatedAt: string | null; dataUpdatedAt: string | null; collectorHeartbeatAt: string | null; lastEventTime: string | null; lagSeconds: RiskCount | null; completeness: "READY" | "EMPTY" | "PARTIAL" | "UNAVAILABLE"; warnings: string[] };
+  metadata: { generatedAt: string | null; dataUpdatedAt: string | null; collectorHeartbeatAt: string | null; lastEventTime: string | null; lagSeconds: string | null; completeness: "READY" | "EMPTY" | "PARTIAL" | "UNAVAILABLE"; warnings: string[] };
 }

@@ -1,13 +1,6 @@
 import type { RiskDashboard } from "@/types/risk";
-/** 仅离线回归夹具，运行页面不会导入。 */
+/** 合成离线数据；不进入生产包。最终共享响应另按Java冻结文件核对。 */
 export function riskFixture(): RiskDashboard {
-  return {
-    metrics: { requestCount: "9007199254740993", apiCount: "2", httpErrorCount: "1", httpErrorRate: "0.500000", restP95Micros: "2000", restP95Overflow: false, sseP95Micros: "1000000", sseP95Overflow: false, sseEndedCount: "1", clientAbortCount: "1", upstreamFailureCount: "3" },
-    trend: [{ minuteAt: "2026-10-27T00:00:00.000+08:00", requestCount: "9007199254740993", apiCount: "2", httpErrorCount: "1" }],
-    dailySources: [{ businessDate: "2026-10-27", sourceCount: "7", approximate: true }],
-    regions: [{ regionCode: "UNKNOWN", requestCount: "2" }, { regionCode: "INTERNAL", requestCount: "1" }],
-    requestTypes: [{ requestType: "API", requestCount: "2" }], statuses: [{ status: "UNKNOWN", requestCount: "1" }, { status: "499", requestCount: "1" }],
-    topInterfaces: [{ pathTemplate: "/api/<img src=x onerror=alert(1)>", method: "GET", requestType: "API", requestCount: "2", httpErrorCount: "1", clientAbortCount: "0", restP95Micros: "2000", restP95Overflow: false, sseP95Micros: null, sseP95Overflow: false }], quality: [{ reasonCode: "GEO_UNAVAILABLE", count: "2" }],
-    metadata: { generatedAt: "2026-10-27T00:00:00.000+08:00", dataUpdatedAt: null, collectorHeartbeatAt: null, lastEventTime: null, lagSeconds: null, completeness: "PARTIAL", warnings: ["HEARTBEAT_MISSING", "GEO_UNAVAILABLE"] },
-  };
+  const totals = { requestCount: "9007199254740993", successCount: "9007199254740991", failureCount: "1", otherCount: "1", failureRate: "0.000000" };
+  return { metrics: { ...totals, sourceCount: "2", interfaceCount: "1" }, trend: [{ minuteAt: "2026-11-03T12:00:00.000+08:00", ...totals }], statuses: [{ httpStatus: 499, requestCount: "1" }, { httpStatus: 0, requestCount: "1" }], regions: [{ regionCode: "UNKNOWN", requestCount: "2" }, { regionCode: "INTERNAL", requestCount: "1" }], topInterfaces: [{ method: "GET", pathTemplate: "/api/<img src=x>", ...totals, sourceCount: "2" }], topSources: [{ sourceIp: "8.8.8.8", regionCode: "UNKNOWN", countryCode: null, provinceCode: null, provinceName: null, cityCode: null, cityName: null, ...totals }], metadata: { generatedAt: "2026-11-03T12:00:00.000+08:00", dataUpdatedAt: null, collectorHeartbeatAt: null, lastEventTime: null, lagSeconds: null, completeness: "PARTIAL", warnings: ["HEARTBEAT_MISSING"] } };
 }

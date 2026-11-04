@@ -6,7 +6,6 @@ import { useAuthStore } from "@/stores/auth";
 import type { RiskServerConfig, RiskServerSave, RiskLocation } from "@/types/riskServer";
 import { riskConfigPermission, validateRiskServer } from "@/utils/riskServer";
 import { riskTime } from "@/utils/riskTime";
-import "@/styles/risk.css";
 const auth = useAuthStore();
 const readable = computed(() => riskConfigPermission(auth.permissionCodes, "view"));
 const writable = computed(() => riskConfigPermission(auth.permissionCodes, "update"));
@@ -42,12 +41,12 @@ watch([readable, writable], () => { generation++; busy.value = false; config.val
 onBeforeUnmount(() => { disposed = true; generation++; });
 </script>
 <template>
-  <section class="risk-screen risk-server-config" aria-label="风控服务器目标配置">
-    <h1>服务器目标配置</h1><p>北京时间 · 单一服务器目标。人工位置优先，解析失败不会将合法配置当作未保存。来源弧线仅代表筛选期地域请求汇总。</p>
+  <section class="risk-server-config" aria-label="风控服务器目标配置">
+    <h1>服务器目标配置</h1><p>北京时间 · 单一服务器目标。人工位置优先，解析失败不会将合法配置当作未保存。保存后停留在当前配置页面。</p>
     <p v-if="!readable" role="alert">需要 system:risk:view 和 system:risk:config:view 才能读取完整公网IP配置。</p>
     <template v-else>
       <p v-if="error" class="risk-warning" role="alert">{{ error }}</p><p v-if="message" role="status">{{ message }}</p><p v-if="busy" role="status">正在处理…</p>
-      <form class="risk-controls" @submit.prevent="save">
+      <form class="config-form" @submit.prevent="save">
         <label>服务器别名<input v-model="form.alias" :disabled="!writable || busy" maxlength="64" autocomplete="off"></label>
         <label>公网IP<input v-model="form.publicIp" :disabled="!writable || busy" autocomplete="off" spellcheck="false"></label>
         <label><span>使用人工位置</span><input v-model="manual" type="checkbox" :disabled="!writable || busy"></label>
@@ -61,8 +60,19 @@ onBeforeUnmount(() => { disposed = true; generation++; });
   </section>
 </template>
 <style scoped>
-.risk-server-config { padding: 20px; background: #061628; color: #edf6ff; --risk-background: #061628; --risk-panel: #0b2239; --risk-border: #285271; --risk-text: #edf6ff; --risk-muted: #abc7e0; --risk-accent: #39d9ed; }
-.risk-server-config :focus-visible { outline: 2px solid var(--risk-accent); outline-offset: 3px; }
-input[type="checkbox"] { min-height: 20px; height: 20px; width: 20px; margin: 12px; }
-dd { margin: 0 0 12px; overflow-wrap: anywhere; } dt { color: var(--risk-muted); }
+.risk-server-config { padding: 24px; background: var(--el-bg-color); color: var(--el-text-color-primary); border: 1px solid var(--el-border-color-light); border-radius: 8px; }
+h1 { margin: 0 0 12px; font-size: 22px; }
+p { line-height: 1.7; }
+.config-form { display: grid; gap: 18px; max-width: 640px; margin: 24px 0; }
+label { display: grid; gap: 8px; font-size: 14px; }
+input:not([type="checkbox"]) { box-sizing: border-box; width: 100%; min-height: 36px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 8px 12px; background: var(--el-fill-color-blank); color: var(--el-text-color-primary); font: inherit; }
+input[type="checkbox"] { width: 20px; height: 20px; }
+button { min-height: 36px; padding: 8px 16px; border: 1px solid var(--el-border-color); border-radius: 4px; background: var(--el-fill-color-blank); color: var(--el-text-color-primary); cursor: pointer; }
+button[type="submit"] { background: var(--el-color-primary); color: var(--el-color-white); border-color: var(--el-color-primary); }
+button:disabled, input:disabled { cursor: not-allowed; opacity: .6; }
+:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; }
+.risk-warning { color: var(--el-color-danger); }
+dl { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; padding-top: 20px; border-top: 1px solid var(--el-border-color-light); }
+dd { margin: 0; overflow-wrap: anywhere; } dt { color: var(--el-text-color-secondary); }
+@media (max-width: 600px) { .risk-server-config { padding: 16px; } dl { grid-template-columns: 1fr; gap: 8px; } dd { margin-bottom: 8px; } }
 </style>
