@@ -10,6 +10,11 @@ function render(){const w=mount(RiskRegionMap,{props:{regions:[]},global:{stubs:
 beforeEach(()=>{vi.clearAllMocks();mock.available.mockReturnValue(true);mock.load.mockImplementation(async(kind:string)=>({origin:'local',geo:{type:'FeatureCollection',features:[{type:'Feature',properties:{name:kind==='china'?'CN-31':'US',code:kind==='china'?'CN-31':'US',label:'Region'},geometry:{type:'Polygon',coordinates:[[[70,15],[140,15],[140,55],[70,55],[70,15]]]}}]}}));});
 afterEach(()=>wrappers.splice(0).forEach(w=>w.unmount()));
 async function click(w:ReturnType<typeof mount>,text:string){await w.findAll('button').find(b=>b.text()===text)!.trigger('click');await flushPromises();}
+it('does not emit unchanged status when equivalent region data is replaced',async()=>{
+ const w=render();await flushPromises();const before=w.emitted('statusChange')!.length;
+ await w.setProps({regions:[]});await flushPromises();expect(w.emitted('statusChange')).toHaveLength(before);
+ w.getComponent({name:'RiskMap3D'}).vm.$emit('failed','WebGL故障');await flushPromises();expect(w.emitted('statusChange')?.at(-1)?.[0]).toEqual(expect.arrayContaining(['WebGL故障']));
+});
 it('defaults to 3D and falls back on failures without refetching or automatic retry',async()=>{
  const w=render();await flushPromises();const child=w.getComponent({name:'RiskMap3D'});child.vm.$emit('failed','WebGL上下文丢失');await flushPromises();expect(w.find('base-chart-stub').exists()).toBe(true);expect(w.text()).toContain('上下文丢失');expect(mock.load).toHaveBeenCalledTimes(1);
  await w.setProps({regions:[{regionCode:'CN-31',requestCount:'9'}]});expect(w.find('[data-3d]').exists()).toBe(false);

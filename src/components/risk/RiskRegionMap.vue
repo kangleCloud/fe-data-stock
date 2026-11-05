@@ -57,7 +57,9 @@ async function selectMap(next: RiskMapKind) {
 const counts = computed(() => loaded.value ? riskMapCounts(kind.value, props.regions, loaded.value.geo) : undefined);
 const flows = computed(() => loaded.value ? riskFlows(kind.value, props.regions, props.serverTarget, loaded.value.geo) : undefined);
 const messages = computed(() => [modeError.value, state.value === "loading" ? "正在加载地图边界" : state.value === "unavailable" ? "地图暂不可用，统计仍可查看" : "", flows.value?.notice ?? "", counts.value && !counts.value.safe ? "地图计数超出安全精度，显示中性边界" : ""].filter(Boolean));
-watch(messages, value => emit("statusChange", value), { immediate: true });
+watch(messages, (value, previous) => {
+  if (!previous || value.length !== previous.length || value.some((message, index) => message !== previous[index])) emit("statusChange", value);
+}, { immediate: true });
 const option = computed<EChartsCoreOption>(() => {
   const exact = new Map(counts.value?.exact.map((item) => [item.name, item.count]));
   const labels = new Map(loaded.value?.geo.features.map((feature) => [feature.properties.name, feature.properties.label]));
