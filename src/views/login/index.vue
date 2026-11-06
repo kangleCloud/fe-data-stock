@@ -112,11 +112,7 @@ onMounted(refreshCaptcha);
             <span class="login-brand__mark"><TrendCharts /></span>
             <span>Vita Stock</span>
           </div>
-          <p class="login-kicker">SECURITIES DATA OPERATIONS</p>
-          <h1 id="product-title">让每一条证券数据<br />都清晰、可信、可追踪</h1>
-          <p class="login-intro">
-            统一管理数据源、用户权限和服务状态，为后续行情与研究数据工作流提供可靠入口。
-          </p>
+          <h1 id="product-title">证券数据管理</h1>
 
           <div class="data-preview" aria-hidden="true">
             <div class="data-preview__header">
@@ -148,9 +144,7 @@ onMounted(refreshCaptcha);
         <div class="login-card">
           <div class="login-card__icon"><DataAnalysis /></div>
           <header>
-            <p>管理端登录</p>
-            <h2>欢迎回来</h2>
-            <span>请输入账号信息完成身份验证</span>
+            <h2>管理端登录</h2>
           </header>
 
           <el-form

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Plus, Minus, Refresh, FullScreen } from "@element-plus/icons-vue";
+import RiskInfo from "@/components/risk/RiskInfo.vue";
 import type { EChartsCoreOption } from "echarts/core";
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { echarts } from "@/charts/echarts";
@@ -55,6 +56,7 @@ async function selectMap(next: RiskMapKind) {
   } catch { if (!disposed && current === revision) state.value = "unavailable"; }
 }
 const counts = computed(() => loaded.value ? riskMapCounts(kind.value, props.regions, loaded.value.geo) : undefined);
+const showLegend = computed(() => counts.value?.safe && counts.value.exact.some(item => BigInt(item.count) > 0n));
 const flows = computed(() => loaded.value ? riskFlows(kind.value, props.regions, props.serverTarget, loaded.value.geo) : undefined);
 const messages = computed(() => [modeError.value, state.value === "loading" ? "正在加载地图边界" : state.value === "unavailable" ? "地图暂不可用，统计仍可查看" : "", flows.value?.notice ?? "", counts.value && !counts.value.safe ? "地图计数超出安全精度，显示中性边界" : ""].filter(Boolean));
 watch(messages, (value, previous) => {
@@ -89,7 +91,7 @@ onBeforeUnmount(() => { document.removeEventListener("keydown", onEscape); docum
 <template>
   <div ref="mapRoot" class="risk-region-map" :class="{ 'risk-map-expanded': expanded, 'risk-map-backdrop': backdrop }">
     <div class="risk-controls map-scope" role="group" aria-label="地图范围"><button type="button" :aria-pressed="kind === 'china'" @click="selectMap('china')">中国</button><button type="button" :aria-pressed="kind === 'world'" @click="selectMap('world')">世界</button><button type="button" :aria-pressed="mode === '2d'" @click="selectMode('2d')">2D</button><button type="button" :aria-pressed="mode === '3d'" @click="selectMode('3d')">3D</button></div>
-    <div class="risk-controls map-navigation" role="group" aria-label="地图视图操作"><button v-if="!backdrop" type="button" :aria-label="expanded ? '退出地图全屏' : '地图全屏'" @click="toggleFullscreen"><FullScreen aria-hidden="true" /></button><button type="button" aria-label="放大" @click="zoom(1.25)"><Plus aria-hidden="true" /></button><button type="button" aria-label="缩小" @click="zoom(0.8)"><Minus aria-hidden="true" /></button><button type="button" aria-label="复位" @click="resetView"><Refresh aria-hidden="true" /></button></div>
+    <div class="risk-controls map-navigation" role="group" aria-label="地图视图操作"><button v-if="!backdrop" type="button" :aria-label="expanded ? '退出地图全屏' : '地图全屏'" @click="toggleFullscreen"><FullScreen aria-hidden="true" /></button><button type="button" aria-label="放大" title="放大" :disabled="state !== 'ready'" @click="zoom(1.25)"><Plus aria-hidden="true" /></button><button type="button" aria-label="缩小" title="缩小" :disabled="state !== 'ready'" @click="zoom(0.8)"><Minus aria-hidden="true" /></button><button type="button" aria-label="复位" title="复位" :disabled="state !== 'ready'" @click="resetView"><Refresh aria-hidden="true" /></button></div>
 
     <p v-if="modeError && !backdrop" class="risk-mode-error" role="status">{{ modeError }}</p>
     <p v-if="state === 'loading' && !backdrop" role="status">正在加载地图边界…</p>
@@ -97,6 +99,10 @@ onBeforeUnmount(() => { document.removeEventListener("keydown", onEscape); docum
     <template v-if="state === 'ready'">
       <RiskMap3D v-if="mode === '3d' && loaded" ref="camera3d" :key="kind" :asset="loaded" :kind="kind" :regions="regions" :server-target="serverTarget" :camera="cameras[kind]" :height="expanded ? '70vh' : backdrop ? '100%' : '520px'" @region-select="selectRegion" @camera-change="cameras[kind] = $event" @failed="fallback" />
       <BaseChart v-else :interactive-map="true" ref="chartControl" :key="kind" @region-select="selectRegion" :option="option" :accessible-label="`${kind === 'china' ? '中国省级' : '世界国家'}请求数地图；精确数据见下方列表，无定位来源单列`" :height="expanded ? '70vh' : backdrop ? '100%' : '520px'" />
+      <div v-if="backdrop" class="access-map-caption" :class="{ 'is-2d': mode === '2d' }">
+        <template v-if="showLegend"><span>地域请求量</span><span>低</span><i aria-hidden="true" /><span>高</span></template>
+        <RiskInfo label="地图说明">3D 支持拖动旋转、右键平移及滚轮缩放。聚焦后可用方向键、加减键和 0 操作。弧线从来源地域代表点指向金色服务器终点，表示筛选期汇总。</RiskInfo>
+      </div>
       <template v-if="!backdrop">
         <p v-if="flows?.notice" role="status">{{ flows.notice }}</p>
         <p v-if="flows?.target">来源 → 服务器：{{ serverTarget?.alias ?? '服务器' }} · 金色终点标记 · 筛选期请求汇聚。</p>

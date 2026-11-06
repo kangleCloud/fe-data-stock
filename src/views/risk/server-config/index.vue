@@ -42,7 +42,7 @@ onBeforeUnmount(() => { disposed = true; generation++; });
 </script>
 <template>
   <section class="risk-server-config" aria-label="风控服务器目标配置">
-    <h1>服务器目标配置</h1><p>北京时间 · 单一服务器目标。人工位置优先，解析失败不会将合法配置当作未保存。保存后停留在当前配置页面。</p>
+    <h1>服务器目标配置</h1><p>北京时间 · 单一服务器目标。人工位置优先；解析失败不影响合法配置的保存。</p>
     <p v-if="!readable" role="alert">需要 system:risk:view 和 system:risk:config:view 才能读取完整公网IP配置。</p>
     <template v-else>
       <p v-if="error" class="risk-warning" role="alert">{{ error }}</p><p v-if="message" role="status">{{ message }}</p><p v-if="busy" role="status">正在处理…</p>
@@ -54,7 +54,7 @@ onBeforeUnmount(() => { disposed = true; generation++; });
         <button type="button" :disabled="busy" @click="load">重新读取</button><button v-if="writable" type="submit" :disabled="busy">保存配置</button><button v-if="writable" type="button" :disabled="busy || !config?.version" @click="resolve">重新解析已保存IP</button>
       </form>
       <p v-if="!writable">当前只读，更新还需 system:risk:config:update。</p>
-      <p>统一解析由后端完成，只读取本地双源/有效缓存，不调用在线定位；前端不调用第三方定位，不发送访客IP。重新读取会以服务器配置替换当前输入。</p>
+      <p>定位使用本地数据库或有效缓存，不调用在线定位、不发送访客 IP。重新读取会替换当前输入。</p>
       <GeoServerStatus v-if="config" :status="config.geoStatus" :manual="config.locationSource === 'MANUAL'" /><dl v-if="config"><dt>配置状态</dt><dd>{{ config.configured ? '已配置' : '未配置' }}</dd><dt>位置 / 解析状态</dt><dd>{{ config.locationStatus }} / {{ config.resolveStatus }}</dd><dt>位置来源</dt><dd>{{ config.locationSource ?? '—' }}</dd><dt>有效人工位置</dt><dd>{{ locationText(config.manualLocation) }}</dd><dt>解析位置</dt><dd>{{ locationText(config.resolvedLocation) }}</dd><dt>解析失败分类</dt><dd>{{ config.resolveFailureCode ?? '—' }}</dd><dt>解析时间</dt><dd>{{ riskTime(config.resolvedAt) }}</dd><dt>更新时间</dt><dd>{{ riskTime(config.updatedAt) }}</dd></dl>
     </template>
   </section>

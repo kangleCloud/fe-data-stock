@@ -236,9 +236,6 @@ onMounted(loadData);
     <header class="page-heading">
       <div>
         <h1 id="role-page-title" class="page-title">角色管理</h1>
-        <p class="page-description">
-          维护角色标识、状态和数据访问范围。
-        </p>
       </div>
       <el-button
         v-permission="'system:role:add'"

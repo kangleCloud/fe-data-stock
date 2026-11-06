@@ -245,9 +245,6 @@ onMounted(loadData);
     <header class="page-heading">
       <div>
         <h1 id="user-page-title" class="page-title">用户管理</h1>
-        <p class="page-description">
-          管理后台账号、基础资料与启用状态。
-        </p>
       </div>
       <el-button
         v-permission="'system:user:add'"

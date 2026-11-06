@@ -19,6 +19,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import RouteOutlet from "@/layout/components/RouteOutlet.vue";
 import SidebarItem from "@/layout/components/SidebarItem.vue";
+import { navigateMenu } from "@/layout/menuNavigation";
 import { useAuthStore } from "@/stores/auth";
 import { usePermissionStore } from "@/stores/permission";
 
@@ -69,9 +70,7 @@ async function handleLogout(): Promise<void> {
 
 function goToRoute(path: string): void {
   mobileDrawerOpen.value = false;
-  const target = router.getRoutes().find((item) => item.path === path);
-  if (target?.meta.externalUrl) { window.open(target.meta.externalUrl, "_blank", "noopener,noreferrer"); return; }
-  void router.push(path);
+  navigateMenu(router, path);
 }
 
 onMounted(() => {

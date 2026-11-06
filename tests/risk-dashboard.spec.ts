@@ -14,7 +14,7 @@ vi.mock("@/api/geoDrilldown", () => ({ getGeoCities: vi.fn().mockResolvedValue({
 const wrappers: ReturnType<typeof mount>[] = [];
 function render(permissions = ["system:risk:view"]) {
   const pinia = createPinia(); setActivePinia(pinia); useAuthStore().permissionCodes = permissions;
-  const wrapper = mount(RiskDashboard, { global: { plugins: [pinia], stubs: { BaseChart: true, RiskRegionMap: true, ElDrawer: { template: '<div><slot /></div>' }, RouterLink: { template: '<a><slot /></a>' } } } }); wrappers.push(wrapper); return wrapper;
+  const wrapper = mount(RiskDashboard, { global: { plugins: [pinia], stubs: { BaseChart: true, RiskRegionMap: true, ElDrawer: { emits: ["close"], template: '<div><button aria-label="关闭抽屉" @click="$emit(\'close\')">关闭</button><slot /></div>' }, RouterLink: { template: '<a><slot /></a>' } } } }); wrappers.push(wrapper); return wrapper;
 }
 beforeEach(() => {
   vi.mocked(getGeoObservation).mockReset().mockRejectedValue(new Error("offline observation"));
@@ -79,6 +79,23 @@ describe("API access dashboard", () => {
   });
   it("preserves previous summary after failure", async () => { const w = render(); await flushPromises(); api.getRiskDashboard.mockRejectedValue(new Error("offline")); await clickText(w,"昨日"); expect(w.text()).toContain("汇总刷新失败"); expect(w.text()).toContain("9,007,199,254,740,993"); });
   it("keeps exception permission separate and supports source details", async () => { const w=render(["system:risk:view","system:risk:exception:view"]); await flushPromises(); await clickText(w,"失败请求"); expect(api.getRiskExceptions).toHaveBeenCalledTimes(1); await clickText(w,"来源 IP"); expect(api.getRiskSources).toHaveBeenCalledTimes(1); });
+  it("keeps one set of detail entries and clears selection when the drawer closes", async () => {
+    const w = render(["system:risk:view", "system:risk:exception:view"]);
+    await flushPromises();
+    expect(w.findAll(".access-left button")).toHaveLength(0);
+    expect(w.find(".access-live").exists()).toBe(false);
+    const selected = () => w.findAll('.access-footer button[aria-pressed="true"]').map((button) => button.text());
+    expect(selected()).toEqual([]);
+    await clickText(w, "接口明细");
+    expect(selected()).toEqual(["接口明细"]);
+    await clickText(w, "来源 IP");
+    expect(selected()).toEqual(["来源 IP"]);
+    await clickText(w, "Geo 诊断");
+    expect(selected()).toEqual(["Geo 诊断"]);
+    expect(w.find(".access-drawer").exists()).toBe(true);
+    await clickText(w, "关闭抽屉");
+    expect(selected()).toEqual([]);
+  });
   it("fetches Geo only when diagnostics are opened", async () => { vi.mocked(getGeoObservation).mockResolvedValue(geoFixture); const w=render(); await flushPromises(); expect(getGeoObservation).not.toHaveBeenCalled(); await clickText(w,"Geo 诊断"); expect(getGeoObservation).toHaveBeenCalledTimes(1); });
   it("pauses while hidden and resumes when visible", async () => { let visibility: DocumentVisibilityState="visible"; vi.spyOn(document,"visibilityState","get").mockImplementation(()=>visibility); render(); await flushPromises(); visibility="hidden"; document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(30000); expect(api.getRiskDashboard).toHaveBeenCalledTimes(1); visibility="visible"; document.dispatchEvent(new Event("visibilitychange")); await flushPromises(); expect(api.getRiskDashboard).toHaveBeenCalledTimes(2); });
   it("clears private data and stops polling on permission loss", async () => { const w=render(); await flushPromises(); useAuthStore().permissionCodes=[]; await flushPromises(); expect(w.text()).not.toContain("8.8.8.8"); await vi.advanceTimersByTimeAsync(20000); expect(api.getRiskDashboard).toHaveBeenCalledTimes(1); });

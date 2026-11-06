@@ -4,6 +4,19 @@ import Panel from "@/components/risk/GeoBreakdownPanel.vue";
 import type { GeoBreakdown } from "@/types/geoDrilldown";
 function fixture(): GeoBreakdown { return { coverage: { status: "PARTIAL", startedAt: "2026-10-31T00:00:00+08:00", collectedRequestCount: "5", totalRequestCount: "10", uncollectedRequestCount: "5" }, collectedRequestCount: "5", identifiedRequestCount: "3", unknownRequestCount: "2", coverageRate: "0.600000", items: [{ provinceCode: null, provinceName: "Verified subdivision name", requestCount: "9007199254740993" }] }; }
 describe("V1.2 breakdown presentation boundary", () => {
+  it("keeps background refresh quiet while showing loading for first and changed selections", async () => {
+    const wrapper = mount(Panel, { props: { kind: "subdivisions", selectedCode: "US", loading: true } });
+    expect(wrapper.text()).toContain("正在读取细分");
+    await wrapper.setProps({ data: fixture() });
+    expect(wrapper.text()).not.toContain("正在读取细分");
+    expect(wrapper.text()).toContain("Verified subdivision name");
+    await wrapper.setProps({ stale: true });
+    expect(wrapper.text()).toContain("正在读取细分");
+    expect(wrapper.text()).toContain("当前筛选尚未生效");
+    await wrapper.setProps({ loading: false, failed: true });
+    expect(wrapper.text()).toContain("细分读取失败");
+    wrapper.unmount();
+  });
   it("keeps city rows visible in compact mode and moves codes and collection prose out of the card", () => {
     const data = fixture(); data.items = [{ cityCode: "110000", cityName: "北京市", requestCount: "9" }];
     const wrapper = mount(Panel, { props: { kind: "cities", selectedCode: "CN-11", data, compact: true } });

@@ -142,7 +142,7 @@ onMounted(load);
 
 <template>
   <section class="management-page" aria-labelledby="menu-title">
-    <header class="page-heading"><div><h1 id="menu-title" class="page-title">菜单管理</h1><p class="page-description">维护目录、页面与操作权限；分类和导航来自菜单树。</p></div><div class="menu-actions"><el-button v-if="can('add')" :icon="Plus" :disabled="busy" @click="open('DIRECTORY')">新增目录</el-button><el-button v-if="can('add')" type="primary" :icon="Plus" :disabled="busy" @click="open('MENU')">新增菜单</el-button></div></header>
+    <header class="page-heading"><div><h1 id="menu-title" class="page-title">菜单管理</h1></div><div class="menu-actions"><el-button v-if="can('add')" :icon="Plus" :disabled="busy" @click="open('DIRECTORY')">新增目录</el-button><el-button v-if="can('add')" type="primary" :icon="Plus" :disabled="busy" @click="open('MENU')">新增菜单</el-button></div></header>
     <div class="page-panel search-panel">
       <el-form inline label-position="top" @submit.prevent="search">
         <el-form-item label="菜单名称"><el-input v-model.trim="query.menuName" clearable @keyup.enter="search" /></el-form-item>

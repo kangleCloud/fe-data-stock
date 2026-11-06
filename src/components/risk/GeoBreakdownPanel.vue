@@ -11,7 +11,7 @@ const coverageLabels = { NOT_COLLECTED: "历史未采集细分", PARTIAL: "混�
 <template>
   <section aria-label="地域细分排行" :class="{ 'geo-breakdown-compact': compact }">
     <h3 v-if="!compact">{{ selectedCode }} · {{ kind === 'cities' ? '城市 Top 10' : '一级行政区排行' }}</h3>
-    <p v-if="loading" role="status">正在读取细分…</p><p v-if="failed" role="alert">细分读取失败，保留上次成功结果。</p><p v-if="stale">以下为上次成功筛选的结果，当前筛选尚未生效。</p>
+    <p v-if="loading && (!data || stale)" role="status">正在读取细分…</p><p v-if="failed" role="alert">细分读取失败，保留上次成功结果。</p><p v-if="stale">以下为上次成功筛选的结果，当前筛选尚未生效。</p>
     <template v-if="data">
       <template v-if="!compact">
         <p>{{ coverageLabels[data.coverage.status] ?? '不支持的覆盖状态' }} · 采集起点（北京时间）：{{ riskTime(data.coverage.startedAt, 'minute') }}</p>

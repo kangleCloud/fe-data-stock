@@ -63,6 +63,8 @@ TypeScript、Element Plus、Pinia、Vue Router 和 Axios，不引入第二套 UI
 - 界面修改遵循 `.codex/skills/ui-ux-pro-max/` 和
   `design-system/vita-stock-admin/MASTER.md`。
 - 使用现有 CSS Tokens；不引入 Tailwind 或外部字体。
+- 界面只保留帮助用户理解、判断或完成操作的必要文案，去除重复说明和装饰性文字。
+  保留表单标签、操作确认、错误提示及其他操作所需的信息；精简文案时仍须满足可访问性要求。
 - 保证键盘焦点可见、表单标签明确、图标按钮具有可访问名称。
 - 桌面端优先，窄屏必须可操作，表格允许横向滚动。
 - 遵守 `prefers-reduced-motion`，避免无意义动画和大面积高饱和装饰。

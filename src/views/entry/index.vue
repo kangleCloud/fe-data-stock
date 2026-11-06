@@ -21,11 +21,9 @@ import BeianFooter from "@/components/BeianFooter.vue";
 
     <main id="home-main" class="home-main">
       <div class="home-intro">
-        <p class="home-eyebrow">SECURITIES DATA PLATFORM</p>
-        <h1>看清市场脉络，<br />从可信数据开始。</h1>
-        <p class="home-lead">公开查看核心指数、全市场资金、个股与 ETF 监控。每个页面分别标注数据日期、实际采集时间和状态，便于判断信息的时效性。</p>
+        <h1>证券数据平台</h1>
+        <p class="home-lead">数据日期、采集时间和状态以各模块标注为准。</p>
       </div>
-
       <div class="home-options" aria-label="选择入口">
         <RouterLink class="home-option home-option--market" to="/market/overview">
           <span class="home-option__icon"><DataAnalysis /></span>
@@ -62,13 +60,10 @@ import BeianFooter from "@/components/BeianFooter.vue";
           <span class="home-option__copy">
             <small>账户访问</small>
             <strong>进入管理端</strong>
-            <span>登录后使用账户权限范围内的管理功能。</span>
           </span>
           <ArrowRight class="home-option__arrow" />
         </RouterLink>
       </div>
-
-      <p class="home-footnote">页面展示最近可用数据；具体日期、源时间与状态以对应模块标注为准。</p>
     </main>
     <BeianFooter theme="dark" />
   </div>
