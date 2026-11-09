@@ -34,10 +34,10 @@
 
 ```bash
 pnpm install
-pnpm dev
+pnpm dev stock-dashboard
 ```
 
-默认访问地址为 `http://127.0.0.1:5173`。
+开发地址为 `http://127.0.0.1:5173/stock-dashboard/`；也可指定 `admin` 或 `risk-dashboard`。
 
 开发环境的管理接口 `/admin/api` 代理到本地 `vita-admin`，公开行情接口
 `/openapi/api` 代理到本地 `vita-openapi`：
@@ -51,9 +51,9 @@ VITE_OPENAPI_PROXY_TARGET=http://127.0.0.1:19002
 需要本地覆盖时使用 `.env.local` 或 `.env.development.local`，不要把凭据或生产地址
 写入共享环境文件。
 
-生产 API 基址在可跟踪的 `.env.production` 中为 `/stock/admin/api` 和
-`/stock/openapi/api`，具体接口不重复拼接 `/stock`。该前缀用于 API，不表示静态资源
-或 Vue 页面都部署在 `/stock/` 下；路由 history 使用 Vite `BASE_URL`。
+生产 API 基址为 `/admin/api` 和 `/openapi/api`。三个应用使用各自的 URL 前缀；部署参考 [Nginx 示例](deploy/nginx.conf.example)。
+
+产物分别位于 `dist/stock-dashboard`、`dist/admin`、`dist/risk-dashboard`，单模块构建不会清除其他模块。
 
 ## 常用命令
 
@@ -61,7 +61,9 @@ VITE_OPENAPI_PROXY_TARGET=http://127.0.0.1:19002
 pnpm lint
 pnpm type-check
 pnpm test
-pnpm build
+pnpm build:prod stock-dashboard
+pnpm build:prod admin
+pnpm build:prod risk-dashboard
 pnpm preview
 ```
 
@@ -200,7 +202,7 @@ pnpm build
 | 两个配置入口 | 大屏配置管理分别进入股票/ETF 监控管理，沿用各自 view/update/refresh 权限；管理刷新可触发采集，公开 GET 仅读快照 | [股票管理](src/views/system/stockMonitor/index.vue)、[ETF 管理](src/views/system/etfMonitor/index.vue)、[股票 API](src/api/market.ts)、[ETF API](src/api/etf.ts) |
 | ETF 资产配置 | 资料管理单独按 symbol/reportPeriod 同步；行情 patch 缺资产配置时保留既有资料，资料变更通过 resync 读取全量。资金状态 NO_RELIABLE_SOURCE，不估算 | [资料管理](src/views/system/etfProfile/index.vue)、[API](src/api/etf.ts)、[解析](src/utils/etfMonitor.ts) |
 | 菜单与授权 | 既有动态菜单/按钮权限，授权 Map 修改通过 triggerRef(selection) 更新真实 ElTree，保留树实例与交互状态 | [授权抽屉](src/components/MenuGrantDrawer.vue)、[菜单页](src/views/system/sysMenu/index.vue)、[权限存储](src/stores/permission.ts) |
-| 入口与生产前缀 | 首页与登录复用备案页脚；生产 API 为 /stock/admin/api 与 /stock/openapi/api，路由 history 使用 BASE_URL，静态前缀由构建配置决定 | [首页](src/views/entry/index.vue)、[登录](src/views/login/index.vue)、[页脚](src/components/BeianFooter.vue)、[生产环境](.env.production)、[Vite](vite.config.ts) |
+| 入口与生产前缀 | 首页与登录复用备案页脚；生产 API 为 /admin/api 与 /openapi/api，路由 history 使用 BASE_URL，静态前缀由构建配置决定 | [首页](src/views/entry/index.vue)、[登录](src/views/login/index.vue)、[页脚](src/components/BeianFooter.vue)、[生产环境](.env.production)、[Vite](vite.config.ts) |
 
 ### 历史验证记录
 

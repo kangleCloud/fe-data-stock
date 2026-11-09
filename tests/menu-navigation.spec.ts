@@ -11,7 +11,7 @@ it("opens the risk route with the deployment base and preserves other navigation
   await router.push("/");
   const open = vi.spyOn(window, "open").mockImplementation(() => null);
   navigateMenu(router, "/risk/dashboard");
-  expect(open).toHaveBeenCalledWith("/stock/risk/dashboard", "_blank", "noopener,noreferrer");
+  expect(open).toHaveBeenCalledWith("/risk-dashboard/", "_blank", "noopener,noreferrer");
   expect(router.currentRoute.value.path).toBe("/");
   navigateMenu(router, "/external");
   expect(open).toHaveBeenCalledWith("https://example.com/", "_blank", "noopener,noreferrer");

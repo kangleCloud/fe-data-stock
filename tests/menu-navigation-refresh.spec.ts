@@ -30,6 +30,6 @@ describe("live permission navigation", () => {
     window.dispatchEvent(new Event(PERMISSION_DENIED_EVENT)); window.dispatchEvent(new Event(PERMISSION_DENIED_EVENT));
     await flushPromises(); expect(router.currentRoute.value.path).toBe("/system/sysRole"); expect(mocks.info).toHaveBeenCalledTimes(2);
     useAuthStore(pinia).clearSession(); usePermissionStore(pinia).resetRoutes();
-    await router.push("/market/etf-monitor"); expect(router.currentRoute.value.meta.publicAccess).toBe(true); expect(mocks.info).toHaveBeenCalledTimes(2);
+    await router.push("/login"); expect(router.currentRoute.value.path).toBe("/login"); expect(mocks.info).toHaveBeenCalledTimes(2);
   });
 });

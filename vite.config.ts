@@ -9,8 +9,25 @@ import { defineConfig, loadEnv } from "vite";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
+  const moduleName = process.env.STOCK_FRONTEND_MODULE;
+  const modules = ["stock-dashboard", "admin", "risk-dashboard"];
+  if (moduleName && !modules.includes(moduleName)) throw new Error(`未知前端模块: ${moduleName}`);
+
   return {
+    base: moduleName ? `/${moduleName}/` : "/",
+    build: moduleName ? { outDir: `dist/${moduleName}`, emptyOutDir: true } : undefined,
     plugins: [
+      {
+        name: "module-entry",
+        transformIndexHtml: {
+          order: "pre",
+          handler(html) {
+            return moduleName && moduleName !== "admin"
+              ? html.replace("/src/main.ts", `/src/entries/${moduleName}.ts`)
+              : html;
+          },
+        },
+      },
       vue(),
       AutoImport({
         resolvers: [ElementPlusResolver()],

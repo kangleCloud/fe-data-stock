@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import router from "@/router";
+import { router } from "@/entries/stock-dashboard";
 import MarketLayout from "@/layout/MarketLayout.vue";
 import { pinia } from "@/stores";
 import { useAuthStore } from "@/stores/auth";
@@ -27,18 +27,18 @@ describe("public routes", () => {
     expect(wrapper.find('a[href="/market/overview"]').exists()).toBe(true);
     expect(wrapper.find('a[href="/market/stock-monitor"]').exists()).toBe(true);
     expect(wrapper.find('a[href="/market/etf-monitor"]').exists()).toBe(true);
-    expect(wrapper.find('a[href="/login"]').exists()).toBe(true);
+    expect(wrapper.find('a[href="/admin/login"]').exists()).toBe(true);
     expect(wrapper.text()).not.toContain("实时成交");
     wrapper.unmount();
 
     await router.push("/market/overview");
     expect(router.currentRoute.value.path).toBe("/market/overview");
-    expect(router.currentRoute.value.meta.publicAccess).toBe(true);
+
     const layout = mount(MarketLayout, {
       global: { plugins: [pinia, router], stubs: { RouterView: true } },
     });
     expect(layout.find('a[href="/"]').exists()).toBe(true);
-    expect(layout.find('a[href="/login"]').text()).toBe("登录管理端");
+    expect(layout.find('a[href="/admin/login"]').text()).toBe("登录管理端");
     expect(layout.find('a[href="/market/stock-monitor"]').exists()).toBe(true);
     expect(layout.find('a[href="/market/etf-monitor"]').exists()).toBe(true);
     expect(layout.find(".market-user-menu").exists()).toBe(false);
@@ -46,11 +46,11 @@ describe("public routes", () => {
 
     await router.push("/market/stock-monitor");
     expect(router.currentRoute.value.path).toBe("/market/stock-monitor");
-    expect(router.currentRoute.value.meta.publicAccess).toBe(true);
+
 
     await router.push("/market/etf-monitor");
     expect(router.currentRoute.value.path).toBe("/market/etf-monitor");
-    expect(router.currentRoute.value.meta.publicAccess).toBe(true);
+
   });
 
   it("keeps a visitor on the public overview when the admin session expires", async () => {
@@ -71,7 +71,7 @@ describe("public routes", () => {
     });
     expect(layout.find(".back-button").text()).toContain("管理端");
     expect(layout.find(".market-user-menu").exists()).toBe(true);
-    expect(layout.find('a[href="/login"]').exists()).toBe(false);
+    expect(layout.find('a[href="/admin/login"]').exists()).toBe(false);
     layout.unmount();
   });
 });

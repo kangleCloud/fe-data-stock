@@ -2,40 +2,17 @@
 import { ArrowDown, Back, SwitchButton, TrendCharts } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import "element-plus/theme-chalk/el-message-box.css";
-import { computed, ref } from "vue";
-import type { RouteRecordRaw } from "vue-router";
-import { useRouter } from "vue-router";
+import { computed } from "vue";
 
 import { useAuthStore } from "@/stores/auth";
-import { usePermissionStore } from "@/stores/permission";
+import { useScreenPermissionStore } from "@/stores/screenPermission";
 
-const router = useRouter();
 const authStore = useAuthStore();
-const permissionStore = usePermissionStore();
+const permissionStore = useScreenPermissionStore();
 const avatarText = computed(() => authStore.displayName.trim().slice(0, 1).toUpperCase());
-const openingAdmin = ref(false);
 
-function findAdminPath(routes: RouteRecordRaw[]): string {
-  for (const item of routes) {
-    if (item.meta?.hidden || item.path.startsWith("/market")) continue;
-    const childPath = item.children ? findAdminPath(item.children) : "";
-    if (childPath) return childPath;
-    if (item.path && item.path !== "/") return item.path;
-  }
-  return "/403";
-}
-
-async function openAdmin(): Promise<void> {
-  if (openingAdmin.value) return;
-  openingAdmin.value = true;
-  try {
-    await permissionStore.initialize(router);
-    await router.push(findAdminPath(permissionStore.routes));
-  } catch {
-    if (!authStore.isAuthenticated) await router.push("/login");
-  } finally {
-    openingAdmin.value = false;
-  }
+function openAdmin(): void {
+  window.location.assign("/admin/");
 }
 
 async function handleLogout(): Promise<void> {
@@ -46,9 +23,9 @@ async function handleLogout(): Promise<void> {
     customClass: "market-dark-dialog",
   });
   await authStore.logout();
-  permissionStore.resetRoutes();
+  permissionStore.reset();
   ElMessage.success("已安全退出");
-  await router.replace("/login");
+  window.location.assign("/admin/login");
 }
 </script>
 
@@ -77,12 +54,11 @@ async function handleLogout(): Promise<void> {
             v-if="authStore.isAuthenticated"
             class="market-icon-button back-button"
             type="button"
-            :disabled="openingAdmin"
             @click="openAdmin"
           >
             <el-icon><Back /></el-icon><span>管理端</span>
           </button>
-          <RouterLink v-else class="market-icon-button market-login-link" to="/login">登录管理端</RouterLink>
+          <a v-else class="market-icon-button market-login-link" href="/admin/login">登录管理端</a>
           <el-dropdown v-if="authStore.isAuthenticated" trigger="click" popper-class="market-dark-popper">
             <button class="market-user-menu" type="button" aria-label="打开用户菜单">
               <span>{{ avatarText }}</span>

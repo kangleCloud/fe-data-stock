@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { navigateToAdmin } from "@/utils/moduleNavigation";
 import { Refresh, Search, Setting } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -11,7 +12,7 @@ import BaseChart from "@/components/market/BaseChart.vue";
 import { useMonitorReveal } from "@/composables/useMonitorReveal";
 import { useStockMonitorStream } from "@/composables/useStockMonitorStream";
 import { useAuthStore } from "@/stores/auth";
-import { usePermissionStore } from "@/stores/permission";
+import { useScreenPermissionStore } from "@/stores/screenPermission";
 import type { StockMonitorStock } from "@/types/market";
 import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
 import { canAccess } from "@/utils/permission";
@@ -20,7 +21,7 @@ import { isHistoricalStock, stockFundFlowLabel, stockFundFlowMessage } from "@/u
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
-const permissionStore = usePermissionStore();
+const permissionStore = useScreenPermissionStore();
 const { snapshot: dashboard, loading, loadError: errorMessage, manualRefresh: loadDashboard } = useStockMonitorStream();
 const keyword = ref("");
 const highlighted = ref("");
@@ -109,7 +110,7 @@ async function locateStock(): Promise<void> {
 async function initializePermissions(): Promise<void> {
   if (!authStore.isAuthenticated || permissionStore.initialized) return;
   try {
-    await permissionStore.initialize(router);
+    await permissionStore.initialize();
   } catch {
     // 公开行情继续可读；配置入口只在权限加载成功后显示。
   }
@@ -117,8 +118,8 @@ async function initializePermissions(): Promise<void> {
 
 async function openConfig(): Promise<void> {
   if (!canViewConfig.value) return;
-  await permissionStore.initialize(router);
-  await router.push("/system/stockMonitor");
+  await permissionStore.initialize();
+  navigateToAdmin("/system/stockMonitor");
 }
 
 onMounted(async () => {

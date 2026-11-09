@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/stores/auth", () => ({ useAuthStore: () => mocks.auth }));
-vi.mock("@/stores/permission", () => ({ usePermissionStore: () => mocks.permission }));
+vi.mock("@/stores/screenPermission", () => ({ useScreenPermissionStore: () => mocks.permission }));
+vi.mock("@/utils/moduleNavigation", () => ({ navigateToAdmin: mocks.push }));
 vi.mock("vue-router", () => ({
   useRoute: () => ({ query: mocks.query }),
   useRouter: () => ({ replace: mocks.replace, push: mocks.push }),

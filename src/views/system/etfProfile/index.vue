@@ -158,7 +158,7 @@ watch(() => route.query.symbol, (symbol) => {
       <div v-loading="detailLoading" class="etf-detail">
         <template v-if="detail">
           <h2>{{ detail.name }} <small>{{ detail.symbol }}</small></h2>
-          <RouterLink :to="{ path: '/market/etf-monitor', query: { symbol: detail.symbol } }">查看公开行情与价格采样（若已监控）</RouterLink>
+          <a :href="`/stock-dashboard/market/etf-monitor?symbol=${encodeURIComponent(detail.symbol)}`">查看公开行情与价格采样（若已监控）</a>
           <h3>基础资料</h3>
           <p>{{ etfProfileStatus(detail) }} · 采集 {{ formatShanghaiDateTime(detail.updatedAt) }}</p>
           <dl>

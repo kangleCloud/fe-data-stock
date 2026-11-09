@@ -6,8 +6,8 @@ import type {
 import type { BackendRoute } from "@/types/api";
 import { validExternalUrl } from "@/utils/menu";
 
-const viewModules = import.meta.glob<RouteComponent>("../views/**/*.vue");
-export const menuComponentPaths = Object.keys(viewModules).map((key) => key.replace("../views/", "").replace(/\.vue$/, "")).filter((key) => !key.startsWith("error/") && !key.startsWith("login/"));
+const viewModules = import.meta.glob<RouteComponent>(["../views/**/*.vue", "!../views/market/**/*.vue", "!../views/risk/dashboard/index.vue"]);
+export const menuComponentPaths = [...Object.keys(viewModules), "../views/risk/dashboard/index.vue"].map((key) => key.replace("../views/", "").replace(/\.vue$/, "")).filter((key) => !key.startsWith("error/") && !key.startsWith("login/"));
 const DirectoryLayout = () => import("@/layout/DirectoryLayout.vue");
 const AdminLayout = () => import("@/layout/index.vue");
 const MarketLayout = () => import("@/layout/MarketLayout.vue");
@@ -33,6 +33,9 @@ function resolveComponent(componentPath: string, routePath: string, depth: numbe
     return { component: MarketLayout };
   }
 
+  if (routePath === "/risk/dashboard") {
+    return { component: DirectoryLayout };
+  }
   const normalized = componentPath
     .replace(/^\/+/, "")
     .replace(/^views\//, "")

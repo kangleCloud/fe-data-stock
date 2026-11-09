@@ -15,35 +15,7 @@ const staticRoutes: RouteRecordRaw[] = [
   {
     path: "/",
     name: "Root",
-    component: () => import("@/views/entry/index.vue"),
-    meta: { title: "首页", publicAccess: true },
-  },
-  {
-    path: "/market",
-    name: "PublicMarket",
-    component: () => import("@/layout/MarketLayout.vue"),
-    redirect: "/market/overview",
-    meta: { publicAccess: true },
-    children: [
-      {
-        path: "overview",
-        name: "PublicMarketOverview",
-        component: () => import("@/views/market/overview/index.vue"),
-        meta: { title: "市场与资金总览", publicAccess: true },
-      },
-      {
-        path: "stock-monitor",
-        name: "PublicStockMonitor",
-        component: () => import("@/views/market/stockMonitor/index.vue"),
-        meta: { title: "个股监控", publicAccess: true },
-      },
-      {
-        path: "etf-monitor",
-        name: "PublicEtfMonitor",
-        component: () => import("@/views/market/etfMonitor/index.vue"),
-        meta: { title: "ETF 监控", publicAccess: true },
-      },
-    ],
+    redirect: "/login",
   },
   {
     path: "/login",
@@ -73,6 +45,14 @@ const router = createRouter({
 
 let rematchPath: string | null = null;
 router.beforeEach(async (to, from) => {
+  if (to.path === "/risk/dashboard") {
+    window.location.assign(`/risk-dashboard/${to.fullPath.slice(to.path.length)}`);
+    return false;
+  }
+  if (to.path === "/market" || to.path.startsWith("/market/")) {
+    window.location.assign(`/stock-dashboard${to.fullPath}`);
+    return false;
+  }
   if (to.meta.publicAccess) return true;
   const authStore = useAuthStore(pinia);
   const permissionStore = usePermissionStore(pinia);

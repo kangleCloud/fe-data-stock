@@ -92,7 +92,11 @@ async function handleSubmit(): Promise<void> {
         ? route.query.redirect
         : permissionStore.firstPath;
     ElMessage.success("登录成功");
-    await router.replace(redirect);
+    if (redirect === "/risk-dashboard/" || redirect.startsWith("/risk-dashboard/?") || redirect.startsWith("/risk-dashboard/#")) {
+      window.location.assign(redirect);
+    } else {
+      await router.replace(redirect);
+    }
   } catch {
     await refreshCaptcha();
   } finally {

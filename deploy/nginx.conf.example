@@ -1,0 +1,37 @@
+# Example server block locations. Replace roots and upstream addresses for your deployment.
+# Copy dist/<module>/ contents into the corresponding directory.
+location = /admin { return 301 /admin/; }
+location = /stock-dashboard { return 301 /stock-dashboard/; }
+location = /risk-dashboard { return 301 /risk-dashboard/; }
+
+location ^~ /admin/api/ {
+    proxy_pass http://127.0.0.1:19001;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+}
+location ^~ /openapi/api/ {
+    proxy_pass http://127.0.0.1:19002;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+}
+location /admin/ {
+    alias /data/example/admin/;
+    try_files $uri $uri/ /admin/index.html;
+}
+location /stock-dashboard/ {
+    alias /data/example/stock-dashboard/;
+    try_files $uri $uri/ /stock-dashboard/index.html;
+}
+location /risk-dashboard/ {
+    alias /data/example/risk-dashboard/;
+    try_files $uri $uri/ /risk-dashboard/index.html;
+}

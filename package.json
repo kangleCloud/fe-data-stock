@@ -8,13 +8,14 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "pnpm type-check && vite build",
+    "dev": "node scripts/module.mjs dev",
+    "build": "node scripts/module.mjs build",
     "preview": "vite preview",
     "type-check": "vue-tsc --build --force",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:prod": "node scripts/module.mjs build"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",

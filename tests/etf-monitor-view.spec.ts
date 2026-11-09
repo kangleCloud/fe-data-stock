@@ -14,7 +14,8 @@ const permissions = reactive({ initialized: false, initialize: mocks.initialize 
 const snapshot = ref<EtfMonitorDashboard>({ schemaVersion: 1, stateId: null, tradeDate: null, xqEnabled: false, etfs: [] });
 vi.mock("@/charts/echarts", () => ({ echarts: { init: mocks.init } }));
 vi.mock("@/stores/auth", () => ({ useAuthStore: () => auth }));
-vi.mock("@/stores/permission", () => ({ usePermissionStore: () => permissions }));
+vi.mock("@/stores/screenPermission", () => ({ useScreenPermissionStore: () => permissions }));
+vi.mock("@/utils/moduleNavigation", () => ({ navigateToAdmin: mocks.push }));
 vi.mock("vue-router", () => ({ useRoute: () => ({ query: mocks.query }), useRouter: () => ({ push: mocks.push }) }));
 vi.mock("@/composables/useEtfMonitorStream", () => ({ useEtfMonitorStream: () => ({
   snapshot, loading: ref(false), loadError: ref(""), manualRefresh: mocks.refresh,

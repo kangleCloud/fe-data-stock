@@ -15,7 +15,7 @@ import BeianFooter from "@/components/BeianFooter.vue";
         <RouterLink to="/market/overview">市场与资金总览</RouterLink>
         <RouterLink to="/market/stock-monitor">个股监控</RouterLink>
         <RouterLink to="/market/etf-monitor">ETF 监控</RouterLink>
-        <RouterLink to="/login">管理端登录</RouterLink>
+        <a href="/admin/login">管理端登录</a>
       </nav>
     </header>
 
@@ -55,14 +55,14 @@ import BeianFooter from "@/components/BeianFooter.vue";
           <ArrowRight class="home-option__arrow" />
         </RouterLink>
 
-        <RouterLink class="home-option home-option--admin" to="/login">
+        <a class="home-option home-option--admin" href="/admin/login">
           <span class="home-option__icon"><Lock /></span>
           <span class="home-option__copy">
             <small>账户访问</small>
             <strong>进入管理端</strong>
           </span>
           <ArrowRight class="home-option__arrow" />
-        </RouterLink>
+        </a>
       </div>
     </main>
     <BeianFooter theme="dark" />

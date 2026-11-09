@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { navigateToAdmin } from "@/utils/moduleNavigation";
 import { Refresh, Search, Setting } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 import { buildCollectedPriceOption } from "@/charts/marketOptions";
 import EtfQuoteTips from "@/components/market/EtfQuoteTips.vue";
@@ -10,7 +11,7 @@ import BaseChart from "@/components/market/BaseChart.vue";
 import { useMonitorReveal } from "@/composables/useMonitorReveal";
 import { useEtfMonitorStream } from "@/composables/useEtfMonitorStream";
 import { useAuthStore } from "@/stores/auth";
-import { usePermissionStore } from "@/stores/permission";
+import { useScreenPermissionStore } from "@/stores/screenPermission";
 import { canAccess } from "@/utils/permission";
 import type { EtfMonitorItem } from "@/types/etf";
 import { formatAmount, formatPercent, formatPlainNumber, valueTone } from "@/utils/market";
@@ -19,16 +20,15 @@ import { etfAllocationMessage } from "@/utils/etfMonitor";
 import { shanghaiToday } from "@/utils/stockMonitor";
 
 const route = useRoute();
-const router = useRouter();
 const auth = useAuthStore();
-const permissions = usePermissionStore();
+const permissions = useScreenPermissionStore();
 const configOpening = ref(false);
 const canViewConfig = computed(() => auth.isAuthenticated && permissions.initialized &&
   canAccess(auth.permissionCodes, "system:etf-monitor:view"));
 
 async function initializePermissions(): Promise<void> {
   if (!auth.isAuthenticated || permissions.initialized) return;
-  try { await permissions.initialize(router); }
+  try { await permissions.initialize(); }
   catch { /* 公开快照继续可读，权限未加载时隐藏配置入口。 */ }
 }
 
@@ -36,8 +36,8 @@ async function openConfig(): Promise<void> {
   if (!canViewConfig.value || configOpening.value) return;
   configOpening.value = true;
   try {
-    await permissions.initialize(router);
-    await router.push("/system/etfMonitor");
+    await permissions.initialize();
+    navigateToAdmin("/system/etfMonitor");
   } catch { ElMessage.error("配置页面暂不可用，请稍后重试"); }
   finally { configOpening.value = false; }
 }
