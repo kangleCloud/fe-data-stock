@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { riskFlows } from "@/utils/riskFlows";
@@ -9,8 +9,11 @@ const geo = (kind: "china" | "world") => validateRiskGeo(kind, JSON.parse(readFi
 const target: RiskServerTarget = { configured: true, alias: "目标", regionCode: "CN-31", longitude: "121.47", latitude: "31.23", locationSource: "MANUAL", locationStatus: "LOCATED", resolveStatus: "NOT_ATTEMPTED", resolvedAt: null, updatedAt: null };
 describe("risk target flows", () => {
   it("uses the same auditable shared asset bytes with valid finite decimal coordinates", () => {
-    const local = readFileSync("src/data/risk-region-centers.json"); expect(local.equals(readFileSync("../docs/risk-region-centers.json"))).toBe(true);
-    expect(createHash("sha256").update(local).digest("hex")).toBe("59dc9673418dc73a2af05239875a96a06610ef06bc8a64b802b99b81060fa6f2");
+    const local = readFileSync("src/data/risk-region-centers.json"); const sha = "59dc9673418dc73a2af05239875a96a06610ef06bc8a64b802b99b81060fa6f2";
+    expect(createHash("sha256").update(local).digest("hex")).toBe(sha);
+    expect(readFileSync("docs/risk-region-centers.md", "utf8")).toContain(sha);
+    // 单仓库 worktree 没有上层 monorepo 的同字节副本；存在时仍执行逐字节核对。
+    if (existsSync("../docs/risk-region-centers.json")) expect(local.equals(readFileSync("../docs/risk-region-centers.json"))).toBe(true);
     const asset = JSON.parse(local.toString()); expect(Object.keys(asset.regions)).toHaveLength(208); expect(asset.regions.CN).toBeDefined();
     for (const point of Object.values(asset.regions) as { longitude: string; latitude: string }[]) { expect(point.longitude).toMatch(/^-?\d+\.\d{6}$/); expect(Math.abs(Number(point.longitude))).toBeLessThanOrEqual(180); expect(Math.abs(Number(point.latitude))).toBeLessThanOrEqual(90); }
   });

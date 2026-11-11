@@ -1,5 +1,7 @@
 # 访问地图 3D 实施与验证（2026-11-04）
 
+> 历史验收记录：本文描述已移除的 `echarts-gl` WebGL 实现。当前固定视角地图见 [risk-map-fixed-view.md](risk-map-fixed-view.md)。
+
 本次只修改前端地图渲染、依赖及其测试。`echarts-gl` 精确锁定 `2.1.0`，ECharts 保留 `^6.1.0`、Vite 保留 `^8.1.5`。[官方 2.1.0 发布说明](https://github.com/ecomfe/echarts-gl/releases/tag/2.1.0) 包含 ECharts 6 兼容修复。本机生产构建与真实 WebGL 渲染通过，无需降低全站 ECharts 版本。
 
 ## 实现
