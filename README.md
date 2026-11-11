@@ -39,6 +39,10 @@ pnpm dev stock-dashboard
 
 开发地址为 `http://127.0.0.1:5173/stock-dashboard/`；也可指定 `admin` 或 `risk-dashboard`。
 
+需要在管理端、风控大屏和行情大屏之间跳转时，使用 `pnpm dev all` 同时启动三个模块，再从 `http://127.0.0.1:5173/admin/` 进入。联合模式使用 5173、5174、5175 端口；如端口被占用，请先停止占用端口的服务。通过同一入口访问，登录状态和跨模块跳转保持同源。
+
+也可用 `STOCK_DEV_PORT_BASE=15173 pnpm dev all` 指定连续三个端口，此时从 `http://127.0.0.1:15173/admin/` 进入。
+
 开发环境的管理接口 `/admin/api` 代理到本地 `vita-admin`，公开行情接口
 `/openapi/api` 代理到本地 `vita-openapi`：
 

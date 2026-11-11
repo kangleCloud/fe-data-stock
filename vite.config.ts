@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => {
   const moduleName = process.env.STOCK_FRONTEND_MODULE;
   const modules = ["stock-dashboard", "admin", "risk-dashboard"];
   if (moduleName && !modules.includes(moduleName)) throw new Error(`未知前端模块: ${moduleName}`);
+  const allDev = mode === "development" && process.env.STOCK_DEV_ALL === "1";
+  const devPort = Number(process.env.STOCK_DEV_PORT_BASE || 5173);
+  if (allDev && (!Number.isInteger(devPort) || devPort < 1024 || devPort > 65533)) throw new Error("STOCK_DEV_PORT_BASE 必须为 1024 至 65533 的整数");
+  const devPorts: Record<string, number> = { admin: devPort, "risk-dashboard": devPort + 1, "stock-dashboard": devPort + 2 };
 
   return {
     base: moduleName ? `/${moduleName}/` : "/",
@@ -46,7 +50,8 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: "127.0.0.1",
-      port: 5173,
+      port: allDev && moduleName ? devPorts[moduleName] : 5173,
+      strictPort: allDev,
       proxy: {
         "/admin/api": {
           target: env.VITE_API_PROXY_TARGET || "http://127.0.0.1:19001",
@@ -56,6 +61,9 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_OPENAPI_PROXY_TARGET || "http://127.0.0.1:19002",
           changeOrigin: true,
         },
+        ...(allDev ? Object.fromEntries(modules.filter((name) => name !== moduleName).map((name) => [
+          `/${name}/`, { target: `http://127.0.0.1:${devPorts[name]}`, ws: true },
+        ])) : {}),
       },
     },
     test: {
