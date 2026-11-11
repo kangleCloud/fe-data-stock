@@ -53,6 +53,8 @@ VITE_OPENAPI_PROXY_TARGET=http://127.0.0.1:19002
 
 生产 API 基址为 `/admin/api` 和 `/openapi/api`。三个应用使用各自的 URL 前缀；部署参考 [Nginx 示例](deploy/nginx.conf.example)。
 
+将示例配置加入处理 `kangle.cloud` 请求的 server 块后，访问域名根路径会重定向到 `/stock-dashboard/`，查询参数会保留。`absolute_redirect off` 使 Nginx 返回相对跳转地址，避免反向代理后的内部端口出现在浏览器地址栏中。部署时替换示例目录及上游地址，执行 `nginx -t` 并重新加载配置，再用 `curl -I 'https://kangle.cloud/?test=1'` 检查 `Location` 指向 `/stock-dashboard/?test=1`。
+
 产物分别位于 `dist/stock-dashboard`、`dist/admin`、`dist/risk-dashboard`，单模块构建不会清除其他模块。
 
 ## 常用命令

@@ -1,5 +1,8 @@
-# Example server block locations. Replace roots and upstream addresses for your deployment.
+# Include these locations in the HTTPS server block for kangle.cloud.
+# Replace roots and upstream addresses for your deployment.
 # Copy dist/<module>/ contents into the corresponding directory.
+absolute_redirect off;
+location = / { return 301 /stock-dashboard/$is_args$args; }
 location = /admin { return 301 /admin/; }
 location = /stock-dashboard { return 301 /stock-dashboard/; }
 location = /risk-dashboard { return 301 /risk-dashboard/; }
