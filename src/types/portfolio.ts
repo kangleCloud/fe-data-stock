@@ -1,57 +1,57 @@
 import type { EntityId, PageQuery } from "@/types/api";
+
 export type Decimal = string;
 export type AssetType = "STOCK" | "ETF";
-export type SnapshotOperation = "INITIAL" | "BUY" | "SELL" | "ADJUST";
+
 export interface PortfolioPosition {
   id: EntityId;
   assetType: AssetType;
   dictionaryId: EntityId;
   symbol: string;
   nameSnapshot: string;
-  currentQuantity: number;
-  totalCost: Decimal | null;
-  marketValue: Decimal | null;
-  snapshotAt: string | null;
+  quantity: number;
+  totalCost: Decimal;
+  marketValue: Decimal;
+  tradeDate: string;
   averageCost: Decimal | null;
   referencePrice: Decimal | null;
-  unrealizedPnl: Decimal | null;
+  unrealizedPnl: Decimal;
   unrealizedRate: Decimal | null;
-  version: number;
   remark?: string | null;
-  snapshotComplete: boolean;
 }
-export interface PortfolioSnapshot {
+
+export interface PortfolioDaily {
   id: EntityId;
   positionId: EntityId;
-  snapshotAt: string;
-  operationType: SnapshotOperation;
+  tradeDate: string;
   quantity: number;
   marketValue: Decimal;
   totalCost: Decimal;
-  unrealizedPnl: Decimal;
-  unrealizedRate: Decimal | null;
   averageCost: Decimal | null;
   referencePrice: Decimal | null;
+  unrealizedPnl: Decimal;
+  unrealizedRate: Decimal | null;
   remark?: string | null;
 }
-export interface SnapshotInput {
+
+export interface PortfolioDailyInput {
   positionId?: EntityId;
-  expectedVersion?: number;
   assetType?: AssetType;
   dictionaryId?: EntityId;
-  snapshotAt: string;
-  operationType: SnapshotOperation;
+  tradeDate: string;
   quantity: number;
   marketValue: Decimal;
   totalCost: Decimal;
   remark?: string;
 }
+
 export interface PortfolioQuery extends Partial<PageQuery> {
   keyword?: string;
   assetType?: string;
   positionId?: EntityId;
   holdingOnly?: boolean;
 }
+
 export interface PortfolioInstrument {
   id: EntityId;
   assetType: AssetType;
@@ -60,6 +60,7 @@ export interface PortfolioInstrument {
   name: string;
   market: string;
 }
+
 export interface PortfolioAudit {
   id: EntityId;
   operation: string;
@@ -69,19 +70,20 @@ export interface PortfolioAudit {
   beforeData: string | null;
   afterData: string | null;
 }
-export interface PortfolioPositionAnalysis {
+
+export interface PortfolioPositionDetail {
   position: PortfolioPosition;
-  snapshots: PortfolioSnapshot[];
+  records: PortfolioDaily[];
 }
+
 export interface PortfolioSummary {
   positionCount: number;
   holdingCount: number;
-  completePositionCount: number;
-  pendingPositionCount: number;
-  totalCost: Decimal | null;
-  totalMarketValue: Decimal | null;
-  totalUnrealizedPnl: Decimal | null;
+  totalCost: Decimal;
+  totalMarketValue: Decimal;
+  totalUnrealizedPnl: Decimal;
 }
+
 export interface PortfolioDashboard extends PortfolioSummary {
   categories: Array<PortfolioSummary & { assetType: AssetType; name: string }>;
   positions: PortfolioPosition[];
