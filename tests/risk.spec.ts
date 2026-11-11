@@ -3,6 +3,15 @@ import { riskCount, riskPermission, riskPreset, riskRate, shanghaiDate, validate
 import { buildDynamicRoutes, menuComponentPaths } from "@/router/dynamic";
 
 describe("risk filters and presentation", () => {
+  it("groups the dashboard and server configuration under the risk directory", () => {
+    const [directory] = buildDynamicRoutes([{ routeName: "SystemRiskDirectory", path: "/risk", component: "Layout", hidden: false, meta: { menuName: "系统风控" }, children: [
+      { routeName: "SystemRisk", path: "/risk/dashboard", component: "risk/dashboard/index", hidden: false, meta: { menuName: "系统风控大屏" } },
+      { routeName: "RiskServerConfig", path: "/risk/server-config", component: "risk/server-config/index", hidden: false, meta: { menuName: "风控服务器配置" } },
+    ] }]);
+    expect(directory?.meta?.directory).toBe(true);
+    expect(directory?.children?.map(child => child.meta?.title)).toEqual(["系统风控大屏", "风控服务器配置"]);
+    expect(directory?.children?.map(child => child.meta?.loadError)).toEqual([undefined, undefined]);
+  });
   it("uses Shanghai midnight and expands presets to inclusive dates", () => {
     const now = new Date("2026-10-26T16:00:00Z");
     expect(shanghaiDate(now)).toBe("2026-10-27");
