@@ -58,3 +58,6 @@ Desktop.ini
 *.bak
 *.orig
 *~
+
+# Local agent execution logs
+.agent-logs/

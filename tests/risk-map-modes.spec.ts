@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RiskRegionMap from "@/components/risk/RiskRegionMap.vue";
 
 const mock = vi.hoisted(() => ({ load: vi.fn(), stop: vi.fn(), registerMap: vi.fn() }));
+const webgl = vi.hoisted(() => ({ supported: false }));
 vi.mock("@/charts/echarts", () => ({ echarts: { registerMap: mock.registerMap } }));
 vi.mock("@/utils/riskMap", async (original) => ({
   ...await original<typeof import("@/utils/riskMap")>(),
   createRiskMapLoader: () => ({ load: mock.load, stop: mock.stop }),
 }));
+vi.mock("@/utils/riskWebGL", () => ({ canRiskWebGL: () => webgl.supported }));
 
 const target = { configured: true, alias: "target", regionCode: "CN-31", longitude: "121.47", latitude: "31.23", locationSource: "MANUAL" as const, locationStatus: "LOCATED" as const, resolveStatus: "NOT_ATTEMPTED" as const, resolvedAt: null, updatedAt: null };
 const wrappers: ReturnType<typeof mount>[] = [];
@@ -16,6 +18,12 @@ const RiskMapCanvasStub = {
   props: ["option", "accessibleLabel", "kind", "height"],
   emits: ["regionSelect"],
   template: "<div data-map-canvas />",
+};
+const RiskMap3DStub = {
+  name: "RiskMap3D",
+  props: ["kind", "mapName", "geo", "counts", "flows", "camera", "detail", "reducedMotion", "serverTarget", "height"],
+  emits: ["regionSelect", "cameraChange", "failed"],
+  template: "<div data-map-3d />",
 };
 
 function asset(kind: string) {
@@ -35,7 +43,7 @@ function asset(kind: string) {
 function render(regions = [{ regionCode: "CN-44", requestCount: "9" }]) {
   const wrapper = mount(RiskRegionMap, {
     props: { regions, serverTarget: target },
-    global: { stubs: { RiskMapCanvas: RiskMapCanvasStub } },
+    global: { stubs: { RiskMapCanvas: RiskMapCanvasStub, RiskMap3D: RiskMap3DStub } },
   });
   wrappers.push(wrapper);
   return wrapper;
@@ -56,6 +64,7 @@ async function click(wrapper: ReturnType<typeof mount>, label: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  webgl.supported = false;
   mock.load.mockImplementation(async (kind: string) => asset(kind));
 });
 afterEach(() => { wrappers.splice(0).forEach((wrapper) => wrapper.unmount()); vi.unstubAllGlobals(); });
@@ -92,15 +101,44 @@ describe("fixed-view map controls", () => {
   });
 
   it("switches 2D/3D without losing zoom or emitting WebGL fallback messages", async () => {
+    webgl.supported = true;
     const wrapper = render();
     await flushPromises();
+    expect(wrapper.find(".stage-3d").exists()).toBe(true);
+    await click(wrapper, "2D");
     await click(wrapper, "放大");
     const before = wrapper.emitted("statusChange")?.length ?? 0;
-    await click(wrapper, "2D");
     await click(wrapper, "3D");
+    expect(wrapper.find(".stage-3d").exists()).toBe(true);
+    await click(wrapper, "2D");
     expect(option(wrapper).geo[0]!.zoom).toBe(1.25);
     expect((wrapper.emitted("statusChange")?.length ?? 0)).toBe(before);
     expect(wrapper.text()).not.toContain("WebGL");
+  });
+
+  it("keeps zoom and reports a retryable fallback when WebGL is unavailable", async () => {
+    const wrapper = render();
+    await flushPromises();
+    await click(wrapper, "放大");
+    await click(wrapper, "3D");
+    expect(option(wrapper).geo[0]!.zoom).toBe(1.25);
+    expect(wrapper.find(".stage-2d").exists()).toBe(true);
+    expect(wrapper.text()).toContain("当前浏览器不支持 WebGL");
+    expect(wrapper.emitted("statusChange")?.at(-1)?.[0]).toEqual(["当前浏览器不支持 WebGL，已使用二维地图"]);
+    await click(wrapper, "重试三维");
+    expect(wrapper.find(".stage-2d").exists()).toBe(true);
+    expect(wrapper.text()).toContain("当前浏览器不支持 WebGL");
+  });
+
+  it("falls back to 2D when the 3D renderer reports a lost context", async () => {
+    webgl.supported = true;
+    const wrapper = render();
+    await flushPromises();
+    expect(wrapper.find(".stage-3d").exists()).toBe(true);
+    wrapper.getComponent({ name: "RiskMap3D" }).vm.$emit("failed", "WebGL 上下文丢失，已切回二维地图");
+    await flushPromises();
+    expect(wrapper.find(".stage-2d").exists()).toBe(true);
+    expect(wrapper.text()).toContain("WebGL 上下文丢失");
   });
 
   it("keeps static flying lines when the system requests reduced motion", async () => {

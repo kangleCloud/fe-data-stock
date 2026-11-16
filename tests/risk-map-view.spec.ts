@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { defaultRiskMapView, normalizeRiskMapView, riskMapGeoCenter, riskMapViewKey, zoomRiskMapView } from "@/utils/riskMapView";
+import { defaultRiskMapView, normalizeRiskMapView, riskMapFeatureBounds, riskMapFeatureCenter, riskMapGeoCenter, riskMapViewKey, zoomRiskMapView } from "@/utils/riskMapView";
 
 it("clamps zoom and pan offsets without inventing map data", () => {
   expect(normalizeRiskMapView({ zoom: 99, offset: [240, -120] })).toEqual({ zoom: 8, offset: [180, -90] });
@@ -35,4 +35,7 @@ it("anchors the default view at the real geometry center and falls back safely",
   expect(riskMapGeoCenter(geo)).toEqual([104, 36]);
   expect(riskMapGeoCenter(geo)).toBe(riskMapGeoCenter(geo));
   expect(riskMapGeoCenter({ type: "FeatureCollection", features: [] })).toEqual([0, 0]);
+  expect(riskMapFeatureBounds(geo.features[0]!)).toEqual({ minLng: 73, maxLng: 135, minLat: 18, maxLat: 54 });
+  expect(riskMapFeatureCenter(geo.features[0]!)).toEqual([104, 36]);
+  expect(riskMapFeatureCenter(geo.features[0]!)).toBe(riskMapFeatureCenter(geo.features[0]!));
 });

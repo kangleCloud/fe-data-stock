@@ -1,20 +1,47 @@
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import { flushPromises, mount } from "@vue/test-utils";
+import type { EChartsType } from "echarts/core";
+import { defineComponent, h, nextTick, shallowRef } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import RiskMapCanvas from "@/components/risk/RiskMapCanvas.vue";
 import RiskRegionMap from "@/components/risk/RiskRegionMap.vue";
 import { riskMapAssets, validateRiskGeo } from "@/utils/riskMap";
 import { riskMapGeoCenter } from "@/utils/riskMapView";
 
 const texts = Object.fromEntries(riskMapAssets.map((asset) => [asset.kind, readFileSync(`public/${asset.localPath}`, "utf8")]));
 const chinaGeo = validateRiskGeo("china", JSON.parse(texts.china!));
+const detailChinaText = readFileSync("public/maps/risk-detail-v2/china/310000.geojson", "utf8");
 const wrappers: ReturnType<typeof mount>[] = [];
 const RiskMapCanvasStub = {
   name: "RiskMapCanvas",
   props: ["option", "accessibleLabel", "kind", "height"],
-  emits: ["regionSelect"],
+  emits: ["regionSelect", "chartReady", "viewportChange"],
   template: "<div data-map-canvas />",
 };
+
+// Mirrors vue-echarts 8.3.2: the component exposes a readonly `chart` getter
+// instead of emitting a `ready` event. Mounting the real RiskMapCanvas here
+// exercises the same chartReady path production uses.
+const liveChart = shallowRef<EChartsType>();
+const VChartStub = defineComponent({
+  name: "VChartStub",
+  props: {
+    option: { type: Object, default: () => ({}) },
+    initOptions: { type: Object, default: () => ({}) },
+    updateOptions: { type: Object, default: () => ({}) },
+    ariaLabel: { type: String, default: "" },
+  },
+  emits: ["click"],
+  setup(_props, { expose }) {
+    expose({
+      get chart() {
+        return liveChart.value;
+      },
+    });
+    return () => h("div", { class: "vchart-stub" });
+  },
+});
 
 function render(backdrop = false) {
   const wrapper = mount(RiskRegionMap, {
@@ -26,6 +53,7 @@ function render(backdrop = false) {
 }
 
 beforeEach(() => {
+  liveChart.value = undefined;
   vi.stubGlobal("crypto", webcrypto);
   vi.stubGlobal("fetch", vi.fn(async (url: string) => ({ ok: true, text: async () => texts[url.includes("china") ? "china" : "world"]! })));
 });
@@ -108,13 +136,15 @@ describe("risk map component lifecycle", () => {
     expect(wrapper.text()).toContain("不是真实网络路径");
   });
 
-  it("supports fixed-view 2D/3D, full viewport, ESC and only real boundary drilldown", async () => {
+  it("falls back to 2D without WebGL, keeps full viewport, ESC and only real boundary drilldown", async () => {
     const wrapper = render();
     await ready(wrapper);
-    expect(wrapper.find(".stage-3d").exists()).toBe(true);
-    expect(option(wrapper).geo).toHaveLength(3);
-    await wrapper.findAll(".map-scope button").find((button) => button.text() === "2D")!.trigger("click");
     expect(wrapper.find(".stage-2d").exists()).toBe(true);
+    expect(wrapper.text()).toContain("当前浏览器不支持 WebGL");
+    expect(option(wrapper).geo).toHaveLength(1);
+    await wrapper.findAll(".map-scope button").find((button) => button.text() === "3D")!.trigger("click");
+    expect(wrapper.find(".stage-2d").exists()).toBe(true);
+    expect(wrapper.findAll(".map-scope button").find((button) => button.text() === "2D")!.attributes("aria-pressed")).toBe("true");
     expect(option(wrapper).geo).toHaveLength(1);
 
     await wrapper.findAll("button").find((button) => button.attributes("aria-label") === "地图全屏")!.trigger("click");
@@ -130,7 +160,7 @@ describe("risk map component lifecycle", () => {
     expect(wrapper.find("select").exists()).toBe(false);
     expect(wrapper.find('button[aria-label="查看地图操作说明"]').exists()).toBe(false);
     expect(chart.props("height")).toBe("520px");
-    expect(wrapper.text()).toContain("固定视角示意");
+    expect(wrapper.text()).toContain("二维俯视");
   });
 
   it("keeps a clear failure state after both sources fail without retrying on view toggles", async () => {
@@ -159,10 +189,168 @@ describe("risk map component lifecycle", () => {
     await ready(wrapper);
     expect(wrapper.find('button[aria-label="地图全屏"]').exists()).toBe(false);
     expect(wrapper.find(".access-map-caption").exists()).toBe(true);
-    expect(wrapper.text()).toContain("立体固定视角");
+    expect(wrapper.text()).toContain("二维俯视");
     const chart = wrapper.getComponent({ name: "RiskMapCanvas" });
     expect(chart.props("height")).toBe("100%");
     chart.vm.$emit("regionSelect", "CN-31");
     expect(wrapper.emitted("regionSelect")?.[0]).toEqual(["CN-31", "china"]);
+  });
+
+  it("loads the selected province detail, replaces its boundary and only highlights verified codes", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      return {
+        ok: true,
+        text: async () => url.includes("risk-detail-v2") ? detailChinaText : texts[url.includes("china") ? "china" : "world"]!,
+      } as Response;
+    });
+    const wrapper = mount(RiskRegionMap, {
+      props: {
+        regions: [{ regionCode: "CN-31", requestCount: "7" }],
+        selected: { code: "CN-31", kind: "cities" },
+        detail: {
+          coverage: { status: "COLLECTED", startedAt: null, collectedRequestCount: "7", totalRequestCount: "7", uncollectedRequestCount: "0" },
+          collectedRequestCount: "7",
+          identifiedRequestCount: "7",
+          unknownRequestCount: "0",
+          coverageRate: "1",
+          items: [{ cityCode: "310000", cityName: "上海市", requestCount: "7" }],
+        },
+      },
+      global: { stubs: { RiskMapCanvas: RiskMapCanvasStub } },
+    });
+    wrappers.push(wrapper);
+    await ready(wrapper);
+    await vi.waitFor(() => expect(wrapper.emitted("detailLabels")?.at(-1)?.[0]).toMatchObject({ kind: "cities", regionCode: "CN-31" }));
+    const labels = wrapper.emitted("detailLabels")!.at(-1)![0] as { labels: Record<string, { label: string; nameZh: boolean }> };
+    expect(labels.labels["310000"]).toEqual({ label: "上海市", nameZh: true });
+    const chart = wrapper.getComponent({ name: "RiskMapCanvas" });
+    const rows = (chart.props("option") as { series: { data: { name: string; detail?: boolean; count?: string }[] }[] }).series[0]!.data;
+    expect(rows.map((row) => row.name)).not.toContain("CN-31");
+    expect(rows.find((row) => row.detail)).toMatchObject({ name: "310000", count: "7" });
+
+    chart.vm.$emit("regionSelect", "310000");
+    await flushPromises();
+    expect(wrapper.emitted("detailSelect")?.at(-1)).toEqual(["310000", "上海市"]);
+    expect(wrapper.text()).toContain("已选细分：上海市 · 仅高亮，不改变筛选。");
+    expect(wrapper.emitted("regionSelect")).toBeUndefined();
+  });
+
+  it("shows a missing detail state without fetching or inventing statistics", async () => {
+    const wrapper = mount(RiskRegionMap, {
+      props: {
+        regions: [{ regionCode: "CN-31", requestCount: "7" }],
+        selected: { code: "CN-99", kind: "cities" },
+        detail: {
+          coverage: { status: "COLLECTED", startedAt: null, collectedRequestCount: "7", totalRequestCount: "7", uncollectedRequestCount: "0" },
+          collectedRequestCount: "7",
+          identifiedRequestCount: "7",
+          unknownRequestCount: "0",
+          coverageRate: "1",
+          items: [{ cityCode: "310000", cityName: "上海市", requestCount: "7" }],
+        },
+      },
+      global: { stubs: { RiskMapCanvas: RiskMapCanvasStub } },
+    });
+    wrappers.push(wrapper);
+    await ready(wrapper);
+    expect(wrapper.text()).toContain("暂无细分边界");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const rows = (wrapper.getComponent({ name: "RiskMapCanvas" }).props("option") as { series: { data: { detail?: boolean }[] }[] }).series[0]!.data;
+    expect(rows.some((row) => row.detail)).toBe(false);
+  });
+
+  it("keeps uncoded boundaries visible but refuses to select them as verified cities", async () => {
+    const hainanText = readFileSync("public/maps/risk-detail-v2/china/460000.geojson", "utf8");
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      return {
+        ok: true,
+        text: async () => url.includes("risk-detail-v2") ? hainanText : texts[url.includes("china") ? "china" : "world"]!,
+      } as Response;
+    });
+    const wrapper = mount(RiskRegionMap, {
+      props: {
+        regions: [{ regionCode: "CN-46", requestCount: "7" }],
+        selected: { code: "CN-46", kind: "cities" },
+      },
+      global: { stubs: { RiskMapCanvas: RiskMapCanvasStub } },
+    });
+    wrappers.push(wrapper);
+    await ready(wrapper);
+    await vi.waitFor(() => {
+      const rows = (wrapper.getComponent({ name: "RiskMapCanvas" }).props("option") as { series: { data: { detail?: boolean }[] }[] }).series[0]!.data;
+      expect(rows.some((row) => row.detail)).toBe(true);
+    });
+    const chart = wrapper.getComponent({ name: "RiskMapCanvas" });
+    chart.vm.$emit("regionSelect", "临高县");
+    chart.vm.$emit("regionSelect", "460100");
+    await flushPromises();
+    expect(wrapper.emitted("detailSelect")).toEqual([["460100", "海口市"]]);
+    expect(wrapper.emitted("regionSelect")).toBeUndefined();
+  });
+
+  it("shows verified Chinese city labels only after the 2D viewport reaches about 1.8x and clears them on reset", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("risk-detail-v2")) {
+        const match = /china\/(\d+)\.geojson/.exec(url);
+        if (!match) throw new Error(`unexpected detail URL: ${url}`);
+        return {
+          ok: true,
+          text: async () => readFileSync(`public/maps/risk-detail-v2/china/${match[1]}.geojson`, "utf8"),
+        } as Response;
+      }
+      return { ok: true, text: async () => texts[url.includes("china") ? "china" : "world"]! } as Response;
+    });
+    const wrapper = mount(RiskRegionMap, {
+      props: { regions: [{ regionCode: "CN-31", requestCount: "7" }] },
+      global: { stubs: { Echarts: VChartStub } },
+    });
+    wrappers.push(wrapper);
+    await vi.waitFor(() => expect(wrapper.find(".risk-map-canvas").exists()).toBe(true));
+    const canvas = wrapper.getComponent(RiskMapCanvas);
+    const citySeries = () => (canvas.props("option") as {
+      series: { id: string; data: { name: string; label: string; parentCode: string }[] }[];
+    }).series.find((item) => item.id === "risk-map-city-labels")!;
+    const detailCalls = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes("risk-detail-v2"));
+
+    liveChart.value = {
+      getWidth: () => 600,
+      getHeight: () => 400,
+      convertToPixel: (_finder: unknown, point: [number, number]) => [
+        10 + ((point[0] - 73) / 62) * 580,
+        10 + ((54 - point[1]) / 36) * 380,
+      ],
+    } as unknown as EChartsType;
+    await nextTick();
+    await nextTick();
+    await flushPromises();
+    expect(detailCalls()).toHaveLength(0);
+    expect(citySeries().data).toEqual([]);
+
+    const zoomIn = wrapper.find('button[aria-label="放大"]');
+    for (let click = 0; click < 3; click++) await zoomIn.trigger("click");
+    await vi.waitFor(() => expect(detailCalls().length).toBeGreaterThan(0));
+    await vi.waitFor(() => expect(citySeries().data.length).toBeGreaterThan(0));
+    for (const row of citySeries().data) {
+      expect(row.label).toMatch(/[\u4e00-\u9fa5]/);
+      expect(row.label).not.toMatch(/CN-/);
+      expect(row.parentCode).toMatch(/^CN-\d{2}$/);
+    }
+
+    await wrapper.find('button[aria-label="复位视图"]').trigger("click");
+    await vi.waitFor(() => expect(citySeries().data).toEqual([]));
+    const loadedForChina = detailCalls().length;
+
+    await wrapper.findAll(".map-scope button")[1]!.trigger("click");
+    await vi.waitFor(() => expect(wrapper.find('.risk-map-canvas[data-map-kind="world"]').exists()).toBe(true));
+    const worldCanvas = wrapper.getComponent(RiskMapCanvas);
+    const worldCity = (worldCanvas.props("option") as {
+      series: { id: string; data: unknown[] }[];
+    }).series.find((item) => item.id === "risk-map-city-labels")!;
+    expect(worldCanvas.props("kind")).toBe("world");
+    expect(worldCity.data).toEqual([]);
+    expect(detailCalls()).toHaveLength(loadedForChina);
   });
 });
