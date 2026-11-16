@@ -15,7 +15,7 @@ import {
   signedMoney,
   tradeDateValid,
 } from "@/utils/portfolio";
-import type { PortfolioDaily, PortfolioDashboard, PortfolioPosition } from "@/types/portfolio";
+import type { PortfolioClose, PortfolioDaily, PortfolioDashboard, PortfolioPosition } from "@/types/portfolio";
 
 const mocks = vi.hoisted(() => ({
   auth: { permissionCodes: ["**:**:**"] },
@@ -65,10 +65,25 @@ const daily: PortfolioDaily = {
   quantity: 100,
   marketValue: "1200.50000000",
   totalCost: "1000.00000000",
+  realizedPnl: null,
   averageCost: "10.00000000",
   referencePrice: "12.00500000",
   unrealizedPnl: "200.50000000",
   unrealizedRate: "20.05000000",
+};
+const close: PortfolioClose = {
+  id: "9007199254740996",
+  positionId: identifier,
+  assetType: "STOCK",
+  dictionaryId: "9007199254740993",
+  symbol: "SH600000",
+  nameSnapshot: "测试银行",
+  closeDate: "2026-01-06",
+  closeQuantity: 100,
+  costBasis: "1000.00000000",
+  realizedPnl: "200.50000000",
+  realizedRate: "20.05000000",
+  remark: "清仓",
 };
 const summary: PortfolioDashboard = {
   positionCount: 1,
@@ -76,6 +91,8 @@ const summary: PortfolioDashboard = {
   totalCost: "1000",
   totalMarketValue: "1200.50",
   totalUnrealizedPnl: "200.50",
+  totalRealizedPnl: "200.50",
+  totalPnl: "401.00",
   categories: [{
     assetType: "STOCK",
     name: "股票",
@@ -84,8 +101,13 @@ const summary: PortfolioDashboard = {
     totalCost: "1000",
     totalMarketValue: "1200.50",
     totalUnrealizedPnl: "200.50",
+    totalRealizedPnl: "200.50",
+    totalPnl: "401.00",
   }],
   positions: [position],
+  closedCount: 1,
+  pendingCloseCount: 0,
+  closes: [close],
 };
 const mounted: Array<ReturnType<typeof mount>> = [];
 
@@ -163,7 +185,7 @@ beforeEach(() => {
   mocks.auth.permissionCodes = ["**:**:**"];
   mocks.page.mockResolvedValue({ list: [position], total: 1 });
   mocks.list.mockResolvedValue([]);
-  mocks.detail.mockResolvedValue({ position, records: [daily] });
+  mocks.detail.mockResolvedValue({ position, records: [daily], closes: [close] });
   mocks.summary.mockResolvedValue(summary);
   mocks.dictionary.mockResolvedValue({
     list: [{ id: "9007199254740993", assetType: "STOCK", symbol: "SH600000", code: "600000", name: "测试银行", market: "SH" }],
@@ -412,8 +434,6 @@ describe("daily entry and calculation", () => {
     await flushPromises();
     await fill("持仓数量", "0");
     expect(document.body.textContent).toContain("数量为0时按清仓记录");
-    await fill("总市值", "0");
-    await fill("总成本", "0");
     await click("保存记录");
     expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
       positionId: identifier,
@@ -421,6 +441,77 @@ describe("daily entry and calculation", () => {
       marketValue: "0",
       totalCost: "0",
     }));
+  });
+
+  it("saves manual realized profit on a new close event", async () => {
+    render(DailyEntryDrawer, { modelValue: true, position });
+    await flushPromises();
+    await fill("持仓数量", "0");
+    expect(document.body.textContent).toContain("清仓利润");
+    await fill("清仓利润", "200.00");
+    await click("保存记录");
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      positionId: identifier,
+      tradeDate: currentTradeDate(),
+      quantity: 0,
+      marketValue: "0",
+      totalCost: "0",
+      realizedPnl: "200",
+    }));
+  });
+
+  it("leaves close profit pending when the field is empty", async () => {
+    render(DailyEntryDrawer, { modelValue: true, position });
+    await flushPromises();
+    await fill("持仓数量", "0");
+    await click("保存记录");
+    const payload = mocks.save.mock.calls[0]?.[0];
+    expect(payload).toMatchObject({
+      positionId: identifier,
+      tradeDate: currentTradeDate(),
+      quantity: 0,
+      marketValue: "0",
+      totalCost: "0",
+    });
+    expect(payload).not.toHaveProperty("realizedPnl");
+  });
+
+  it("hides close profit when the zero date is not a new close", async () => {
+    mocks.detail.mockResolvedValue({
+      position,
+      records: [{ ...daily, id: "2", tradeDate: currentTradeDate(), quantity: 0, marketValue: "0", totalCost: "0", realizedPnl: null }],
+      closes: [],
+    });
+    render(DailyEntryDrawer, { modelValue: true, position });
+    await flushPromises();
+    await fill("持仓数量", "0");
+    expect(document.body.textContent).toContain("该日期没有可清仓的持仓");
+    const labels = [...document.body.querySelectorAll(".el-form-item label")].map((item) => item.textContent || "");
+    expect(labels.some((label) => label.includes("清仓利润"))).toBe(false);
+  });
+
+  it("prefills and clears an existing close profit", async () => {
+    const today = currentTradeDate();
+    const closeDay = { ...daily, id: "2", tradeDate: today, quantity: 0, marketValue: "0", totalCost: "0", realizedPnl: "200.00" };
+    mocks.detail.mockResolvedValue({
+      position,
+      records: [daily, closeDay],
+      closes: [{ ...close, closeDate: today, realizedPnl: "200.00" }],
+    });
+    render(DailyEntryDrawer, { modelValue: true, position, initialDate: today });
+    await flushPromises();
+    expect(input("清仓利润").value).toBe("200");
+    await fill("清仓利润", "");
+    await click("保存记录");
+    const payload = mocks.save.mock.calls[0]?.[0];
+    expect(payload).toMatchObject({
+      positionId: identifier,
+      tradeDate: today,
+      quantity: 0,
+      marketValue: "0",
+      totalCost: "0",
+    });
+    expect(payload).not.toHaveProperty("realizedPnl");
   });
 
   it("blocks missing instrument, high-precision amounts and future dates", async () => {
@@ -522,6 +613,26 @@ describe("daily portfolio pages and history", () => {
     expect(document.body.textContent).toContain("保存");
   });
 
+  it("lists pending close events and opens the entry drawer at the close date", async () => {
+    const today = currentTradeDate();
+    const closeDay = { ...daily, id: "2", tradeDate: today, quantity: 0, marketValue: "0", totalCost: "0", realizedPnl: null };
+    mocks.detail.mockResolvedValue({
+      position,
+      records: [daily, closeDay],
+      closes: [{ ...close, closeDate: today, realizedPnl: null, realizedRate: null }],
+    });
+    const wrapper = render(PositionDetailDrawer, { modelValue: true, id: identifier });
+    await flushPromises();
+    const closeTab = [...document.body.querySelectorAll(".el-tabs__item")]
+      .find((item) => item.textContent?.includes("清仓记录"));
+    closeTab?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushPromises();
+    expect(document.body.textContent).toContain("待补录");
+    await click("补录利润");
+    const entry = wrapper.findComponent(DailyEntryDrawer);
+    expect(entry.props("initialDate")).toBe(today);
+  });
+
   it("summarizes all latest records without pending counters", async () => {
     const wrapper = render(Dashboard);
     await flushPromises();
@@ -529,7 +640,31 @@ describe("daily portfolio pages and history", () => {
     expect(wrapper.text()).toContain("最新收盘汇总");
     expect(wrapper.text()).toContain("全部标的 1");
     expect(wrapper.text()).toContain("+200.500");
+    expect(wrapper.text()).toContain("已实现盈亏");
+    expect(wrapper.text()).toContain("累计盈亏");
+    expect(wrapper.text()).toContain("+401.000");
+    expect(wrapper.text()).toContain("清仓记录");
+    expect(wrapper.text()).toContain("已清仓 1");
+    expect(wrapper.text()).toContain("待补利润 0");
+    expect(wrapper.findAll(".portfolio-metric strong").map((item) => item.text()))
+      .toEqual(["1,000.000", "1,200.500", "+200.500", "+200.500", "+401.000"]);
     expect(wrapper.text()).not.toContain("待首次完整录入");
+  });
+
+  it("shows pending close profit and opens the close tab", async () => {
+    mocks.summary.mockResolvedValue({
+      ...summary,
+      totalRealizedPnl: "0",
+      totalPnl: "200.50",
+      pendingCloseCount: 1,
+      closes: [{ ...close, realizedPnl: null, realizedRate: null }],
+    });
+    const wrapper = render(Dashboard);
+    await flushPromises();
+    expect(wrapper.text()).toContain("待补利润 1");
+    expect(wrapper.text()).toContain("待补录");
+    await click("查看持仓");
+    expect(wrapper.findComponent(PositionDetailDrawer).props("initialTab")).toBe("closes");
   });
 
   it("shows zero totals and no charts for an empty portfolio", async () => {
@@ -540,7 +675,12 @@ describe("daily portfolio pages and history", () => {
       totalCost: "0",
       totalMarketValue: "0",
       totalUnrealizedPnl: "0",
+      totalRealizedPnl: "0",
+      totalPnl: "0",
       positions: [],
+      closedCount: 0,
+      pendingCloseCount: 0,
+      closes: [],
       categories: summary.categories.map((item) => ({
         ...item,
         positionCount: 0,
@@ -548,13 +688,15 @@ describe("daily portfolio pages and history", () => {
         totalCost: "0",
         totalMarketValue: "0",
         totalUnrealizedPnl: "0",
+        totalRealizedPnl: "0",
+        totalPnl: "0",
       })),
     });
     const wrapper = render(Dashboard);
     await flushPromises();
     expect(wrapper.text()).toContain("尚无持仓");
     expect(wrapper.findAll(".portfolio-metric strong").map((item) => item.text()))
-      .toEqual(["0.000", "0.000", "0.000"]);
+      .toEqual(["0.000", "0.000", "0.000", "0.000", "0.000"]);
     expect(wrapper.findAllComponents({ name: "BaseChart" })).toHaveLength(0);
   });
 
@@ -565,7 +707,7 @@ describe("daily portfolio pages and history", () => {
     expect(wrapper.text()).not.toContain("新增标的");
     expect([...document.body.querySelectorAll("button")].some((item) => item.textContent?.trim() === "记录")).toBe(false);
     await click("查看详情");
-    expect(document.body.textContent).not.toContain("记录持仓");
+    expect([...document.body.querySelectorAll("button")].some((item) => item.textContent?.trim() === "记录持仓")).toBe(false);
     expect(mocks.audit).not.toHaveBeenCalled();
   });
 });
