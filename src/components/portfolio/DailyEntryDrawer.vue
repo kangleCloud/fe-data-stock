@@ -10,7 +10,7 @@ import type { AssetType, PortfolioDaily, PortfolioDailyInput, PortfolioInstrumen
 
 type EntryMode = "marketValue" | "pnl";
 
-const props = defineProps<{ modelValue: boolean; position?: PortfolioPosition }>();
+const props = defineProps<{ modelValue: boolean; position?: PortfolioPosition; initialDate?: string }>();
 const emit = defineEmits<{ "update:modelValue": [boolean]; saved: [string] }>();
 const opened = computed({ get: () => props.modelValue, set: (value) => emit("update:modelValue", value) });
 const auth = useAuthStore();
@@ -31,6 +31,7 @@ const form = reactive({
   marketValue: "",
   pnl: "",
   totalCost: "",
+  realizedPnl: "",
   remark: "",
 });
 let lookupEpoch = 0;
@@ -43,12 +44,21 @@ const zeroQuantity = computed(() => form.quantity !== "" && Number(form.quantity
 const computedTotalCost = computed(() =>
   form.entryMode === "pnl" ? subtractDecimal(form.marketValue, form.pnl) ?? "" : "",
 );
+const previousRecord = computed(() => {
+  const earlier = records.value.filter((record) => record.tradeDate < form.tradeDate);
+  return earlier.length ? earlier[earlier.length - 1] : undefined;
+});
+const isCloseEvent = computed(() =>
+  form.quantity !== "" && Number(form.quantity) === 0
+    && previousRecord.value != null && previousRecord.value.quantity > 0,
+);
 
 function prefillPosition(position: PortfolioPosition) {
   form.quantity = String(position.quantity);
   form.totalCost = amountInputValue(position.totalCost);
   form.marketValue = amountInputValue(position.marketValue);
   form.pnl = amountInputValue(subtractDecimal(form.marketValue, form.totalCost) ?? "");
+  form.realizedPnl = "";
   form.remark = position.remark || "";
 }
 
@@ -57,6 +67,7 @@ function prefillRecord(record: PortfolioDaily) {
   form.totalCost = amountInputValue(record.totalCost);
   form.marketValue = amountInputValue(record.marketValue);
   form.pnl = amountInputValue(subtractDecimal(form.marketValue, form.totalCost) ?? "");
+  form.realizedPnl = record.realizedPnl != null ? amountInputValue(record.realizedPnl) : "";
   form.remark = record.remark || "";
 }
 
@@ -65,6 +76,7 @@ function clearValues() {
   form.marketValue = "";
   form.pnl = "";
   form.totalCost = "";
+  form.realizedPnl = "";
   form.remark = "";
 }
 
@@ -87,8 +99,9 @@ function reset() {
   records.value = [];
   form.assetType = props.position?.assetType || "STOCK";
   form.entryMode = "marketValue";
-  form.tradeDate = currentTradeDate();
+  form.tradeDate = props.initialDate || currentTradeDate();
   form.pnl = "";
+  form.realizedPnl = "";
   if (props.position) prefillPosition(props.position);
   else clearValues();
 }
@@ -138,7 +151,7 @@ async function loadRecords() {
 }
 
 watch(
-  () => [props.modelValue, props.position],
+  () => [props.modelValue, props.position, props.initialDate],
   () => {
     if (!props.modelValue) {
       detailEpoch++;
@@ -168,7 +181,18 @@ async function save() {
   }
   let marketValue: string;
   let totalCost: string;
-  if (form.entryMode === "marketValue") {
+  let realizedPnl: string | undefined;
+  if (zeroQuantity.value) {
+    marketValue = "0";
+    totalCost = "0";
+    if (isCloseEvent.value && form.realizedPnl !== "") {
+      if (!signedAmountInputValid(form.realizedPnl)) {
+        error.value = "清仓利润必须为金额，最多两位有效小数";
+        return;
+      }
+      realizedPnl = amountInputValue(form.realizedPnl);
+    }
+  } else if (form.entryMode === "marketValue") {
     if (!amountInputValid(form.marketValue)) {
       error.value = "总市值必须为非负金额，最多两位有效小数";
       return;
@@ -215,6 +239,9 @@ async function save() {
     totalCost,
     remark: form.remark || undefined,
   };
+  if (realizedPnl !== undefined) {
+    input.realizedPnl = realizedPnl;
+  }
   if (props.position) {
     input.positionId = props.position.id;
   } else {
@@ -238,10 +265,10 @@ async function save() {
   <el-drawer v-model="opened" class="portfolio-drawer" :title="position ? '记录持仓' : '新增标的并记录'" size="560px">
     <el-alert v-if="error" :title="error" type="warning" :closable="false" />
     <el-alert v-if="existingRecord" title="该日期已有记录，保存将覆盖当日数据" type="info" :closable="false" />
-    <el-alert v-if="zeroQuantity" title="数量为0时按清仓记录，市值和总成本按0保存" type="info" :closable="false" />
+    <el-alert v-if="zeroQuantity" title="数量为0时按清仓记录，总市值和总成本按0保存；清仓利润可留空稍后补录" type="info" :closable="false" />
     <PortfolioTips
       title="收盘记录"
-      content="记录收盘后的数量、总市值，以及总成本或浮动盈亏；按盈亏录入时自动计算总成本。同一日期重复保存会覆盖当日记录。平均成本、参考价和浮动盈亏由系统计算，不读取实时行情。"
+      content="记录收盘后的数量、总市值，以及总成本或浮动盈亏；按盈亏录入时自动计算总成本。数量为0时按清仓记录，可填写清仓利润。同一日期重复保存会覆盖当日记录。平均成本、参考价和浮动盈亏由系统计算，不读取实时行情。"
     />
     <div v-loading="loadingDetail">
       <el-form class="portfolio-form" label-position="top" :disabled="busy || loadingDetail || !canUpdate">
@@ -286,32 +313,38 @@ async function save() {
         <el-form-item label="持仓数量（股 / 份）">
           <el-input v-model="form.quantity" inputmode="numeric" />
         </el-form-item>
-        <el-form-item class="wide" label="金额录入方式">
-          <el-radio-group v-model="form.entryMode" @change="changeEntryMode">
-            <el-radio-button value="marketValue">按总市值</el-radio-button>
-            <el-radio-button value="pnl">按浮动盈亏</el-radio-button>
-          </el-radio-group>
+        <template v-if="!zeroQuantity">
+          <el-form-item class="wide" label="金额录入方式">
+            <el-radio-group v-model="form.entryMode" @change="changeEntryMode">
+              <el-radio-button value="marketValue">按总市值</el-radio-button>
+              <el-radio-button value="pnl">按浮动盈亏</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <template v-if="form.entryMode === 'marketValue'">
+            <el-form-item label="总市值（元）">
+              <el-input v-model="form.marketValue" inputmode="decimal" placeholder="最多两位有效小数" />
+            </el-form-item>
+            <el-form-item label="总成本（元）">
+              <el-input v-model="form.totalCost" inputmode="decimal" placeholder="最多两位有效小数" />
+            </el-form-item>
+          </template>
+          <template v-else>
+            <el-form-item label="总市值（元）">
+              <el-input v-model="form.marketValue" inputmode="decimal" placeholder="最多两位有效小数" />
+            </el-form-item>
+            <el-form-item label="浮动盈亏（元）">
+              <el-input v-model="form.pnl" inputmode="decimal" placeholder="亏损填负数，如 -2368.61" />
+            </el-form-item>
+            <el-form-item class="wide" label="总成本（自动计算）">
+              <el-input :model-value="computedTotalCost" disabled placeholder="填写总市值和浮动盈亏后自动计算" />
+            </el-form-item>
+            <div class="wide portfolio-muted">总成本 = 总市值 − 浮动盈亏（亏损为负数）</div>
+          </template>
+        </template>
+        <div v-if="zeroQuantity && !isCloseEvent" class="wide portfolio-muted">该日期没有可清仓的持仓，仅记录 0 数量。</div>
+        <el-form-item v-if="isCloseEvent" class="wide" label="清仓利润（元）">
+          <el-input v-model="form.realizedPnl" inputmode="decimal" placeholder="券商已实现盈亏，亏损填负数；可留空稍后补录" />
         </el-form-item>
-        <template v-if="form.entryMode === 'marketValue'">
-          <el-form-item label="总市值（元）">
-            <el-input v-model="form.marketValue" inputmode="decimal" placeholder="最多两位有效小数" />
-          </el-form-item>
-          <el-form-item label="总成本（元）">
-            <el-input v-model="form.totalCost" inputmode="decimal" placeholder="最多两位有效小数" />
-          </el-form-item>
-        </template>
-        <template v-else>
-          <el-form-item label="总市值（元）">
-            <el-input v-model="form.marketValue" inputmode="decimal" placeholder="最多两位有效小数" />
-          </el-form-item>
-          <el-form-item label="浮动盈亏（元）">
-            <el-input v-model="form.pnl" inputmode="decimal" placeholder="亏损填负数，如 -2368.61" />
-          </el-form-item>
-          <el-form-item class="wide" label="总成本（自动计算）">
-            <el-input :model-value="computedTotalCost" disabled placeholder="填写总市值和浮动盈亏后自动计算" />
-          </el-form-item>
-          <div class="wide portfolio-muted">总成本 = 总市值 − 浮动盈亏（亏损为负数）</div>
-        </template>
         <el-form-item class="wide" label="备注">
           <el-input v-model="form.remark" type="textarea" maxlength="500" show-word-limit />
         </el-form-item>

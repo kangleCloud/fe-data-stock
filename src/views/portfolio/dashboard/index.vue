@@ -19,6 +19,7 @@ const busy = ref(false);
 const error = ref("");
 const selected = ref<EntityId>();
 const opened = ref(false);
+const detailTab = ref("history");
 let epoch = 0;
 
 async function load() {
@@ -39,9 +40,11 @@ onMounted(load);
 const canView = computed(() => canAccess(auth.permissionCodes, "portfolio:position:view"));
 const metrics = computed(() => summary.value
   ? [
-      { name: "总成本", value: summary.value.totalCost },
-      { name: "总市值", value: summary.value.totalMarketValue },
-      { name: "持仓浮动盈亏", value: summary.value.totalUnrealizedPnl },
+      { name: "总成本", value: summary.value.totalCost, signed: false },
+      { name: "总市值", value: summary.value.totalMarketValue, signed: false },
+      { name: "持仓浮动盈亏", value: summary.value.totalUnrealizedPnl, signed: true },
+      { name: "已实现盈亏", value: summary.value.totalRealizedPnl, signed: true },
+      { name: "累计盈亏", value: summary.value.totalPnl, signed: true },
     ]
   : []);
 const positions = computed(() => summary.value?.positions || []);
@@ -85,6 +88,13 @@ const incomeOption = computed(() => ({
 }));
 
 function detail(id: EntityId) {
+  detailTab.value = "history";
+  selected.value = id;
+  opened.value = true;
+}
+
+function openClose(id: EntityId) {
+  detailTab.value = "closes";
   selected.value = id;
   opened.value = true;
 }
@@ -101,7 +111,7 @@ function detail(id: EntityId) {
         <el-button v-if="canView" type="primary" @click="router.push('/portfolio/positions')">维护我的持仓</el-button>
         <PortfolioTips
           title="汇总口径"
-          content="汇总所有标的最新记录；持仓浮动盈亏=人工总市值−人工总成本，不是券商当日盈亏，也不读取实时行情。各持仓记录日可能不同。"
+          content="汇总所有标的最新记录；持仓浮动盈亏=人工总市值−人工总成本，已实现盈亏来自清仓日的手工记录，累计盈亏为两者之和。不是券商当日盈亏，也不读取实时行情。"
         />
       </div>
     </header>
@@ -117,7 +127,7 @@ function detail(id: EntityId) {
       <div class="portfolio-metrics">
         <article v-for="metric in metrics" :key="metric.name" class="page-panel portfolio-metric">
           <span>{{ metric.name }}（元）</span>
-          <strong>{{ metric.name === '持仓浮动盈亏' ? signedMoney(metric.value) : formatMoney(metric.value) }}</strong>
+          <strong>{{ metric.signed ? signedMoney(metric.value) : formatMoney(metric.value) }}</strong>
         </article>
       </div>
       <el-empty v-if="!summary.positionCount" description="尚无持仓，请先录入收盘记录" />
@@ -135,6 +145,12 @@ function detail(id: EntityId) {
             </el-table-column>
             <el-table-column label="持仓浮动盈亏（元）" align="right">
               <template #default="{ row }">{{ signedMoney(row.totalUnrealizedPnl) }}</template>
+            </el-table-column>
+            <el-table-column label="已实现盈亏（元）" align="right">
+              <template #default="{ row }">{{ signedMoney(row.totalRealizedPnl) }}</template>
+            </el-table-column>
+            <el-table-column label="累计盈亏（元）" align="right">
+              <template #default="{ row }">{{ signedMoney(row.totalPnl) }}</template>
             </el-table-column>
           </el-table>
         </section>
@@ -174,8 +190,40 @@ function detail(id: EntityId) {
             </el-table-column>
           </el-table>
         </section>
+        <section class="page-panel portfolio-panel">
+          <h2>清仓记录</h2>
+          <div class="portfolio-inline">
+            <span>已清仓 {{ summary.closedCount }}</span>
+            <span>待补利润 {{ summary.pendingCloseCount }}</span>
+          </div>
+          <el-table :data="summary.closes" empty-text="暂无清仓记录">
+            <el-table-column label="清仓日" min-width="120">
+              <template #default="{ row }">{{ formatTradeDate(row.closeDate) }}</template>
+            </el-table-column>
+            <el-table-column prop="nameSnapshot" label="标的" min-width="140" />
+            <el-table-column prop="closeQuantity" label="清仓前数量" width="110" />
+            <el-table-column label="成本基数（元）" align="right" min-width="130">
+              <template #default="{ row }">{{ formatMoney(row.costBasis) }}</template>
+            </el-table-column>
+            <el-table-column label="已实现盈亏（元）" align="right" min-width="145">
+              <template #default="{ row }">
+                <el-tag v-if="row.realizedPnl == null" type="warning" effect="plain">待补录</el-tag>
+                <span v-else>{{ signedMoney(row.realizedPnl) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="收益率" align="right" min-width="110">
+              <template #default="{ row }">{{ row.realizedRate == null ? '—' : formatMoney(row.realizedRate) + '%' }}</template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="140" />
+            <el-table-column v-if="canView" label="操作" width="110">
+              <template #default="{ row }">
+                <el-button link @click="openClose(row.positionId)">查看持仓</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </section>
       </template>
     </template>
-    <PositionDetailDrawer v-if="canView" v-model="opened" :id="selected" @changed="load" />
+    <PositionDetailDrawer v-if="canView" v-model="opened" :id="selected" :initial-tab="detailTab" @changed="load" />
   </section>
 </template>

@@ -65,6 +65,7 @@ describe("daily portfolio REST contracts", () => {
       quantity: 0,
       marketValue: "0",
       totalCost: "0",
+      realizedPnl: "-200.00",
     });
     expect(request.mock.calls[0]?.[0].data).toEqual({
       positionId: "9223372036854775807",
@@ -72,6 +73,7 @@ describe("daily portfolio REST contracts", () => {
       quantity: 0,
       marketValue: "0",
       totalCost: "0",
+      realizedPnl: "-200.00",
     });
   });
 });

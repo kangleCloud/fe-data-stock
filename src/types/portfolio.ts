@@ -27,6 +27,7 @@ export interface PortfolioDaily {
   quantity: number;
   marketValue: Decimal;
   totalCost: Decimal;
+  realizedPnl: Decimal | null;
   averageCost: Decimal | null;
   referencePrice: Decimal | null;
   unrealizedPnl: Decimal;
@@ -42,6 +43,7 @@ export interface PortfolioDailyInput {
   quantity: number;
   marketValue: Decimal;
   totalCost: Decimal;
+  realizedPnl?: Decimal;
   remark?: string;
 }
 
@@ -71,9 +73,25 @@ export interface PortfolioAudit {
   afterData: string | null;
 }
 
+export interface PortfolioClose {
+  id: EntityId;
+  positionId: EntityId;
+  assetType: AssetType;
+  dictionaryId: EntityId;
+  symbol: string;
+  nameSnapshot: string;
+  closeDate: string;
+  closeQuantity: number;
+  costBasis: Decimal;
+  realizedPnl: Decimal | null;
+  realizedRate: Decimal | null;
+  remark?: string | null;
+}
+
 export interface PortfolioPositionDetail {
   position: PortfolioPosition;
   records: PortfolioDaily[];
+  closes: PortfolioClose[];
 }
 
 export interface PortfolioSummary {
@@ -82,9 +100,14 @@ export interface PortfolioSummary {
   totalCost: Decimal;
   totalMarketValue: Decimal;
   totalUnrealizedPnl: Decimal;
+  totalRealizedPnl: Decimal;
+  totalPnl: Decimal;
 }
 
 export interface PortfolioDashboard extends PortfolioSummary {
   categories: Array<PortfolioSummary & { assetType: AssetType; name: string }>;
   positions: PortfolioPosition[];
+  closedCount: number;
+  pendingCloseCount: number;
+  closes: PortfolioClose[];
 }
