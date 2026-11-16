@@ -172,6 +172,69 @@ describe("risk multilayer geo option", () => {
     expect((threeD.series as { data: unknown[] }[])[0]!.data).toHaveLength(1);
   });
 
+  it("shows verified Chinese names for hover, selected and tooltip states without exposing internal codes", () => {
+    const rows = [{ regionCode: "CN-65", requestCount: "1" }];
+    const twoD = option("china", rows, { mode: "2d", view: { zoom: 1, offset: [0, 0] } });
+    const geos = twoD.geo as {
+      emphasis: { label: { show: boolean; formatter: (params: unknown) => string } };
+      select: { label: { show: boolean; formatter: (params: unknown) => string } };
+    }[];
+    expect(geos).toHaveLength(1);
+    expect(geos[0]!.emphasis.label.show).toBe(true);
+    expect(geos[0]!.emphasis.label.formatter({ name: "CN-65" })).toBe("新疆");
+    expect(geos[0]!.select.label.formatter({ name: "CN-65" })).toBe("新疆");
+    expect(geos[0]!.emphasis.label.formatter({ name: "BOUNDARY_1" })).toBe("未命名地域");
+
+    const regions = (twoD.series as {
+      id: string;
+      label: { formatter: (params: unknown) => string };
+      emphasis: { label: { formatter: (params: unknown) => string } };
+      select: { label: { formatter: (params: unknown) => string } };
+    }[])[0]!;
+    expect(regions.label.formatter({ name: "CN-65" })).toBe("新疆");
+    expect(regions.label.formatter({ name: "BOUNDARY_1" })).toBe("未命名地域");
+    expect(regions.emphasis.label.formatter({ name: "CN-65" })).toBe("新疆");
+    expect(regions.select.label.formatter({ name: "CN-65" })).toBe("新疆");
+    expect(regions.emphasis.label.formatter({ name: "BOUNDARY_1" })).toBe("未命名地域");
+
+    const tooltip = (twoD.tooltip as { formatter: (params: unknown) => string }).formatter;
+    expect(tooltip({ name: "CN-65" })).toBe("新疆\n请求：1");
+    expect(tooltip({ name: "BOUNDARY_1" })).toBe("未命名地域\n请求：无可定位统计");
+    expect(tooltip({ name: "BOUNDARY_1" })).not.toContain("BOUNDARY_1");
+
+    const targetSeries = (twoD.series as {
+      id: string;
+      label: { show: boolean; formatter: string; position: string };
+    }[]).find((item) => item.id === "risk-map-target")!;
+    expect(targetSeries.label).toMatchObject({ show: true, formatter: "上海目标", position: "right" });
+    expect((twoD.series as { id: string }[]).some((item) => item.id === "risk-map-target-halo")).toBe(true);
+
+    const threeD = option("china", rows, { mode: "3d" });
+    const main = (threeD.geo as { emphasis: { label: { formatter: (params: unknown) => string } } }[])[2]!;
+    expect(main.emphasis.label.formatter({ name: "CN-65" })).toBe("新疆");
+    const threeDTooltip = (threeD.tooltip as { formatter: (params: unknown) => string }).formatter;
+    expect(threeDTooltip({ name: "BOUNDARY_1" })).toBe("未命名地域\n请求：无可定位统计");
+  });
+
+  it("uses real chart dimensions to enlarge the map while keeping it inside desktop and narrow viewports", () => {
+    const rows = [{ regionCode: "CN-44", requestCount: "9" }];
+    const sizeOf = (viewport: { width: number; height: number }) => {
+      const value = option("china", rows, { mode: "2d", viewport });
+      const geo = (value.geo as { layoutSize: string; aspectScale: number }[])[0]!;
+      return { px: Number.parseFloat(geo.layoutSize), unit: geo.layoutSize.endsWith("px"), aspectScale: geo.aspectScale, viewport };
+    };
+    const desktop = sizeOf({ width: 900, height: 520 });
+    expect(desktop.unit).toBe(true);
+    expect(desktop.aspectScale).toBe(1);
+    expect(desktop.px).toBeGreaterThan(700);
+    expect(desktop.px).toBeLessThanOrEqual(900 * 0.94);
+
+    const narrow = sizeOf({ width: 390, height: 470 });
+    expect(narrow.unit).toBe(true);
+    expect(narrow.px).toBeLessThanOrEqual(390 * 0.94);
+    expect(narrow.px).toBeGreaterThan(300);
+  });
+
   it("keeps neighbouring province labels while a drilldown is below the city threshold", () => {
     const china = geo("china");
     const detail = validateRiskDetailGeo("china", "CN-31", JSON.parse(readFileSync("public/maps/risk-detail-v2/china/310000.geojson", "utf8")));

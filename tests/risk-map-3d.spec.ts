@@ -109,6 +109,20 @@ describe("risk 3D option", () => {
     });
   });
 
+  it("uses verified Chinese names for 3D hover without falling back to internal codes", () => {
+    const value = option();
+    const series = value.series as unknown as {
+      id: string;
+      emphasis: { label: { formatter: (params: unknown) => string } };
+    }[];
+    const regions = series.find((item) => item.id === "risk3d-regions")!;
+    expect(regions.emphasis.label.formatter({ name: "CN-65" })).toBe("新疆");
+    expect(regions.emphasis.label.formatter({ name: "BOUNDARY_1" })).toBe("未命名地域");
+    const tooltip = (value.tooltip as { formatter: (params: unknown) => string }).formatter;
+    expect(tooltip({ name: "CN-65" })).toBe("新疆\n请求：无可定位统计");
+    expect(tooltip({ name: "BOUNDARY_1" })).toBe("未命名地域\n请求：无可定位统计");
+  });
+
   it("keeps huge counts exact in text while refusing an imprecise color scale", () => {
     const rows = [{ regionCode: "CN-44", requestCount: "9007199254740993" }];
     const value = option({ counts: riskMapCounts("china", rows, chinaGeo), flows: riskFlows("china", rows, target, chinaGeo) });

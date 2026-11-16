@@ -92,6 +92,7 @@ const selectedDetailName = ref<string | null>(null);
 
 const viewportDetails = shallowRef<RiskViewportDetail[]>([]);
 const viewportCityLabels = shallowRef<RiskMapCityLabel[]>([]);
+const viewport2dSize = shallowRef<{ width: number; height: number }>();
 const viewportFailures = ref(0);
 const viewportCache = new Map<string, RiskViewportDetail>();
 const viewportFailed = new Set<string>();
@@ -325,8 +326,20 @@ function viewportCityCandidates(): (RiskMapCityLabel & { feature: RiskViewportDe
 
 const TWO_D_VIEWPORT_DELAY = 80;
 
+function sync2DSize() {
+  const chart = map2dChart;
+  if (!chart) return;
+  const width = chart.getWidth();
+  const height = chart.getHeight();
+  if (width > 0 && height > 0
+    && (viewport2dSize.value?.width !== width || viewport2dSize.value?.height !== height)) {
+    viewport2dSize.value = { width, height };
+  }
+}
+
 function compute2DViewport() {
   if (disposed || effective3D.value || state.value !== "ready") return;
+  sync2DSize();
   if (kind.value !== "china") {
     viewportCityLabels.value = [];
     onViewportParents([]);
@@ -385,6 +398,7 @@ function schedule2DViewport(delay = TWO_D_VIEWPORT_DELAY) {
 
 function on2DReady(chart: EChartsType) {
   map2dChart = chart;
+  sync2DSize();
   lastViewport2dParents = "";
   schedule2DViewport(0);
 }
@@ -554,6 +568,7 @@ const option = computed(() => {
     mapName: activeMapName.value,
     detail: detailLayer.value,
     cityLabels: viewportCityLabels.value,
+    viewport: viewport2dSize.value,
   });
 });
 
@@ -587,6 +602,7 @@ onBeforeUnmount(() => {
   detailGeo.value = undefined;
   viewportDetails.value = [];
   viewportCityLabels.value = [];
+  viewport2dSize.value = undefined;
 });
 </script>
 
@@ -689,9 +705,9 @@ onBeforeUnmount(() => {
 .risk-map-stage { position: relative; width: 100%; height: 520px; overflow: hidden; }
 .risk-map-expanded .risk-map-stage { height: 70vh; }
 .risk-map-backdrop .risk-map-stage { position: absolute; inset: 0; height: auto; }
-.risk-map-floor { position: absolute; inset: 8% 4% 6%; z-index: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 62%, #0a8dbd3d, transparent 68%); }
+.risk-map-floor { position: absolute; inset: 5% 3% 5%; z-index: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 62%, #0a9dcc4d, transparent 70%); }
 .stage-3d .risk-map-floor { background: linear-gradient(#1f9fc61f 1px, transparent 1px), linear-gradient(90deg, #1f9fc61f 1px, transparent 1px); background-size: 42px 42px; mask-image: radial-gradient(ellipse, #000 12%, transparent 72%); }
-.stage-2d .risk-map-floor { opacity: .55; }
+.stage-2d .risk-map-floor { opacity: .7; }
 .risk-map-3d, .risk-map-canvas { position: relative; z-index: 1; }
 .risk-map-axis { position: absolute; left: 18%; right: 18%; bottom: 9%; z-index: 2; height: 1px; pointer-events: none; background: linear-gradient(90deg, transparent, #2ed6ef88, transparent); box-shadow: 0 0 18px #2ed6ef55; }
 .risk-warning button { margin-left: 8px; }

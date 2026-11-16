@@ -1,7 +1,7 @@
 import type { EChartsCoreOption } from "echarts/core";
 import type { RiskServerTarget } from "@/types/riskServer";
 import { riskCount } from "@/utils/risk";
-import type { RiskGeo, RiskMapKind } from "@/utils/riskMap";
+import { riskRegionDisplayName, type RiskGeo, type RiskMapKind } from "@/utils/riskMap";
 import type { riskMapCounts } from "@/utils/riskMap";
 import { type RiskCamera3D } from "@/utils/riskCamera3d";
 import {
@@ -89,6 +89,12 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
   const labels = new Map(input.geo.features.map((feature) => [feature.properties.name, feature.properties.label]));
   for (const feature of detail?.geo.features ?? []) labels.set(feature.properties.name, feature.properties.label);
   const detailByName = new Map(detail?.geo.features.map((feature) => [feature.properties.name, feature]) ?? []);
+  const displayName = (name: string) => {
+    const feature = detailByName.get(name);
+    if (feature) return riskRegionDisplayName(feature.properties.name, feature.properties.label);
+    return riskRegionDisplayName(name, labels.get(name));
+  };
+  const emphasisFormatter = (params: unknown) => displayName((params as { name?: string }).name ?? "");
   const detailCodes = new Set(detail?.geo.features.flatMap((feature) => feature.properties.code ? [feature.properties.code] : []) ?? []);
   const detailExact = new Map<string, string>(detail?.counts.exact.map((item) => [item.code, item.count] as const) ?? []);
   const exact = new Map<string, string>(input.counts.exact.map((item) => [item.name, item.count] as const));
@@ -127,9 +133,12 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
           },
           label: {
             show: labelNames.has(feature.properties.name),
-            formatter: feature.properties.label,
+            formatter: riskRegionDisplayName(feature.properties.name, feature.properties.label),
             color: "#effdff",
-            fontSize: 11,
+            fontSize: 12,
+            fontWeight: 500,
+            textBorderColor: "#041d32",
+            textBorderWidth: 2,
           },
         };
       })
@@ -143,16 +152,11 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
     if (item.data?.isTarget) return `服务器：${targetLabel}\n已配置有效位置，筛选期来源汇聚终点`;
     if (item.data?.detail) {
       const feature = detailByName.get(name);
-      return `${feature ? riskDetailDisplayName(feature) : labels.get(name) ?? name}\n细分请求：${item.data.count ? riskCount(item.data.count) : "无可核实统计"}`;
+      return `${feature ? riskDetailDisplayName(feature) : displayName(name)}\n细分请求：${item.data.count ? riskCount(item.data.count) : "无可核实统计"}`;
     }
-    const label = labels.get(name) ?? name;
+    const label = displayName(name);
     if (item.data?.count) return `${label} → ${targetLabel}\n请求：${riskCount(item.data.count)}`;
     return `${label}\n请求：${exact.has(name) ? riskCount(exact.get(name)) : "无可定位统计"}`;
-  };
-  const emphasisFormatter = (params: unknown) => {
-    const name = (params as { name?: string }).name ?? "";
-    const feature = detailByName.get(name);
-    return feature ? riskDetailDisplayName(feature, false) : labels.get(name) ?? name;
   };
   const description = `可旋转三维${input.kind === "china" ? "中国省级" : "世界国家"}请求数地图。${overallSafe ? "" : "计数超出安全绘图精度，地图使用中性颜色，精确值见文字列表。"}${detail ? `已叠加${detail.regionCode}细分边界，统计仅按已核实编码匹配。` : ""}${input.cityLabels?.length ? `仅在当前真实视口内显示${input.cityLabels.length}个地域标签。` : ""}${input.flows.target ? "飞线表示筛选期汇总，不是真实网络路径。" : "服务器目标无有效坐标，不绘制汇聚飞线。"}`;
 
@@ -165,7 +169,9 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
       confine: true,
       backgroundColor: "#041d32",
       borderColor: "#2bc5e4",
-      textStyle: { color: "#e5f6ff", fontSize: 12 },
+      borderWidth: 1,
+      padding: [8, 10],
+      textStyle: { color: "#e5f6ff", fontSize: 13, lineHeight: 20 },
       formatter,
     },
     geo3D: {
@@ -174,11 +180,11 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
       zlevel: -3,
       boxWidth: input.boxWidth,
       boxHeight: 24,
-      regionHeight: detail ? 2 : 1.5,
+      regionHeight: detail ? 2.6 : 2,
       environment: "none",
       itemStyle: { color: "#064770", borderColor: "#35eaff", borderWidth: 1 },
       label: { show: false },
-      emphasis: { label: { show: false }, itemStyle: { color: "#55edff" } },
+      emphasis: { label: { show: false, formatter: emphasisFormatter }, itemStyle: { color: "#55edff" } },
       viewControl: risk3DViewControl(input.camera, false),
       postEffect: { enable: false },
       temporalSuperSampling: { enable: false },
@@ -194,7 +200,7 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
         zlevel: -2,
         boxWidth: input.boxWidth,
         boxHeight: 24,
-        regionHeight: detail ? 2 : 1.5,
+        regionHeight: detail ? 2.6 : 2,
         viewControl: risk3DViewControl(input.camera),
         shading: "lambert",
         postEffect: { enable: false },
@@ -202,7 +208,18 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
         light: lighting(),
         label: { show: false },
         itemStyle: { color: "#064770", borderColor: "#35eaff", borderWidth: 1 },
-        emphasis: { label: { show: true, formatter: emphasisFormatter, color: "#effdff" }, itemStyle: { color: "#55edff" } },
+        emphasis: {
+          label: {
+            show: true,
+            formatter: emphasisFormatter,
+            color: "#effdff",
+            fontSize: 12,
+            fontWeight: 600,
+            textBorderColor: "#041d32",
+            textBorderWidth: 2,
+          },
+          itemStyle: { color: "#55edff" },
+        },
         data,
       },
       {
@@ -220,7 +237,8 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
           distance: 4,
           formatter: (params: unknown) => (params as { data?: { label?: string } }).data?.label ?? "",
           color: "#effdff",
-          fontSize: 11,
+          fontSize: 12,
+          fontWeight: 500,
           textBorderColor: "#041d32",
           textBorderWidth: 2,
         },
@@ -273,7 +291,7 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
         zlevel: -1,
         coordinateSystem: "geo3D",
         silent: true,
-        symbolSize: 28,
+        symbolSize: 34,
         itemStyle: { color: "#ffd18c", opacity: 0.2 },
         data: input.flows.target ? [{ value: [...input.flows.target, 0.02] }] : [],
       },
@@ -283,7 +301,7 @@ export function buildRiskMap3DOption(input: RiskMap3DOptionInput): EChartsCoreOp
         zlevel: -1,
         coordinateSystem: "geo3D",
         symbol: "circle",
-        symbolSize: 14,
+        symbolSize: 16,
         itemStyle: { color: "#ffd18c" },
         data: input.flows.target ? [{ name: targetLabel, isTarget: true, value: [...input.flows.target, 0.02] }] : [],
       },

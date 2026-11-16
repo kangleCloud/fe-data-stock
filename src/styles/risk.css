@@ -148,7 +148,7 @@
   background-size:36px 36px; transform:perspective(620px) rotateX(22deg);
   mask-image:radial-gradient(ellipse,#0008,transparent 72%);
 }
-.access-map::after { content:""; position:absolute; inset:2% 0 0; z-index:-1; pointer-events:none; background:radial-gradient(ellipse,#00baff33,transparent 67%); }
+.access-map::after { content:""; position:absolute; inset:2% 0 0; z-index:-1; pointer-events:none; background:radial-gradient(ellipse,#00baff42,transparent 69%); }
 .access-map .risk-region-map { position:absolute; inset:0; height:100%; }
 .access-map .risk-map-canvas { position:absolute; inset:0; height:100%!important; width:100%; }
 .access-map .risk-map-chart { height:100%!important; }
@@ -157,15 +157,15 @@
 .access-map .map-scope button:first-child { border-radius:4px 0 0 4px; }
 .access-map .map-scope button:last-child { border-radius:0 4px 4px 0; }
 .access-map .map-navigation { position:absolute; z-index:3; top:46px; right:10px; display:flex; flex-direction:column; gap:6px; margin:0; }
-.access-map .map-navigation button { display:grid; place-items:center; width:30px; height:30px; padding:4px; }
+.access-map .map-navigation button { display:grid; place-items:center; width:32px; height:32px; padding:4px; }
 .access-map-caption {
   position:absolute; z-index:4; left:10px; right:10px; bottom:10px;
-  display:flex; align-items:center; justify-content:flex-end; gap:8px;
-  padding:7px 10px; border:1px solid #1c789a80; border-radius:4px;
+  display:flex; align-items:center; justify-content:flex-end; gap:10px;
+  padding:8px 12px; border:1px solid #1c789a80; border-radius:4px;
   background:linear-gradient(90deg,#02182ecc,#042f4ccc 42%,#02182ed9);
-  font-size:11px; color:var(--risk-muted); backdrop-filter:blur(2px);
+  font-size:12px; color:var(--risk-muted); backdrop-filter:blur(2px);
 }
-.access-map-caption i { display:block; width:86px; height:5px; background:linear-gradient(90deg,#124866,#8cf8ff); border-radius:3px; }
+.access-map-caption i { display:block; width:96px; height:6px; background:linear-gradient(90deg,#124866,#8cf8ff); border-radius:3px; }
 .access-map-caption .risk-map-view-label { margin-right:auto; color:#7ff4ff; border:1px solid #2494b7; border-radius:10px; padding:1px 8px; line-height:16px; }
 .access-info { position:relative; display:inline-flex; pointer-events:auto; }
 .access-screen .access-info-button { display:grid; place-items:center; width:28px; min-height:28px; padding:4px; }

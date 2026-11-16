@@ -35,6 +35,8 @@ export interface RiskMapOptionInput {
   detail?: RiskDetailLayer;
   /** 二维全国视野下已加载且通过真实像素视口筛选的城市/一级行政区标签。 */
   cityLabels?: readonly RiskMapCityLabel[];
+  /** 真实 ECharts 容器尺寸；用于按容器宽高计算地图占用，缺省回退百分比。 */
+  viewport?: { width: number; height: number };
 }
 
 interface LayerView {
@@ -48,6 +50,7 @@ interface GeoLayer {
   roam: false;
   layoutCenter: [string, string];
   layoutSize: string;
+  aspectScale: number;
   z: number;
   zoom: number;
   center: [number, number];
@@ -55,6 +58,7 @@ interface GeoLayer {
   itemStyle: Record<string, string | number>;
   label: { show: false };
   emphasis: Record<string, unknown>;
+  select?: Record<string, unknown>;
 }
 
 function sourceName(kind: RiskMapKind) {
@@ -65,7 +69,8 @@ function layer(
   map: string,
   view: LayerView,
   layoutCenter: [string, string],
-  layoutSize: number,
+  layoutSize: string,
+  aspectScale: number,
   z: number,
   areaColor: string,
   borderColor: string,
@@ -76,7 +81,8 @@ function layer(
     silent,
     roam: false,
     layoutCenter,
-    layoutSize: `${layoutSize}%`,
+    layoutSize,
+    aspectScale,
     z,
     zoom: view.zoom,
     center: view.center,
@@ -129,18 +135,29 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
   };
   const world = input.kind === "world";
   const centerY = input.backdrop ? 47 : 48;
-  const baseSize = input.backdrop ? (world ? 98 : 100) : (world ? 94 : 96);
+  const geoBox = riskMapGeoBounds(activeGeo);
+  const geoAspect = Math.max(0.1, (geoBox.maxLng - geoBox.minLng) / Math.max(0.1, geoBox.maxLat - geoBox.minLat));
+  const aspectScale = world ? 0.85 : 1;
+  const percentSize = input.backdrop ? (world ? 98 : 100) : (world ? 94 : 96);
+  const viewport = input.viewport;
+  const mapWidth = viewport && viewport.width > 0 && viewport.height > 0
+    ? Math.max(160, Math.floor(Math.min(
+        viewport.width * (input.backdrop ? 0.94 : 0.92),
+        viewport.height * (input.backdrop ? 0.84 : 0.88) * geoAspect * aspectScale,
+      )))
+    : undefined;
+  const size = (offset: number) => mapWidth === undefined ? `${percentSize + offset}%` : `${Math.round(mapWidth + offset)}px`;
   const emphasisLabelFormatter = (params: unknown) => displayName((params as { name?: string }).name ?? "");
   const geos: GeoLayer[] = [];
 
   if (input.mode === "3d") {
-    geos.push(layer(mapName, view, ["50%", `${centerY}%`], baseSize + 3.2, 0, "#01101f", "#0a4057"));
-    geos.push(layer(mapName, view, ["50%", `${centerY}%`], baseSize + 1.6, 1, "#031c2f", "#0d5d7c"));
+    geos.push(layer(mapName, view, ["50%", `${centerY}%`], size(16), aspectScale, 0, "#01101f", "#0a4057"));
+    geos.push(layer(mapName, view, ["50%", `${centerY}%`], size(8), aspectScale, 1, "#031c2f", "#0d5d7c"));
   }
 
   const mainIndex = geos.length;
   geos.push({
-    ...layer(mapName, view, ["50%", `${centerY}%`], baseSize, 2, "#0a3150", "#2ed6ef", false),
+    ...layer(mapName, view, ["50%", `${centerY}%`], size(0), aspectScale, 2, "#0a3150", "#2ed6ef", false),
     silent: false,
     itemStyle: {
       areaColor: "#0a3150",
@@ -434,7 +451,9 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
       confine: true,
       backgroundColor: "#041d32",
       borderColor: "#2bc5e4",
-      textStyle: { color: "#e5f6ff", fontSize: 12 },
+      borderWidth: 1,
+      padding: [8, 10],
+      textStyle: { color: "#e5f6ff", fontSize: 13, lineHeight: 20 },
       formatter,
     },
     visualMap: overallSafe && hasData
