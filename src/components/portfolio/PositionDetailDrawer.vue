@@ -10,7 +10,7 @@ import { chartDataIndex, errorText, formatChartTick, formatMoney, formatTradeDat
 import type { EntityId } from "@/types/api";
 import type { PortfolioAudit, PortfolioPositionDetail } from "@/types/portfolio";
 
-const props = defineProps<{ modelValue: boolean; id?: EntityId }>();
+const props = defineProps<{ modelValue: boolean; id?: EntityId; initialTab?: string }>();
 const emit = defineEmits<{ "update:modelValue": [boolean]; changed: [] }>();
 const opened = computed({ get: () => props.modelValue, set: (value) => emit("update:modelValue", value) });
 const auth = useAuthStore();
@@ -23,11 +23,13 @@ const busy = ref(false);
 const error = ref("");
 const activeTab = ref("history");
 const recording = ref(false);
+const editingCloseDate = ref<string>();
 let epoch = 0;
 
 const records = computed(() => detail.value?.records || []);
+const closes = computed(() => detail.value?.closes || []);
 const displayRecords = computed(() => [...records.value].reverse());
-const auditOperationName = (operation: string) => operation === "SAVE" ? "保存" : operation;
+const auditOperationName = (operation: string) => operation === "SAVE" ? "保存" : operation === "DELETE" ? "删除" : operation;
 
 async function load() {
   if (props.id == null) return;
@@ -50,14 +52,15 @@ async function load() {
 }
 
 watch(
-  () => [props.modelValue, props.id],
+  () => [props.modelValue, props.id, props.initialTab],
   () => {
     epoch++;
     if (!props.modelValue) return;
     detail.value = undefined;
     auditRows.value = [];
-    activeTab.value = "history";
+    activeTab.value = props.initialTab || "history";
     recording.value = false;
+    editingCloseDate.value = undefined;
     void load();
   },
   { immediate: true },
@@ -119,6 +122,12 @@ const option = computed(() => ({
 }));
 
 function record() {
+  editingCloseDate.value = undefined;
+  recording.value = true;
+}
+
+function editClose(closeDate: string) {
+  editingCloseDate.value = closeDate;
   recording.value = true;
 }
 
@@ -166,9 +175,30 @@ async function saved() {
                 <el-table-column label="总成本" align="right" min-width="130"><template #default="{ row }">{{ formatMoney(row.totalCost) }}</template></el-table-column>
                 <el-table-column label="持仓浮动盈亏" align="right" min-width="145"><template #default="{ row }">{{ signedMoney(row.unrealizedPnl) }}</template></el-table-column>
                 <el-table-column label="盈亏率" align="right" min-width="110"><template #default="{ row }">{{ row.unrealizedRate == null ? '—' : formatMoney(row.unrealizedRate) + '%' }}</template></el-table-column>
+                <el-table-column label="清仓利润" align="right" min-width="130"><template #default="{ row }">{{ row.realizedPnl == null ? '—' : signedMoney(row.realizedPnl) }}</template></el-table-column>
                 <el-table-column prop="remark" label="备注" min-width="140" />
               </el-table>
             </details>
+          </el-tab-pane>
+          <el-tab-pane label="清仓记录" name="closes">
+            <el-table :data="closes" empty-text="暂无清仓记录">
+              <el-table-column label="清仓日" min-width="120"><template #default="{ row }">{{ formatTradeDate(row.closeDate) }}</template></el-table-column>
+              <el-table-column prop="closeQuantity" label="清仓前数量" width="110" />
+              <el-table-column label="成本基数（元）" align="right" min-width="130"><template #default="{ row }">{{ formatMoney(row.costBasis) }}</template></el-table-column>
+              <el-table-column label="已实现盈亏（元）" align="right" min-width="145">
+                <template #default="{ row }">
+                  <el-tag v-if="row.realizedPnl == null" type="warning" effect="plain">待补录</el-tag>
+                  <span v-else>{{ signedMoney(row.realizedPnl) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="收益率" align="right" min-width="110"><template #default="{ row }">{{ row.realizedRate == null ? '—' : formatMoney(row.realizedRate) + '%' }}</template></el-table-column>
+              <el-table-column prop="remark" label="备注" min-width="140" />
+              <el-table-column v-if="canUpdate" label="操作" width="120">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="editClose(row.closeDate)">{{ row.realizedPnl == null ? '补录利润' : '修改利润' }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
           </el-tab-pane>
           <el-tab-pane v-if="canAudit" label="操作审计" name="audit">
             <el-table :data="auditRows">
@@ -192,6 +222,7 @@ async function saved() {
       v-if="detail && canUpdate"
       v-model="recording"
       :position="detail.position"
+      :initial-date="editingCloseDate"
       @saved="saved"
     />
   </el-drawer>
