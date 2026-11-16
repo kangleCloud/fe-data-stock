@@ -12,6 +12,24 @@ const aliases: Record<string, string> = Object.fromEntries([
 Object.assign(aliases, { "CN-91": "HK", "CN-HK": "HK", "CN-92": "MO", "CN-MO": "MO", "CN-71": "TW", "CN-TW": "TW" });
 const provinceCodes = new Set(Object.values(aliases).filter((code) => code.startsWith("CN-")));
 export function canonicalRiskRegion(code: string): string { return aliases[code] ?? code; }
+
+/** 编码只用于匹配；展示层必须使用真实名称，缺失时给出明确提示。 */
+export const RISK_UNNAMED_REGION = "未命名地域";
+const INTERNAL_REGION_NAME = /^(?:BOUNDARY_[A-Za-z0-9_]+|\d+|CN-\d{2}|[A-Z]{2}(?:-[A-Z0-9]{1,5})?)$/;
+function internalRegionName(value: string): boolean {
+  return INTERNAL_REGION_NAME.test(value);
+}
+/**
+ * 优先使用资产中的真实名称；没有名称或名称本身就是内部编码/边界 ID 时，
+ * 返回明确的无名称提示，绝不把 CN-xx 或数字编码当作地名展示。
+ */
+export function riskRegionDisplayName(name: string, label?: string | null): string {
+  const display = label?.trim() ?? "";
+  if (display && !internalRegionName(display)) return display;
+  const fallback = name.trim();
+  if (fallback && !internalRegionName(fallback)) return fallback;
+  return RISK_UNNAMED_REGION;
+}
 function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function ring(value: unknown): boolean {
   if (!Array.isArray(value) || value.length < 4) return false;

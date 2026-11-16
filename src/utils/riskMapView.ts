@@ -9,6 +9,83 @@ export interface RiskMapView {
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 8;
 const centers = new WeakMap<RiskGeo, [number, number]>();
+const boundsCache = new WeakMap<RiskGeo, RiskMapBounds>();
+const featureBoundsCache = new WeakMap<RiskGeo["features"][number], RiskMapBounds>();
+const featureCenterCache = new WeakMap<RiskGeo["features"][number], [number, number]>();
+
+export interface RiskMapBounds {
+  minLng: number;
+  maxLng: number;
+  minLat: number;
+  maxLat: number;
+}
+
+function visitBounds(value: unknown, bounds: RiskMapBounds): void {
+  if (!Array.isArray(value)) return;
+  if (typeof value[0] === "number" && typeof value[1] === "number") {
+    const [lng, lat] = value;
+    if (Number.isFinite(lng) && Number.isFinite(lat)) {
+      bounds.minLng = Math.min(bounds.minLng, lng);
+      bounds.maxLng = Math.max(bounds.maxLng, lng);
+      bounds.minLat = Math.min(bounds.minLat, lat);
+      bounds.maxLat = Math.max(bounds.maxLat, lat);
+    }
+    return;
+  }
+  value.forEach((item) => visitBounds(item, bounds));
+}
+
+/** 地图几何包围盒；用于标签视野裁剪和视图中心，不参与业务编码判断。 */
+export function riskMapGeoBounds(geo: RiskGeo): RiskMapBounds {
+  const cached = boundsCache.get(geo);
+  if (cached) return cached;
+  const bounds: RiskMapBounds = {
+    minLng: Number.POSITIVE_INFINITY,
+    maxLng: Number.NEGATIVE_INFINITY,
+    minLat: Number.POSITIVE_INFINITY,
+    maxLat: Number.NEGATIVE_INFINITY,
+  };
+  geo.features.forEach((feature) => visitBounds(feature.geometry.coordinates, bounds));
+  if (!Number.isFinite(bounds.minLng)) {
+    bounds.minLng = 0;
+    bounds.maxLng = 0;
+    bounds.minLat = 0;
+    bounds.maxLat = 0;
+  }
+  boundsCache.set(geo, bounds);
+  return bounds;
+}
+
+/** 单个父级边界的包围盒；用于三维视口探测，不参与编码匹配。 */
+export function riskMapFeatureBounds(feature: RiskGeo["features"][number]): RiskMapBounds {
+  const cached = featureBoundsCache.get(feature);
+  if (cached) return cached;
+  const bounds: RiskMapBounds = {
+    minLng: Number.POSITIVE_INFINITY,
+    maxLng: Number.NEGATIVE_INFINITY,
+    minLat: Number.POSITIVE_INFINITY,
+    maxLat: Number.NEGATIVE_INFINITY,
+  };
+  visitBounds(feature.geometry.coordinates, bounds);
+  if (!Number.isFinite(bounds.minLng)) {
+    bounds.minLng = 0;
+    bounds.maxLng = 0;
+    bounds.minLat = 0;
+    bounds.maxLat = 0;
+  }
+  featureBoundsCache.set(feature, bounds);
+  return bounds;
+}
+
+/** 父级包围盒中心，仅作为视口目标与请求排序参考。 */
+export function riskMapFeatureCenter(feature: RiskGeo["features"][number]): [number, number] {
+  const cached = featureCenterCache.get(feature);
+  if (cached) return cached;
+  const bounds = riskMapFeatureBounds(feature);
+  const center: [number, number] = [(bounds.minLng + bounds.maxLng) / 2, (bounds.minLat + bounds.maxLat) / 2];
+  featureCenterCache.set(feature, center);
+  return center;
+}
 
 /** 返回地图几何包围盒中心，作为 ECharts 绝对 center 的基准，避免把 0°E/0°N 当作中国地图中心。 */
 export function riskMapGeoCenter(geo: RiskGeo): [number, number] {

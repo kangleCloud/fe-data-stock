@@ -34,3 +34,27 @@ it("renders dashboard bars without adding a coverage Tips button or losing unsaf
  expect(w.get('.risk-bars').text()).toContain('9,007,199,254,740,993');expect(w.find('.risk-bar-track').exists()).toBe(false);
  expect(w.text()).toContain('识别率');w.unmount();
 });
+it("prefers verified Chinese labels for detail rows and marks original names", () => {
+ const data = fixture();
+ data.items = [
+   { cityCode: "310000", cityName: "上海", requestCount: "7" },
+   { cityCode: "310100", cityName: "旧名", requestCount: "3" },
+   { cityCode: null, cityName: "无编码", requestCount: "1" },
+ ];
+ const labels = {
+   "310000": { label: "上海市", nameZh: true },
+   "310100": { label: "Shanghai City", nameZh: false },
+ };
+ const wrapper = mount(Panel, { props: { kind: "cities", selectedCode: "CN-31", title: "上海", data, labels } });
+ expect(wrapper.get("h3").text()).toBe("上海 · 城市 Top 10");
+ expect(wrapper.text()).toContain("上海市");
+ expect(wrapper.text()).toContain("Shanghai City（原名）");
+ expect(wrapper.text()).toContain("无编码");
+ wrapper.unmount();
+
+ const subdivision = fixture();
+ subdivision.items = [{ provinceCode: "US-CA", provinceName: "California", requestCount: "2" }];
+ const fallback = mount(Panel, { props: { kind: "subdivisions", selectedCode: "US", data: subdivision } });
+ expect(fallback.text()).toContain("California（原名）");
+ fallback.unmount();
+});

@@ -6,6 +6,7 @@ import RiskClock from "@/components/risk/RiskClock.vue";
 import RiskBars from "@/components/risk/RiskBars.vue";
 import type { RiskMapKind } from "@/utils/riskMap";
 import { canonicalRiskRegion } from "@/utils/riskMap";
+import type { RiskDetailLabels } from "@/utils/riskMapDetail";
 import type { EChartsCoreOption } from "echarts/core";
 import BaseChart from "@/components/market/BaseChart.vue";
 import RiskRegionMap from "@/components/risk/RiskRegionMap.vue";
@@ -52,7 +53,16 @@ function preset(days: 1 | 2 | 7) {
 function openDetail(tab: "interfaces" | "sources" | "exceptions") { activeTab.value = tab; drawer.value = "details"; }
 const mapMessages = ref<string[]>([]);
 const mapKind = ref<RiskMapKind>("china");
-function mapViewChange(kind: RiskMapKind) { mapKind.value = kind; drilldown.clear(); }
+const detailLabels = ref<RiskDetailLabels>();
+function mapViewChange(kind: RiskMapKind) { mapKind.value = kind; detailLabels.value = undefined; drilldown.clear(); }
+const drillTitle = computed(() => {
+  const selected = drilldown.accepted.value ?? drilldown.selected.value;
+  return selected ? riskRegion(selected.code) : "";
+});
+const drillLabels = computed(() => {
+  const code = drilldown.accepted.value?.code ?? drilldown.selected.value?.code;
+  return detailLabels.value && detailLabels.value.regionCode === code ? detailLabels.value.labels : undefined;
+});
 const completenessLabels = { READY: "数据就绪", EMPTY: "范围内无请求", PARTIAL: "数据不完整", UNAVAILABLE: "数据不可用" };
 const cards = computed(() => { const m = dashboard.value?.metrics; return [
   { label: "请求总量", value: m ? riskCount(m.requestCount) : "—", icon: Collection },
@@ -121,11 +131,11 @@ const columns = computed(() => activeTab.value === "interfaces" ? [['method','�
         <section class="panel ranking"><h2><List aria-hidden="true" />接口请求 TOP 10</h2><ol class="interface-ranking"><li v-for="(r,i) in interfaceRows" :key="r.method + r.pathTemplate"><span class="risk-rank" :data-top="i < 3 ? String(i + 1) : undefined">{{ i+1 }}</span><span class="method-tag" :class="r.method.toLowerCase()">{{ r.method }}</span><span class="interface-path" :title="r.pathTemplate">{{ r.pathTemplate }}</span><span v-if="r.width !== null" class="risk-bar-track interface-bar" aria-hidden="true"><i :style="{ width: r.width + '%' }" /></span><strong>{{ riskCount(r.requestCount) }}</strong></li></ol><p v-if="!dashboard?.topInterfaces.length" class="access-empty">暂无接口数据</p><p v-else-if="interfaceRows[0]?.width === null" class="risk-precision-note">计数超出安全绘图精度，仅显示精确数字。</p></section>
         <section class="panel ranking"><h2><Connection aria-hidden="true" />来源 IP TOP 10</h2><RiskBars :rows="sourceRows" label="来源 IP 请求排行" ranked /><p v-if="!sourceRows.length" class="access-empty">暂无来源数据</p></section>
       </aside>
-      <div class="access-map"><RiskRegionMap backdrop :regions="dashboard?.regions ?? []" :server-target="dashboard?.serverTarget" @region-select="drilldown.select" @view-change="mapViewChange" @status-change="mapMessages = $event" /></div>
+      <div class="access-map"><RiskRegionMap backdrop :regions="dashboard?.regions ?? []" :server-target="dashboard?.serverTarget" :selected="drilldown.selected.value" :detail="drilldown.data.value" :detail-loading="drilldown.loading.value" :detail-failed="drilldown.failed.value" :detail-stale="drilldown.stale.value" @region-select="drilldown.select" @view-change="mapViewChange" @status-change="mapMessages = $event" @detail-labels="detailLabels = $event" /></div>
       <aside class="access-right"><section class="panel trend-panel"><h2><TrendCharts aria-hidden="true" />成功 / 失败趋势</h2><div class="trend-legend"><span>成功</span><span>失败</span></div><BaseChart v-if="dashboard?.trend.length && safeTrend" :option="trendOption" height="100%" accessible-label="成功和失败请求趋势" /><p v-else class="access-empty">{{ safeTrend ? '暂无趋势数据' : '计数超过绘图精度，请查看明细' }}</p></section><section class="panel status-panel"><h2><DataAnalysis aria-hidden="true" />HTTP 状态分布</h2><RiskBars :rows="statusRows" label="HTTP 状态请求分布" /><p v-if="!statusRows.length" class="access-empty">暂无状态数据</p><small class="status-other">未知 / 其他 {{ riskCount(dashboard?.metrics.otherCount) }}</small></section></aside>
       <section class="access-bottom">
         <section class="panel"><h2><Location aria-hidden="true" />地域请求排行</h2><RiskBars :rows="regionRows" label="地域请求排行" @select="selectRankedRegion" /><p v-if="!regionRows.length" class="access-empty">暂无地域数据</p></section>
-        <section class="panel"><h2><Grid aria-hidden="true" />城市 / 境外一级行政区</h2><GeoBreakdownPanel compact bars v-if="drilldown.selected.value" :data="drilldown.data.value" :kind="drilldown.accepted.value?.kind ?? drilldown.selected.value.kind" :selected-code="drilldown.accepted.value?.code ?? drilldown.selected.value.code" :loading="drilldown.loading.value" :failed="drilldown.failed.value" :stale="drilldown.stale.value" /><p v-else class="access-empty">点选地图或地域排行查看细分</p></section>
+        <section class="panel"><h2><Grid aria-hidden="true" />城市 / 境外一级行政区</h2><GeoBreakdownPanel compact bars v-if="drilldown.selected.value" :data="drilldown.data.value" :kind="drilldown.accepted.value?.kind ?? drilldown.selected.value.kind" :selected-code="drilldown.accepted.value?.code ?? drilldown.selected.value.code" :title="drillTitle" :labels="drillLabels" :loading="drilldown.loading.value" :failed="drilldown.failed.value" :stale="drilldown.stale.value" /><p v-else class="access-empty">点选地图或地域排行查看细分</p></section>
         <section class="panel access-data-status"><h2><WarningFilled aria-hidden="true" />数据状态</h2><div class="access-alert" role="status"><p v-if="fullscreenError">{{ fullscreenError }}</p><p v-if="validation || error">{{ validation || error }}</p><p v-else-if="loading">正在刷新…</p><p v-else-if="dashboard && state.acceptedFilters.value !== state.queryLabel()">显示上次成功筛选结果</p></div><dl><div><dt>数据完整性</dt><dd :class="dashboard?.metadata.completeness === 'READY' ? 'is-ready' : 'is-warning'">{{ dashboard ? completenessLabels[dashboard.metadata.completeness] : '尚无成功数据' }}</dd></div><div><dt>采集延迟</dt><dd>{{ riskCount(dashboard?.metadata.lagSeconds) }} 秒</dd></div><div><dt>服务器目标</dt><dd>{{ targetStatus }}</dd></div></dl><ul class="access-health-messages"><li v-for="message in mapMessages" :key="message"><Warning aria-hidden="true" />{{ message }}</li><li v-for="warning in dashboard?.metadata.warnings" :key="warning"><Warning aria-hidden="true" />{{ warning }}</li></ul></section>
       </section>
       <footer class="access-footer"><nav aria-label="访问诊断"><button type="button" :aria-pressed="drawer === 'details' && activeTab === 'interfaces'" @click="openDetail('interfaces')"><List aria-hidden="true" />接口明细</button><button type="button" :aria-pressed="drawer === 'details' && activeTab === 'sources'" @click="openDetail('sources')"><Connection aria-hidden="true" />来源 IP</button><button v-if="exceptionAllowed" type="button" :aria-pressed="drawer === 'details' && activeTab === 'exceptions'" @click="openDetail('exceptions')"><Warning aria-hidden="true" />失败请求</button><button type="button" :aria-pressed="drawer === 'geo'" @click="drawer = 'geo'; refresh()"><Location aria-hidden="true" />Geo 诊断</button><a v-if="configAllowed" href="/admin/risk/server-config"><Monitor aria-hidden="true" />服务器配置</a></nav><span class="access-updated"><Refresh aria-hidden="true" />更新 {{ riskTime(dashboard?.metadata.dataUpdatedAt) }}</span><span class="access-attribution">IP Geolocation by <a href="https://db-ip.com/" target="_blank" rel="noopener noreferrer">DB-IP</a></span></footer>

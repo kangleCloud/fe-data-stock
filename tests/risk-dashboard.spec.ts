@@ -70,6 +70,18 @@ describe("API access dashboard", () => {
     expect(api.getRiskDashboard).toHaveBeenCalledTimes(before);
     expect(w.get('.access-data-status').text()).toContain('数据完整性');
   });
+  it("passes the selected detail and verified labels to the map and breakdown panel", async () => {
+    api.getRiskDashboard.mockResolvedValue(collector.dashboard);
+    const w = render(); await flushPromises();
+    await w.get('.access-bottom button.risk-bar-label').trigger('click'); await flushPromises();
+    const map = w.getComponent({ name: "RiskRegionMap" });
+    expect(map.props("selected")).toMatchObject({ code: "CN-11", kind: "cities" });
+    map.vm.$emit("detail-labels", { kind: "cities", regionCode: "CN-11", labels: { "110000": { label: "北京市", nameZh: true } } });
+    await flushPromises();
+    const panel = w.getComponent({ name: "GeoBreakdownPanel" });
+    expect(panel.props("title")).toBe("北京");
+    expect(panel.props("labels")).toEqual({ "110000": { label: "北京市", nameZh: true } });
+  });
   it("requires risk view before any request", async () => { const w = render(["system:risk:exception:view"]); await flushPromises(); expect(w.text()).toContain("无系统风控查看权限"); expect(api.getRiskDashboard).not.toHaveBeenCalled(); });
   it("shows exact counts and only loads detail or Geo on demand", async () => {
     const w = render(); await flushPromises(); expect(w.text()).toContain("9,007,199,254,740,993"); expect(w.text()).toContain("499"); expect(w.find("img").exists()).toBe(false);
