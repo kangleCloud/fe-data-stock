@@ -1,78 +1,101 @@
 <script setup lang="ts">
-import GeoServerStatus from "@/components/risk/GeoServerStatus.vue";
-import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
-import { getRiskServerConfig, saveRiskServerConfig, resolveRiskServerConfig } from "@/api/riskServer";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import RiskResourceStatus from "@/components/risk/RiskResourceStatus.vue";
+import { getRiskTargets, saveRiskTarget, enableRiskTarget, getRiskConfigSync, retryRiskConfigSync, getRiskResources } from "@/api/riskMonitor";
 import { useAuthStore } from "@/stores/auth";
-import type { RiskServerConfig, RiskServerSave, RiskLocation } from "@/types/riskServer";
-import { riskConfigPermission, validateRiskServer } from "@/utils/riskServer";
-import { riskTime } from "@/utils/riskTime";
+import { riskConfigPermission, riskCoordinate } from "@/utils/riskServer";
+import type { RiskManagedTarget, RiskTargetInput, RiskConfigSync, RiskResourceCurrent } from "@/types/riskMonitor";
+
 const auth = useAuthStore();
 const readable = computed(() => riskConfigPermission(auth.permissionCodes, "view"));
 const writable = computed(() => riskConfigPermission(auth.permissionCodes, "update"));
-const config = shallowRef<RiskServerConfig>();
-const form = reactive<RiskServerSave>({ version: null, alias: "", publicIp: "", manualLocation: null });
-const manual = ref(false);
+const items = ref<RiskManagedTarget[]>([]);
+const sync = ref<RiskConfigSync>();
+const resources = ref<RiskResourceCurrent[]>([]);
+const resourceError = ref("");
+let refreshTicks = 0;
+const clock = setInterval(() => {
+  if (++refreshTicks >= 10) {
+    refreshTicks = 0;
+    if (document.visibilityState !== "hidden" && readable.value && !busy.value && !editing.value) void load();
+  }
+}, 1000);
+const error = ref(""); const message = ref(""); const busy = ref(false);
+const page = ref(1); const total = ref(0); const pageSize = 10;
+const editing = ref(false); const manual = ref(false);
+const empty = (): RiskTargetInput => ({ targetId: null, version: null, alias: "", type: "LOCAL", enabled: true, intervalSeconds: 30, collectorId: "", logSourceId: null, connection: null, publicIp: null, manualLocation: null });
+const form = reactive<RiskTargetInput>(empty());
+const remote = reactive({ host: "", port: 22, username: "", credentialAlias: "" });
 const location = reactive({ regionCode: "", longitude: "", latitude: "" });
-const busy = ref(false); const message = ref(""); const error = ref(""); let generation = 0; let disposed = false;
-function locationText(value: RiskLocation | null) { return value ? `${value.regionCode} · 经度 ${value.longitude}，纬度 ${value.latitude}` : "—"; }
-function accept(data: RiskServerConfig) {
-  config.value = data; form.version = data.version; form.alias = data.alias ?? ""; form.publicIp = data.publicIp ?? "";
-  manual.value = !!data.manualLocation; Object.assign(location, data.manualLocation ?? { regionCode: "", longitude: "", latitude: "" });
+let generation = 0; let disposed = false;
+const isCurrent = (token: number) => !disposed && token === generation && readable.value;
+async function load() {
+  if (!readable.value) return;
+  const token = ++generation; busy.value = true; error.value = "";
+  const [listResult, syncResult, resourceResult] = await Promise.allSettled([getRiskTargets(page.value, pageSize), getRiskConfigSync(), getRiskResources()]);
+  if (!isCurrent(token)) return;
+  if (listResult.status === "fulfilled") { items.value = listResult.value.list; total.value = listResult.value.total; }
+  else error.value = "目标列表读取失败，保留上次成功结果。";
+  if (syncResult.status === "fulfilled") sync.value = syncResult.value; else error.value += " 配置同步状态读取失败。";
+  if (resourceResult.status === "fulfilled") { resources.value = resourceResult.value.items; resourceError.value = ""; } else resourceError.value = "资源状态读取失败，保留上次成功结果。";
+  busy.value = false;
 }
-function failure(value: unknown) {
-  const code = (value as { code?: number })?.code;
-  error.value = (code === 409 || code === 423) ? "配置版本冲突，请重新读取后核对再保存；当前输入已保留。" : "操作结果未确认，当前配置与输入已保留。请重新读取核对后再操作。";
+function edit(target?: RiskManagedTarget) {
+  if (!writable.value) return;
+  Object.assign(form, target ? { ...target } : empty());
+  Object.assign(remote, target?.connection ?? { host: "", port: 22, username: "", credentialAlias: "" });
+  Object.assign(location, target?.manualLocation ?? { regionCode: "", longitude: "", latitude: "" });
+  manual.value = !!target?.manualLocation; editing.value = true; error.value = "";
 }
-async function run(operation: () => Promise<RiskServerConfig>, action: "view" | "update") {
-  if (busy.value || !readable.value || (action === "update" && !writable.value)) return;
-  const current = ++generation; busy.value = true; error.value = ""; message.value = "";
-  try { const result = await operation(); if (!disposed && current === generation && readable.value && (action === "view" || writable.value)) { accept(result); message.value = action === "view" ? "配置已读取" : "配置已保存/更新；定位状态以服务端结果为准"; } }
-  catch (value) { if (!disposed && current === generation) failure(value); }
-  finally { if (!disposed && current === generation) busy.value = false; }
+async function action(operation: () => Promise<unknown>, done: string) {
+  if (!readable.value || !writable.value || busy.value) return;
+  const token = ++generation; busy.value = true; error.value = ""; message.value = "";
+  try { await operation(); if (!isCurrent(token) || !writable.value) return; message.value = done; busy.value = false; await load(); }
+  catch (reason) { if (isCurrent(token)) { error.value = (reason as { code?: number })?.code === 423 ? "配置版本冲突，请重新读取后核对；输入已保留。" : "操作结果未确认，请重新读取核对；输入已保留。"; busy.value = false; } }
 }
-function load() { return run(getRiskServerConfig, "view"); }
 function save() {
-  const input: RiskServerSave = { version: form.version, alias: form.alias.trim(), publicIp: form.publicIp.trim(), manualLocation: manual.value ? { ...location } : null };
-  const invalid = validateRiskServer(input); if (invalid) { error.value = invalid; return; }
-  return run(() => saveRiskServerConfig(input), "update");
+  if (!form.alias.trim() || !form.collectorId.trim() || !Number.isInteger(form.intervalSeconds) || form.intervalSeconds < 1) { error.value = "请填写别名、采集器及有效采集周期。"; return; }
+  if (form.type === "REMOTE" && (!remote.host.trim() || !remote.username.trim() || !remote.credentialAlias.trim() || !Number.isInteger(remote.port) || remote.port < 1 || remote.port > 65535)) { error.value = "请完整填写远程连接信息。"; return; }
+  if (manual.value && (!location.regionCode.trim() || riskCoordinate(location.longitude, 180) === undefined || riskCoordinate(location.latitude, 90) === undefined)) { error.value = "请完整填写有效的人工位置。"; return; }
+  const input: RiskTargetInput = { targetId: form.targetId, version: form.version, alias: form.alias.trim(), type: form.type, enabled: form.enabled, intervalSeconds: form.intervalSeconds, collectorId: form.collectorId.trim(), logSourceId: form.type === "LOCAL" ? form.logSourceId?.trim() || null : null, connection: form.type === "REMOTE" ? { ...remote } : null, publicIp: form.publicIp?.trim() || null, manualLocation: manual.value ? { ...location } : null };
+  void action(() => saveRiskTarget(input), "目标已保存；配置发布状态以服务端返回为准。");
 }
-function resolve() { const version = config.value?.version; if (version) return run(() => resolveRiskServerConfig(version), "update"); }
-watch([readable, writable], () => { generation++; busy.value = false; config.value = undefined; form.version = null; form.alias = ""; form.publicIp = ""; manual.value = false; Object.assign(location, { regionCode: "", longitude: "", latitude: "" }); if (readable.value) void load(); }, { immediate: true });
-onBeforeUnmount(() => { disposed = true; generation++; });
+function toggle(target: RiskManagedTarget) {
+  if (!window.confirm(`确认${target.enabled ? "停用" : "启用"}目标 ${target.alias}？`)) return;
+  void action(() => enableRiskTarget({ targetId: target.targetId, version: target.version, enabled: !target.enabled }), "目标状态已更新。");
+}
+watch([readable, writable], () => { generation++; busy.value = false; items.value = []; resources.value = []; resourceError.value = ""; sync.value = undefined; editing.value = false; manual.value = false; Object.assign(form, empty()); Object.assign(remote, { host: "", port: 22, username: "", credentialAlias: "" }); Object.assign(location, { regionCode: "", longitude: "", latitude: "" }); if (readable.value) void load(); }, { immediate: true });
+onBeforeUnmount(() => { disposed = true; generation++; clearInterval(clock); });
 </script>
+
 <template>
-  <section class="risk-server-config" aria-label="风控服务器目标配置">
-    <h1>服务器目标配置</h1><p>北京时间 · 单一服务器目标。人工位置优先；解析失败不影响合法配置的保存。</p>
-    <p v-if="!readable" role="alert">需要 system:risk:view 和 system:risk:config:view 才能读取完整公网IP配置。</p>
+  <section class="risk-server-config" aria-label="风控监控目标管理">
+    <h1>监控目标管理</h1>
+    <p v-if="!readable" role="alert">需要风控查看与配置查看权限。</p>
     <template v-else>
-      <p v-if="error" class="risk-warning" role="alert">{{ error }}</p><p v-if="message" role="status">{{ message }}</p><p v-if="busy" role="status">正在处理…</p>
-      <form class="config-form" @submit.prevent="save">
-        <label>服务器别名<input v-model="form.alias" :disabled="!writable || busy" maxlength="64" autocomplete="off"></label>
-        <label>公网IP<input v-model="form.publicIp" :disabled="!writable || busy" autocomplete="off" spellcheck="false"></label>
-        <label><span>使用人工位置</span><input v-model="manual" type="checkbox" :disabled="!writable || busy"></label>
-        <template v-if="manual"><label>地域编码<input v-model="location.regionCode" :disabled="!writable || busy" placeholder="CN-31 / US"></label><label>经度<input v-model="location.longitude" :disabled="!writable || busy" inputmode="decimal"></label><label>纬度<input v-model="location.latitude" :disabled="!writable || busy" inputmode="decimal"></label></template>
-        <button type="button" :disabled="busy" @click="load">重新读取</button><button v-if="writable" type="submit" :disabled="busy">保存配置</button><button v-if="writable" type="button" :disabled="busy || !config?.version" @click="resolve">重新解析已保存IP</button>
+      <p v-if="error" role="alert">{{ error }}</p><p v-if="message" role="status">{{ message }}</p>
+      <button :disabled="busy" @click="load">刷新</button> <button v-if="writable" :disabled="busy" @click="edit()">新增目标</button>
+      <div class="table-wrap"><table><thead><tr><th>目标</th><th>类型</th><th>采集器</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="target in items" :key="target.targetId"><td>{{ target.alias }}（{{ target.targetId }}）</td><td>{{ target.type }}</td><td>{{ target.collectorId }}</td><td>{{ target.enabled ? '已启用' : '已停用' }}</td><td><button v-if="writable" :disabled="busy" @click="edit(target)">编辑</button> <button v-if="writable" :disabled="busy" @click="toggle(target)">{{ target.enabled ? '停用' : '启用' }}</button></td></tr></tbody></table></div>
+      <p v-if="!items.length && !busy && !error">暂无目标</p><p><button :disabled="busy || page <= 1" @click="page--; load()">上一页</button> 第 {{ page }} 页 <button :disabled="busy || page * pageSize >= total" @click="page++; load()">下一页</button></p>
+      <form v-if="editing && writable" class="config-form" @submit.prevent="save">
+        <h2>{{ form.targetId ? '编辑目标' : '新增目标' }}</h2>
+        <label>别名<input v-model="form.alias" required maxlength="64"></label>
+        <label>类型<select v-model="form.type"><option value="LOCAL">本地</option><option value="REMOTE">远程</option></select></label>
+        <label>采集器 ID<input v-model="form.collectorId" required></label><label>采集周期（秒）<input v-model.number="form.intervalSeconds" type="number" min="1" required></label>
+        <label><input v-model="form.enabled" type="checkbox">启用</label>
+        <label v-if="form.type === 'LOCAL'">日志源 ID<input v-model="form.logSourceId"></label>
+        <template v-else><label>主机<input v-model="remote.host" required></label><label>端口<input v-model.number="remote.port" type="number" min="1" max="65535" required></label><label>用户名<input v-model="remote.username" required></label><label>密钥别名<input v-model="remote.credentialAlias" required></label></template>
+        <label>公网 IP<input v-model="form.publicIp"></label><label><input v-model="manual" type="checkbox">使用人工位置</label>
+        <template v-if="manual"><label>地域编码<input v-model="location.regionCode" required></label><label>经度<input v-model="location.longitude" required></label><label>纬度<input v-model="location.latitude" required></label></template>
+        <div><button type="submit" :disabled="busy">保存</button> <button type="button" :disabled="busy" @click="editing = false">取消</button></div>
       </form>
-      <p v-if="!writable">当前只读，更新还需 system:risk:config:update。</p>
-      <p>定位使用本地数据库或有效缓存，不调用在线定位、不发送访客 IP。重新读取会替换当前输入。</p>
-      <GeoServerStatus v-if="config" :status="config.geoStatus" :manual="config.locationSource === 'MANUAL'" /><dl v-if="config"><dt>配置状态</dt><dd>{{ config.configured ? '已配置' : '未配置' }}</dd><dt>位置 / 解析状态</dt><dd>{{ config.locationStatus }} / {{ config.resolveStatus }}</dd><dt>位置来源</dt><dd>{{ config.locationSource ?? '—' }}</dd><dt>有效人工位置</dt><dd>{{ locationText(config.manualLocation) }}</dd><dt>解析位置</dt><dd>{{ locationText(config.resolvedLocation) }}</dd><dt>解析失败分类</dt><dd>{{ config.resolveFailureCode ?? '—' }}</dd><dt>解析时间</dt><dd>{{ riskTime(config.resolvedAt) }}</dd><dt>更新时间</dt><dd>{{ riskTime(config.updatedAt) }}</dd></dl>
+      <section><h2>配置同步</h2><p v-if="sync">{{ sync.status }} · {{ sync.stale ? '已过期' : '未过期' }} · 配置版本 {{ sync.configVersion ?? '—' }} · 发布版本 {{ sync.redisConfigVersion ?? '—' }} · {{ sync.failureCode ?? '无失败码' }}</p><p v-else>同步状态不可用</p><button v-if="writable && sync?.retryable" :disabled="busy" @click="action(retryRiskConfigSync, '已请求重试发布。')">重试同步</button></section>
+      <RiskResourceStatus :resources="resources" :loading="busy" :error="resourceError" />
     </template>
   </section>
 </template>
 <style scoped>
-.risk-server-config { padding: 24px; background: var(--el-bg-color); color: var(--el-text-color-primary); border: 1px solid var(--el-border-color-light); border-radius: 8px; }
-h1 { margin: 0 0 12px; font-size: 22px; }
-p { line-height: 1.7; }
-.config-form { display: grid; gap: 18px; max-width: 640px; margin: 24px 0; }
-label { display: grid; gap: 8px; font-size: 14px; }
-input:not([type="checkbox"]) { box-sizing: border-box; width: 100%; min-height: 36px; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 8px 12px; background: var(--el-fill-color-blank); color: var(--el-text-color-primary); font: inherit; }
-input[type="checkbox"] { width: 20px; height: 20px; }
-button { min-height: 36px; padding: 8px 16px; border: 1px solid var(--el-border-color); border-radius: 4px; background: var(--el-fill-color-blank); color: var(--el-text-color-primary); cursor: pointer; }
-button[type="submit"] { background: var(--el-color-primary); color: var(--el-color-white); border-color: var(--el-color-primary); }
-button:disabled, input:disabled { cursor: not-allowed; opacity: .6; }
-:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; }
-.risk-warning { color: var(--el-color-danger); }
-dl { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; padding-top: 20px; border-top: 1px solid var(--el-border-color-light); }
-dd { margin: 0; overflow-wrap: anywhere; } dt { color: var(--el-text-color-secondary); }
-@media (max-width: 600px) { .risk-server-config { padding: 16px; } dl { grid-template-columns: 1fr; gap: 8px; } dd { margin-bottom: 8px; } }
+.risk-server-config { padding: 24px; background: var(--el-bg-color); color: var(--el-text-color-primary); }
+.table-wrap { overflow-x: auto; margin-top: 16px; } table { border-collapse: collapse; width: 100%; } th, td { padding: 10px; border-bottom: 1px solid var(--el-border-color-light); text-align: left; }
+.config-form { display: grid; gap: 12px; max-width: 640px; margin: 24px 0; } label { display: grid; gap: 6px; } input, select, button { min-height: 36px; font: inherit; } input[type=checkbox] { min-height: auto; } button { cursor: pointer; } button:disabled { cursor: not-allowed; } :focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; } section section { margin-top: 24px; } @media (max-width: 600px) { .risk-server-config { padding: 16px; } }
 </style>

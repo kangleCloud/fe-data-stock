@@ -10,6 +10,9 @@ export async function getRiskDashboard(params: RiskQuery): Promise<RiskDashboard
   if (BigInt(total.requestCount) !== BigInt(total.successCount) + BigInt(total.failureCount) + BigInt(total.otherCount)) throw new Error("RISK_TOTAL_INCONSISTENT");
   const denominator = BigInt(total.successCount) + BigInt(total.failureCount);
   if (denominator === 0n ? total.failureRate !== null : typeof total.failureRate !== "string" || !/^(?:0\.\d{6}|1\.0{6})$/.test(total.failureRate)) throw new Error("RISK_RATE_INVALID");
+  if (data.targets && (!Array.isArray(data.targets) || data.targets.some(target => typeof target.targetId !== "string" || !Array.isArray(target.regions) || target.regions.some(row => typeof row.regionCode !== "string" || !count(row.requestCount))))) throw new Error("RISK_TARGETS_INVALID");
+  if (data.requestTypes && (!Array.isArray(data.requestTypes) || data.requestTypes.some(row => !["API", "PAGE", "STATIC", "OTHER"].includes(row.requestType) || !count(row.requestCount)))) throw new Error("RISK_REQUEST_TYPES_INVALID");
+  if (data.qps && (data.qps.value !== null && (!/^\d+\.\d{6}$/.test(data.qps.value) || data.qps.coverageStatus !== "COMPLETE"))) throw new Error("RISK_QPS_INVALID");
   return data;
 }
 export const getRiskInterfaces = (params: RiskPageQuery) => request<PageResponse<RiskInterface>>({ url: "/risk/interfaces/page", method: "GET", silentError: true, params });

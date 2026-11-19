@@ -50,6 +50,11 @@ const props = defineProps<{
   detailLoading?: boolean;
   detailFailed?: boolean;
   detailStale?: boolean;
+  /** 固定视角：不提供缩放、平移、旋转或二维/三维切换。 */
+  fixedView?: boolean;
+  /** 只允许加载随应用发布的本地边界，不尝试外部补偿。 */
+  localOnly?: boolean;
+  initialKind?: RiskMapKind;
 }>();
 const emit = defineEmits<{
   regionSelect: [code: string, view: RiskMapKind];
@@ -60,9 +65,9 @@ const emit = defineEmits<{
 }>();
 
 const webglSupported = ref(canRiskWebGL());
-const mode = ref<"2d" | "3d">(webglSupported.value ? "3d" : "2d");
-const fallbackReason = ref(webglSupported.value ? "" : "当前浏览器不支持 WebGL，已使用二维地图");
-const effective3D = computed(() => mode.value === "3d" && webglSupported.value && !fallbackReason.value);
+const mode = ref<"2d" | "3d">(webglSupported.value && !props.fixedView ? "3d" : "2d");
+const fallbackReason = ref(webglSupported.value || props.fixedView ? "" : "当前浏览器不支持 WebGL，已使用二维地图");
+const effective3D = computed(() => mode.value === "3d" && webglSupported.value && !props.fixedView && !fallbackReason.value);
 const views = reactive<Record<RiskMapKind, RiskMapView>>({
   china: defaultRiskMapView(),
   world: defaultRiskMapView(),
@@ -73,10 +78,10 @@ const cameras = reactive<Record<RiskMapKind, RiskCamera3D>>({
 });
 const reducedMotion = usePreferredReducedMotion();
 const motionReduced = computed(() => reducedMotion.value === "reduce");
-const kind = ref<RiskMapKind>("china");
+const kind = ref<RiskMapKind>(props.initialKind ?? "china");
 const loaded = shallowRef<RiskMapAsset>();
 const state = ref<"loading" | "ready" | "unavailable">("loading");
-const loader = createRiskMapLoader();
+const loader = createRiskMapLoader({ externalFallback: !props.localOnly });
 let detailLoader = createRiskDetailLoader();
 let revision = 0;
 let detailRevision = 0;
@@ -409,6 +414,10 @@ function on2DViewportChange() {
 }
 
 function selectMode(next: "2d" | "3d") {
+  if (props.fixedView) {
+    mode.value = "2d";
+    return;
+  }
   if (next === "2d") {
     mode.value = "2d";
     return;
@@ -439,6 +448,7 @@ function updateCamera(value: RiskCamera3D) {
 }
 
 function zoom(factor: number) {
+  if (props.fixedView) return;
   if (effective3D.value) {
     map3d.value?.zoom(factor);
     return;
@@ -447,6 +457,7 @@ function zoom(factor: number) {
 }
 
 function resetView() {
+  if (props.fixedView) return;
   if (effective3D.value) {
     map3d.value?.resetView();
     return;
@@ -455,7 +466,7 @@ function resetView() {
 }
 
 function keydown(event: KeyboardEvent) {
-  if (effective3D.value) return;
+  if (props.fixedView || effective3D.value) return;
   const next = riskMapViewKey(views[kind.value], event.key);
   if (next) {
     event.preventDefault();
@@ -577,12 +588,12 @@ const selectedDetailLabel = computed(() => {
   return feature ? riskDetailDisplayName(feature) : "";
 });
 
-const accessibleLabel = computed(() => `${kind.value === "china" ? "中国省级" : "世界国家"}请求数地图；${effective3D.value ? "可旋转三维" : "二维俯视"}，精确数据见文字列表，无定位来源单列。`);
+const accessibleLabel = computed(() => `${kind.value === "china" ? "中国省级" : "世界国家"}请求数地图；${props.fixedView ? "固定二维视角" : effective3D.value ? "可旋转三维" : "二维俯视"}，精确数据见文字列表，无定位来源单列。`);
 
 useEventListener(document, "keydown", onEscape);
 useEventListener(document, "fullscreenchange", onFullscreenChange);
 
-onMounted(() => { void selectMap("china"); });
+onMounted(() => { void selectMap(kind.value); });
 
 onBeforeUnmount(() => {
   if (document.fullscreenElement === mapRoot.value) void document.exitFullscreen?.();
@@ -612,17 +623,19 @@ onBeforeUnmount(() => {
     class="risk-region-map"
     :class="{ 'risk-map-expanded': expanded, 'risk-map-backdrop': backdrop, 'is-2d': mode === '2d', 'is-3d': mode === '3d' }"
     role="group"
-    :aria-label="`${kind === 'china' ? '中国' : '世界'}地域请求地图。${effective3D ? '三维可旋转，左键旋转，右键平移，滚轮缩放' : '二维俯视'}；加号减号缩放，0 复位，方向键${effective3D ? '旋转' : '平移'}，点选行政区查看细分。`"
+    :aria-label="fixedView ? `${kind === 'china' ? '中国' : '世界'}地域请求地图。固定二维视角，不可拖动、缩放或旋转；点选行政区查看细分。` : `${kind === 'china' ? '中国' : '世界'}地域请求地图。${effective3D ? '三维可旋转，左键旋转，右键平移，滚轮缩放' : '二维俯视'}；加号减号缩放，0 复位，方向键${effective3D ? '旋转' : '平移'}，点选行政区查看细分。`"
     tabindex="0"
     @keydown="keydown"
   >
     <div class="risk-controls map-scope" role="group" aria-label="地图范围与视角">
       <button type="button" :aria-pressed="kind === 'china'" title="中国省级地图" @click="selectMap('china')">中国</button>
       <button type="button" :aria-pressed="kind === 'world'" title="世界国家地图" @click="selectMap('world')">世界</button>
-      <button type="button" :aria-pressed="mode === '2d'" title="二维俯视" @click="selectMode('2d')">2D</button>
-      <button type="button" :aria-pressed="mode === '3d'" title="三维可旋转地图" @click="selectMode('3d')">3D</button>
+      <template v-if="!fixedView">
+        <button type="button" :aria-pressed="mode === '2d'" title="二维俯视" @click="selectMode('2d')">2D</button>
+        <button type="button" :aria-pressed="mode === '3d'" title="三维可旋转地图" @click="selectMode('3d')">3D</button>
+      </template>
     </div>
-    <div class="risk-controls map-navigation" role="group" aria-label="地图视图操作">
+    <div v-if="!fixedView" class="risk-controls map-navigation" role="group" aria-label="地图视图操作">
       <button v-if="!backdrop" type="button" :aria-label="expanded ? '退出地图全屏' : '地图全屏'" :title="expanded ? '退出地图全屏' : '地图全屏'" @click="toggleFullscreen"><FullScreen aria-hidden="true" /></button>
       <button type="button" aria-label="放大" title="放大（键盘 +）" :disabled="state !== 'ready'" @click="zoom(1.25)"><Plus aria-hidden="true" /></button>
       <button type="button" aria-label="缩小" title="缩小（键盘 −）" :disabled="state !== 'ready'" @click="zoom(0.8)"><Minus aria-hidden="true" /></button>
@@ -630,7 +643,7 @@ onBeforeUnmount(() => {
     </div>
 
     <p v-if="state === 'loading' && !backdrop" role="status">正在加载地图边界…</p>
-    <div v-if="state === 'unavailable' && !backdrop" class="risk-map-unavailable" role="status"><strong>地图暂不可用</strong><p>本地资源与固定版本补偿均未成功；地域排行与其他统计仍可查看。</p></div>
+    <div v-if="state === 'unavailable' && !backdrop" class="risk-map-unavailable" role="status"><strong>地图暂不可用</strong><p>{{ localOnly ? '本地授权地图资源不可用' : '本地资源与固定版本补偿均未成功' }}；地域排行与其他统计仍可查看。</p></div>
     <template v-if="state === 'ready' && loaded">
       <div class="risk-map-stage" :class="effective3D ? 'stage-3d' : 'stage-2d'">
         <span class="risk-map-floor" aria-hidden="true" />

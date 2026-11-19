@@ -60,7 +60,7 @@ export function validateRiskGeo(kind: RiskMapKind, input: unknown): RiskGeo {
 }
 
 /** 每个页面实例各建一个加载器，缓存成功与失败Promise；切换和统计刷新不重复下载。 */
-export function createRiskMapLoader(options: { baseUrl?: string; fetcher?: typeof fetch } = {}) {
+export function createRiskMapLoader(options: { baseUrl?: string; fetcher?: typeof fetch; externalFallback?: boolean } = {}) {
   const controller = new AbortController();
   const cache = new Map<RiskMapKind, Promise<RiskMapAsset>>();
   const fetcher = options.fetcher ?? ((...args) => fetch(...args));
@@ -92,7 +92,11 @@ export function createRiskMapLoader(options: { baseUrl?: string; fetcher?: typeo
       const asset = assets.find((item) => item.kind === kind)!;
       const promise = (async (): Promise<RiskMapAsset> => {
         try { return { geo: await attempt(kind, `${(options.baseUrl ?? import.meta.env.BASE_URL).replace(/\/?$/, "/")}${asset.localPath}`), origin: "local" }; }
-        catch { if (controller.signal.aborted) throw new Error("MAP_ABORTED"); return { geo: await attempt(kind, asset.url), origin: "external" }; }
+        catch {
+          if (controller.signal.aborted) throw new Error("MAP_ABORTED");
+          if (options.externalFallback === false) throw new Error("MAP_LOCAL_UNAVAILABLE");
+          return { geo: await attempt(kind, asset.url), origin: "external" };
+        }
       })();
       cache.set(kind, promise); return promise;
     },
