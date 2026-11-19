@@ -18,12 +18,14 @@
     "build:prod": "node scripts/module.mjs build"
   },
   "dependencies": {
+    "@antv/l7": "2.29.1",
     "@element-plus/icons-vue": "^2.3.2",
     "@vueuse/core": "^15.0.0",
     "axios": "^1.18.1",
     "echarts": "^6.1.0",
     "echarts-gl": "2.1.0",
     "element-plus": "^2.14.3",
+    "maplibre-gl": "3.6.2",
     "pinia": "^4.0.2",
     "vue": "^3.5.40",
     "vue-echarts": "^8.3.2",
