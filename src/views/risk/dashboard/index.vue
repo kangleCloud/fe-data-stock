@@ -18,7 +18,7 @@ import { riskConfigPermission } from "@/utils/riskServer";
 import { geoObservationSections } from "@/utils/geoObservation";
 import { riskCount, riskPreset, riskRate, riskRegion } from "@/utils/risk";
 import { riskCountPercent, riskCountRatio } from "@/utils/riskBars";
-import { riskSparkline } from "@/utils/riskDashboardVisual";
+import { riskMinuteRequests, riskSparkline } from "@/utils/riskDashboardVisual";
 import { riskTime } from "@/utils/riskTime";
 import "@/styles/risk.css";
 const screenRef = ref<HTMLElement>();
@@ -121,7 +121,7 @@ const requestTypeOption = computed<EChartsCoreOption>(() => ({
     data: requestTypes.value.map(row => ({ name: row.label, value: riskCountRatio(row.count, classifiedTotal.value) })),
   }],
 }));
-const qps = computed(() => dashboard.value?.qps?.value?.replace(/\.0+$/, "").replace(/(\.\d*?[1-9])0+$/, "$1") ?? "—");
+const minuteRequests = computed(() => riskMinuteRequests(dashboard.value?.qps));
 const cards = computed(() => {
   const data = dashboard.value;
   const metrics = data?.metrics;
@@ -132,9 +132,7 @@ const cards = computed(() => {
   return [
     { label: "请求总量", value: riskCount(metrics?.requestCount), icon: Collection, line: history(row => Number(row.requestCount)) },
     { label: "API 请求", value: riskCount(api?.requestCount ?? (metrics ? "0" : undefined)), icon: DataAnalysis, line: history(row => Number(row.apiRequestCount)) },
-    { label: "最近入库分钟 QPS", value: qps.value, icon: TrendCharts,
-      line: riskSparkline((data?.qps.samples ?? []).map(sample => ({ at: sample.minuteTime, value: Number(sample.value) }))),
-      description: data?.qps.value ? `${riskTime(data.qps.minuteTime, "minute")} · ${coverageText(data.qps.coverageStatus)}` : undefined },
+    { label: "最近入库分钟请求数", ...minuteRequests.value, icon: TrendCharts },
     { label: "独立来源 IP", value: riskCount(metrics?.sourceCount), icon: Connection, line: history(row => Number(row.sourceCount)) },
     { label: "4xx 请求占比", value: riskRate(metrics?.http4xxRate ?? null), icon: Warning, danger: true, line: history(row => rate(row.http4xxCount, row.requestCount)) },
     { label: "5xx 请求占比", value: riskRate(metrics?.http5xxRate ?? null), icon: WarningFilled, danger: true, line: history(row => rate(row.http5xxCount, row.requestCount)) },
@@ -237,7 +235,10 @@ const columns = computed(() => activeTab.value === "interfaces" ? [['method','�
         <article v-for="card in cards" :key="card.label" class="panel kpi" :class="{ danger: card.danger }" :title="card.description">
           <component :is="card.icon" class="kpi-icon" aria-hidden="true" />
           <div><h2>{{ card.label }}</h2><strong :title="card.value" :class="{ long: card.value.length > 15, compact: card.value.length > 9 }">{{ card.value }}</strong><span v-if="card.description" class="kpi-description">{{ card.description }}</span></div>
-          <svg v-if="card.line" class="kpi-sparkline" viewBox="0 0 64 24" aria-hidden="true"><polyline :points="card.line" /></svg>
+          <svg v-if="card.line || card.path" class="kpi-sparkline" viewBox="0 0 64 24" aria-hidden="true">
+            <path v-if="card.path" :d="card.path" />
+            <polyline v-else :points="card.line" />
+          </svg>
         </article>
       </section>
       <aside class="access-left">
@@ -271,7 +272,7 @@ const columns = computed(() => activeTab.value === "interfaces" ? [['method','�
         <dl class="access-status-summary">
           <div><dt>完整性</dt><dd :class="dashboard?.metadata.completeness === 'READY' ? 'is-ready' : 'is-warning'">{{ dashboard ? completenessLabels[dashboard.metadata.completeness] : '—' }}</dd></div>
           <div><dt>采集延迟</dt><dd>{{ delayText(dashboard?.metadata.lagSeconds) }}</dd></div>
-          <div><dt>最近入库分钟 QPS</dt><dd>{{ qps }}</dd></div>
+          <div><dt>最近入库分钟请求数</dt><dd>{{ minuteRequests.value }}<template v-if="minuteRequests.description"> · {{ minuteRequests.description }}</template></dd></div>
           <div><dt>统计覆盖</dt><dd>{{ coverageText(dashboard?.coverage?.status) }}</dd></div>
           <div><dt>成功请求</dt><dd>{{ riskCount(dashboard?.metrics.successCount) }}</dd></div>
           <div><dt>地域未识别请求</dt><dd>{{ riskCount(dashboard?.metadata.unknownRegionRequestCount) }}</dd></div>
@@ -282,7 +283,6 @@ const columns = computed(() => activeTab.value === "interfaces" ? [['method','�
             <div><dt>采集延迟（秒）</dt><dd>{{ riskCount(dashboard?.metadata.lagSeconds) }}</dd></div>
             <div><dt>地图服务器</dt><dd>{{ targetStatus }}</dd></div>
             <div><dt>内网请求</dt><dd>{{ riskCount(dashboard?.metadata.internalRegionRequestCount) }}</dd></div>
-            <div><dt>QPS 采样分钟</dt><dd>{{ riskTime(dashboard?.qps?.minuteTime) }} · {{ coverageText(dashboard?.qps?.coverageStatus) }}</dd></div>
             <div><dt>覆盖起点</dt><dd>{{ riskTime(dashboard?.coverage?.coverageStartTime) }}</dd></div>
             <div><dt>可疑访问</dt><dd>{{ riskCount(dashboard?.suspiciousAccesses?.totalCount) }} · {{ coverageText(dashboard?.suspiciousAccesses?.coverageStatus) }}</dd></div>
           </dl>

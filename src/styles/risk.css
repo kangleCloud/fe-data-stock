@@ -139,7 +139,7 @@
 .access-kpis .kpi-description { display:block; margin-top:3px; color:var(--risk-muted); font-size:10px; line-height:1.2; white-space:nowrap; }
 .access-kpis svg.kpi-sparkline { position:absolute; right:12px; bottom:12px; width:clamp(36px,3vw,78px); height:25px; overflow:visible; color:#39e7f2; pointer-events:none; }
 .access-kpis .kpi:has(.kpi-description) .kpi-sparkline { bottom:25px; }
-.kpi-sparkline polyline { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linejoin:round; stroke-linecap:round; filter:drop-shadow(0 0 4px #00ecf77a); }
+.kpi-sparkline polyline, .kpi-sparkline path { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linejoin:round; stroke-linecap:round; filter:drop-shadow(0 0 4px #00ecf77a); }
 .access-kpis strong.compact { font-size:clamp(16px,1.22vw,25px); letter-spacing:0; }
 .access-kpis strong.long { font-size:15px; letter-spacing:0; }
 .access-kpis .danger,.access-screen .danger { --kpi-accent:var(--risk-danger); }
