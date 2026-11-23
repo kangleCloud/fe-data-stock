@@ -2,10 +2,12 @@ import type { StyleSpecification } from "maplibre-gl";
 import centers from "@/data/risk-region-centers.json";
 import type { RiskDetailCounts, RiskDetailGeo } from "@/utils/riskMapDetail";
 import type { RiskServerTarget } from "@/types/riskServer";
-import type { RiskDashboardTarget } from "@/types/riskMonitor";
-import { riskFlows } from "@/utils/riskFlows";
-import { canonicalRiskRegion, riskMapCounts, type RiskGeo, type RiskMapKind } from "@/utils/riskMap";
+import type { RiskDashboardMapServer } from "@/types/riskMonitor";
+import { riskFlows, riskPointInGeo } from "@/utils/riskFlows";
+import { gcj02ToWgs84 } from "@/utils/riskCoordinates";
+import { canonicalRiskRegion, compareRiskMapCounts, riskMapCounts, type RiskGeo, type RiskMapKind } from "@/utils/riskMap";
 import { riskMapGeoBounds, riskMapGeoCenter } from "@/utils/riskMapView";
+import { riskCoordinate } from "@/utils/riskServer";
 
 export interface RiskAccessViewport {
   width: number;
@@ -90,7 +92,7 @@ export const RISK_ACCESS_EMPTY_STYLE: StyleSpecification = {
 
 /** 5-step cyan scale used for verified request counts; neutral for no data. */
 export const RISK_ACCESS_FILL_COLORS = ["#0f6b86", "#1596a8", "#23bec6", "#56e4e0", "#b5fffa"] as const;
-export const RISK_ACCESS_EMPTY_FILL = "#0b2f49";
+export const RISK_ACCESS_EMPTY_FILL = "#0b3f63";
 export const RISK_ACCESS_UNSAFE_FILL = "#113550";
 /** Index 0 is the neutral empty/unsafe step; 1..5 mirror RISK_ACCESS_FILL_COLORS. */
 export const RISK_ACCESS_LEVEL_COLORS = [RISK_ACCESS_EMPTY_FILL, ...RISK_ACCESS_FILL_COLORS] as const;
@@ -113,20 +115,20 @@ function mercatorY(latitude: number): number {
 }
 
 /**
- * Fixed camera for a real GeoJSON asset. The caller never exposes zoom,
- * pan or rotate controls; this is only the deterministic initial view.
+ * Initial camera for a local GeoJSON asset.
  */
 export function riskAccessCamera(geo: RiskGeo, viewport: RiskAccessViewport = DEFAULT_VIEWPORT): RiskAccessCamera {
   const bounds = riskMapGeoBounds(geo);
   const width = viewport.width > 0 && Number.isFinite(viewport.width) ? viewport.width : DEFAULT_VIEWPORT.width;
   const height = viewport.height > 0 && Number.isFinite(viewport.height) ? viewport.height : DEFAULT_VIEWPORT.height;
   const center = riskMapGeoCenter(geo);
-  const centerLat = clamp(center[1], -MAX_MERCATOR_LATITUDE, MAX_MERCATOR_LATITUDE);
+  const centerY = (mercatorY(bounds.maxLat) + mercatorY(bounds.minLat)) / 2;
+  const centerLat = Math.atan(Math.sinh(Math.PI * (1 - 2 * centerY))) * 180 / Math.PI;
   const horizontal = Math.max(0.0001, Math.abs(bounds.maxLng - bounds.minLng) / 360);
   const vertical = Math.max(0.0001, Math.abs(mercatorY(bounds.maxLat) - mercatorY(bounds.minLat)));
-  const fitWidth = (Math.max(160, width) * 0.9) / (512 * horizontal);
-  const fitHeight = (Math.max(120, height) * 0.88) / (512 * vertical);
-  const zoom = clamp(Math.log2(Math.max(0.0001, Math.min(fitWidth, fitHeight))), 0.15, 6);
+  const fitWidth = (Math.max(160, width) * 0.96) / (512 * horizontal);
+  const fitHeight = (Math.max(120, height) * 0.94) / (512 * vertical);
+  const zoom = clamp(Math.log2(Math.max(0.0001, Math.min(fitWidth, fitHeight))), -2, 6);
   return { center: [center[0], centerLat], zoom, bounds };
 }
 
@@ -226,23 +228,36 @@ export function riskAccessFlowLines(
   };
 }
 
-/** 每个目标只使用其自身来源统计，缺少分组或位置时不绘制。 */
-export function riskAccessTargetFlows(kind: RiskMapKind, geo: RiskGeo, targets: RiskDashboardTarget[]) {
+export interface RiskAccessMapMarker { lng: number; lat: number; name: string }
+
+/** 以本图地域代表点为起点，向唯一有效入口汇聚。 */
+export function riskAccessTargetFlows(kind: RiskMapKind, geo: RiskGeo, servers: RiskDashboardMapServer[], sources: RiskAccessHeatPoint[] = []) {
   const lines: RiskAccessFlowLine[] = [];
   const points: [number, number][] = [];
-  let unavailable = 0;
-  for (const target of targets) {
-    const server: RiskServerTarget = {
-      configured: true, alias: target.alias, regionCode: target.regionCode,
-      longitude: target.longitude, latitude: target.latitude, locationStatus: target.locationStatus,
-      locationSource: null, resolveStatus: "NOT_ATTEMPTED", resolvedAt: null, updatedAt: null,
-    };
-    const result = riskAccessFlowLines(kind, geo, Array.isArray(target.regions) ? target.regions : [], server);
-    if (result.target) points.push(result.target);
-    else unavailable++;
-    lines.push(...result.lines);
+  const markers: RiskAccessMapMarker[] = [];
+  const enabled = servers.filter(server => server.enabled);
+  if (enabled.length !== 1) {
+    return { lines, points, markers, notice: enabled.length ? "配置了多个入口，飞线暂不可用" : "" };
   }
-  return { lines, points, notice: unavailable ? `${unavailable} 个目标在当前地图无有效位置` : "" };
+  const server = enabled[0]!;
+  const lng = riskCoordinate(server.longitude, 180);
+  const lat = riskCoordinate(server.latitude, 90);
+  if (server.locationStatus !== "LOCATED" || lng === undefined || lat === undefined || !server.coordinateSystem) {
+    return { lines, points, markers, notice: "入口暂无有效位置，飞线暂不可用" };
+  }
+  const point: [number, number] = server.coordinateSystem === "GCJ02" ? gcj02ToWgs84(lng, lat) : [lng, lat];
+  if (kind === "china" && !riskPointInGeo(point[0], point[1], geo)) {
+    return { lines, points, markers, notice: "入口位于当前地图范围外，可切换世界地图" };
+  }
+  points.push(point);
+  markers.push({ lng: point[0], lat: point[1], name: server.name });
+  const topSources = sources.filter(source => source.value > 0 && (source.lng !== point[0] || source.lat !== point[1]))
+    .sort((a, b) => compareRiskMapCounts(b.count, a.count) || a.code.localeCompare(b.code)).slice(0, 12);
+  for (const source of topSources) {
+    lines.push({ lng1: source.lng, lat1: source.lat, lng2: point[0], lat2: point[1], color: "#78eeff",
+      width: 1 + source.value * 1.5, count: source.count, name: source.code, weight: source.value });
+  }
+  return { lines, points, markers, notice: "" };
 }
 
 export function riskAccessDetailFeatures(geo: RiskDetailGeo, counts: RiskDetailCounts): RiskAccessMapGeo {

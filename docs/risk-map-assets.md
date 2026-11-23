@@ -1,24 +1,31 @@
 # 风控地图资源配置
 
-## 固定真实资产
+## 大屏本地资产
+
+- 中国视图使用用户确认可用于个人项目的 `china_provinces.geojson` 与 `china_boundary.geojson`。两份文件按推定的 DataV／高德 GCJ-02 坐标转换为近似 WGS84。省级 `adcode` 显式映射，未编码附图保留轮廓。国界作为独立描边层，不参与计数。
+- 世界背景和交互地图从同一份已核对 Git blob 的 `world_countries.geojson` 构建。背景约 853 KB，交互文件约 2.33 MB，切换到世界视图时才请求交互文件。两份均保留 258 个地理单元，省略低于各自面积阈值的微小附属多边形与内环。生成器还原因简化而产生交叉的边段。`-99` 保留轮廓，`CN-TW` 与 `TWN` 联合匹配现有 `TW` 统计键。
+- 四份派生文件存放于 `public/maps/risk-dashboard/`。SHA、字节、坐标系与编码在 `src/data/riskMapAssets.json` 固定。原版 `risk-v1` 资产保留为本地回退。数据来源和使用说明见 [大屏地图署名](../public/maps/risk-dashboard/LICENSES.md)。
+- 在前端仓库运行 `python3 scripts/build-risk-dashboard-maps.py --check` 检查可复现性。脚本默认读取同工作区 `map-resources/` 中的三份原文件。删除 `--check` 可重建四份 GeoJSON 和校验清单。
+
+## 本地回退资产
 
 `public/maps/risk-v1/china.geojson`：263343字节，34单元；geoBoundaries CHN-ADM1-43563684，代表2019。短SHA9469f09已解析到完整commit `9469f09592ced973a3448cf66b6100b741b64c0d`。Git raw响应是LFS指针，实际文件取同commit的media地址，SHA与LFS oid一致：`bc4afc7eacf4351ae5b3ae7a612327987ce1123cb5deb8574fb49107091c6623`。
 
 `public/maps/risk-v1/world.geojson`：838726字节，177单元；Natural Earth 1:110m Admin-0 countries。下载时解析实际commit并固定为 `ca96624a56bd078437bca8184e78163e5039ad19`，运行时不使用master。SHA：`6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f`。
 
-两源均为Public Domain。许可及来源证据见随发布的 `public/maps/risk-v1/LICENSES.md`、`manifest.json`，精确URL、SHA和逐单元编码映射见 `src/data/riskMapAssets.json`。原资源字节未重绘/修改。地图资源不用于确认政治边界，也不改变服务端地域定义。
+两源均为Public Domain。许可及来源证据见 `public/maps/risk-v1/LICENSES.md`、`manifest.json`，精确URL、SHA和逐单元编码映射见 `src/data/riskMapAssets.json` 中对应的 `fallback`。原资源字节未重绘/修改。地图资源不用于确认政治边界，也不改变服务端地域定义。
 
 ## 编码与统计
 
-运行时以固定shapeID（中国）及ADM0_A3（世界）查静态映射；校验全部ID、原编码属性、单元数、几何与SHA。不会按英文地名猜测。中国原数据shapeISO统一为CHN，故不能直接作为省级编码；源中“Guangzhou Province”条目对应已审阅的广东shapeID，显式映射CN-44，非运行时名称推断。
+运行时按清单指定的 ID 与原编码查静态映射，校验单元数、几何与 SHA。本地回退资产继续使用固定 `shapeID`（中国）及 `ADM0_A3`（世界）。回退中国文件中“Guangzhou Province”条目对应已审阅的广东形状，显式映射为 `CN-44`。
 
 省级数字编码CN-11等及字母编码CN-BJ等显式归一。HK/MO/TW，以及CN-91/CN-HK、CN-92/CN-MO、CN-71/CN-TW分别映射到HK/MO/TW边界，不改业务筛选或后端值。世界视图只将映射表中已知的中国大陆省份累计CN，CN国家行本身累计一次，其他地域行各处理一次；不按CN前缀猜未知省份。中国视图的CN国家行作为缺省份单列。
 
-世界低分辨率图没有HK/MO几何，保留单列；Natural Earth无ISO2的CYN/SOL边界不分配猜测国家码，只画原始边界，不放业务计数。UNKNOWN/INTERNAL、未知编码或无geometry来源单列；原始地域排行始终保留。只渲染真实requestCount。所有累计用BigInt，超出安全整数时中性边界加精确计数，不给出有误热力值。
+世界主文件含 HK/MO；低分辨率回退文件无相应形状时单列。无 ISO2 的边界只画轮廓。UNKNOWN/INTERNAL、未知编码或无几何来源单列。所有累计用 BigInt，超出安全整数时保留精确计数并采用中性边界。
 
 ## 加载与隐私
 
-每个页面访问创建独立loader：默认中国，世界按切换加载。本地 `BASE_URL + maps/risk-v1/…` 优先；本地404/网络/结构/编码/SHA错误才尝试同固定commit外部URL一次。每种地图缓存成功和失败Promise，包含并发单飞，十秒业务统计刷新与反复切换不会重下载。每次尝试最多5秒，包含fetch、正文读取和校验；卸载或失权销毁组件时abort并丢弃迟到结果，图表由BaseChart dispose。
+每次页面访问创建独立加载器。中国视图加载省界、国界和世界背景，世界交互文件按切换加载。新文件随应用本地提供，源 URL 供核对。每种地图缓存成功和失败 Promise，统计刷新与切换不会重复下载。每次尝试最多 5 秒，包含请求、读取和校验。卸载或失权销毁组件时中止请求并丢弃迟到结果。
 
 地图使用原生fetch，不经过鉴权Axios。GET、credentials:omit、referrerPolicy:no-referrer、redirect:error；仅静态Accept头、无请求体，不携带日志/IP/token/cookie/内部服务字段。补偿站点仍可见浏览器出口IP。两源均失败时显示“地图暂不可用”，其他统计和排行继续显示。无需在线IP定位服务。资源SHA校验优先Web Crypto；HTTP内网离线环境使用同一SHA-256算法的无依赖回退，标准向量、中文及两份实际资产均与Node crypto交叉验证，不跳过校验。
 

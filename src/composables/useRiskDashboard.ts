@@ -6,20 +6,21 @@ import { getRiskSources, getRiskDashboard, getRiskExceptions, getRiskInterfaces 
 import { useAuthStore } from "@/stores/auth";
 import type { PageResponse } from "@/types/api";
 import type { RiskSource, RiskDashboard, RiskException, RiskInterface, RiskQuery } from "@/types/risk";
-import { riskPermission, riskPreset, validateRiskDates } from "@/utils/risk";
+import { riskPermission, riskPreset, shanghaiDate, validateRiskDates } from "@/utils/risk";
 import { createRiskPolling } from "@/utils/riskPolling";
 
 export function useRiskDashboard() {
   const auth = useAuthStore();
   const allowed = computed(() => riskPermission(auth.permissionCodes));
   const exceptionAllowed = computed(() => riskPermission(auth.permissionCodes, "exception"));
-  const range = riskPreset(1);
-  const filters = ref<RiskQuery>({ startDate: range[0], endDate: range[1] });
+  const currentDay = ref(shanghaiDate());
+  const filters = ref<RiskQuery>({ startDate: currentDay.value, endDate: currentDay.value });
+  const activePreset = ref<1 | 2 | 7 | undefined>(1);
   const drilldown = useGeoDrilldown(filters, allowed);
-  const validation = computed(() => validateRiskDates(filters.value.startDate, filters.value.endDate));
+  const validation = computed(() => validateRiskDates(filters.value.startDate, filters.value.endDate, currentDay.value));
   const geoObservation = shallowRef<GeoObservation>();
   const geoError = ref(false);
-  const geoUpdatedAt = ref<string>();
+  const geoUpdatedTime = ref<string>();
   const dashboard = shallowRef<RiskDashboard>();
   const acceptedFilters = ref("");
   const error = ref("");
@@ -44,7 +45,7 @@ export function useRiskDashboard() {
     },
     accept: ({ summary, geo, label }) => {
       if (summary.status === "fulfilled") { dashboard.value = summary.value; acceptedFilters.value = label; error.value = ""; } else error.value = "汇总刷新失败，保留上次成功结果。请检查服务后重试。";
-      if (geo.status === "fulfilled" && geo.value) { geoObservation.value = geo.value; geoError.value = false; geoUpdatedAt.value = new Date().toISOString(); } else if (drawer.value === "geo") geoError.value = true;
+      if (geo.status === "fulfilled" && geo.value) { geoObservation.value = geo.value; geoError.value = false; geoUpdatedTime.value = new Date().toISOString(); } else if (drawer.value === "geo") geoError.value = true;
     },
     reject: () => { error.value = "汇总刷新失败，保留上次成功结果。请检查服务后重试。"; },
   });
@@ -64,13 +65,31 @@ export function useRiskDashboard() {
     accept: ({ data, label }) => { details.value = data; detailSnapshot.value = label; detailError.value = ""; },
     reject: () => { detailError.value = "明细读取失败，保留上次成功结果；当前筛选可能尚未生效。"; },
   });
-  function refresh() { void summaryPoll.refresh(); void detailPoll.refresh(); }
-  function visibilityChanged() { summaryPoll.visibilityChanged(); detailPoll.visibilityChanged(); drilldown.visibilityChanged(); }
+  function syncDay(now = new Date()) {
+    const day = shanghaiDate(now);
+    if (day !== currentDay.value) {
+      currentDay.value = day;
+      if (!activePreset.value) return;
+      const [startDate, endDate] = riskPreset(activePreset.value, now);
+      dashboard.value = undefined; details.value = undefined; acceptedFilters.value = ""; detailSnapshot.value = "";
+      drilldown.clear();
+      filters.value = { ...filters.value, startDate, endDate };
+      summaryPoll.invalidate(); detailPoll.invalidate();
+    }
+  }
+  function preset(days: 1 | 2 | 7) {
+    const [startDate, endDate] = riskPreset(days);
+    activePreset.value = days;
+    currentDay.value = shanghaiDate();
+    filters.value = { ...filters.value, startDate, endDate };
+  }
+  function refresh() { syncDay(); void summaryPoll.refresh(); void detailPoll.refresh(); }
+  function visibilityChanged() { syncDay(); summaryPoll.visibilityChanged(); detailPoll.visibilityChanged(); drilldown.visibilityChanged(); }
   watch([filters, allowed], () => {
     pageNum.value = 1;
     summaryPoll.invalidate();
     detailPoll.invalidate();
-    if (!allowed.value) { dashboard.value = undefined; details.value = undefined; geoObservation.value = undefined; geoError.value = false; geoUpdatedAt.value = undefined; }
+    if (!allowed.value) { dashboard.value = undefined; details.value = undefined; geoObservation.value = undefined; geoError.value = false; geoUpdatedTime.value = undefined; }
   }, { deep: true });
   watch([drawer, activeTab, pageNum, pageSize, exceptionAllowed], () => {
     details.value = undefined;
@@ -80,5 +99,5 @@ export function useRiskDashboard() {
   });
   onMounted(() => { document.addEventListener("visibilitychange", visibilityChanged); refresh(); });
   onBeforeUnmount(() => { document.removeEventListener("visibilitychange", visibilityChanged); summaryPoll.stop(); detailPoll.stop(); });
-  return { drawer, drilldown, geoObservation, geoError, geoUpdatedAt, allowed, exceptionAllowed, filters, validation, dashboard, acceptedFilters, queryLabel, error, loading, activeTab, pageNum, pageSize, details, detailSnapshot, detailError, detailLoading, refresh, refreshDetails: () => void detailPoll.refresh() };
+  return { drawer, drilldown, geoObservation, geoError, geoUpdatedTime, allowed, exceptionAllowed, filters, validation, dashboard, acceptedFilters, queryLabel, error, loading, activeTab, pageNum, pageSize, details, detailSnapshot, detailError, detailLoading, refresh, syncDay, preset, manualRange: () => { activePreset.value = undefined; }, refreshDetails: () => { syncDay(); void detailPoll.refresh(); } };
 }

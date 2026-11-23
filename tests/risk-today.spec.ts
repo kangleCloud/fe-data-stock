@@ -1,0 +1,50 @@
+import { defineComponent } from "vue";
+import { createPinia, setActivePinia } from "pinia";
+import { flushPromises, mount } from "@vue/test-utils";
+import { afterEach, expect, it, vi } from "vitest";
+import { useRiskDashboard } from "@/composables/useRiskDashboard";
+import { useAuthStore } from "@/stores/auth";
+import { validateRiskDates } from "@/utils/risk";
+
+const api = vi.hoisted(() => ({ getRiskDashboard: vi.fn(), getRiskSources: vi.fn(), getRiskExceptions: vi.fn(), getRiskInterfaces: vi.fn() }));
+vi.mock("@/api/risk", () => api);
+vi.mock("@/api/geoObservation", () => ({ getGeoObservation: vi.fn() }));
+vi.mock("@/api/geoDrilldown", () => ({ getGeoCities: vi.fn(), getGeoSubdivisions: vi.fn() }));
+let state: ReturnType<typeof useRiskDashboard>;
+const Harness = defineComponent({ setup() { state = useRiskDashboard(); return () => null; } });
+afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
+it("accepts only the last 30 Beijing calendar days", () => {
+  expect(validateRiskDates("2026-11-19", "2026-11-19", "2026-11-19")).toBe("");
+  expect(validateRiskDates("2026-10-21", "2026-11-19", "2026-11-19")).toBe("");
+  expect(validateRiskDates("2026-10-20", "2026-11-19", "2026-11-19")).toContain("30");
+  expect(validateRiskDates("2026-11-20", "2026-11-20", "2026-11-19")).toContain("30");
+  expect(validateRiskDates("2026-11-19", "2026-11-18", "2026-11-19")).toContain("开始日期");
+});
+it("advances queries at Beijing midnight and removes the previous day's display", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-19T15:59:00Z"));
+  const pinia = createPinia(); setActivePinia(pinia); useAuthStore().permissionCodes = ["system:risk:view"];
+  api.getRiskDashboard.mockResolvedValue({ metrics: {} });
+  const wrapper = mount(Harness, { global: { plugins: [pinia] } });
+  await flushPromises();
+  expect(api.getRiskDashboard).toHaveBeenLastCalledWith(expect.objectContaining({ startDate: "2026-11-19", endDate: "2026-11-19" }));
+  expect(state.dashboard.value).toBeDefined();
+  vi.setSystemTime(new Date("2026-11-19T16:00:01Z"));
+  state.syncDay();
+  expect(state.dashboard.value).toBeUndefined();
+  await flushPromises();
+  expect(api.getRiskDashboard).toHaveBeenLastCalledWith(expect.objectContaining({ startDate: "2026-11-20", endDate: "2026-11-20" }));
+  wrapper.unmount();
+});
+it("preserves a manually selected historical range across Beijing midnight", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-19T15:59:00Z"));
+  const pinia = createPinia(); setActivePinia(pinia); useAuthStore().permissionCodes = ["system:risk:view"];
+  api.getRiskDashboard.mockResolvedValue({ metrics: {} });
+  const wrapper = mount(Harness, { global: { plugins: [pinia] } });
+  await flushPromises();
+  state.manualRange(); state.filters.value = { startDate: "2026-11-12", endDate: "2026-11-14" };
+  await flushPromises();
+  vi.setSystemTime(new Date("2026-11-19T16:00:01Z")); state.syncDay();
+  expect(state.filters.value).toEqual({ startDate: "2026-11-12", endDate: "2026-11-14" });
+  expect(state.validation.value).toBe("");
+  wrapper.unmount();
+});

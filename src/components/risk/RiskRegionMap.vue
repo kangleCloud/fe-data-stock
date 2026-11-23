@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { riskMapCameraPixel, RISK_MAP_ZOOM_STEP, useRiskMapNavigation } from "@/composables/useRiskMapNavigation";
+import { riskAccessTargetFlows } from "@/utils/riskAccessMap";
+import type { RiskDashboardMapServer } from "@/types/riskMonitor";
+import { riskMapGeoCenter, normalizeRiskMapView } from "@/utils/riskMapView";
 import { Plus, Minus, Refresh, FullScreen } from "@element-plus/icons-vue";
 import { useEventListener, usePreferredReducedMotion } from "@vueuse/core";
 import type { EChartsType } from "echarts/core";
@@ -12,7 +16,7 @@ import type { RiskServerTarget } from "@/types/riskServer";
 import { riskCount, riskRegion } from "@/utils/risk";
 import { defaultRiskCamera, type RiskCamera3D } from "@/utils/riskCamera3d";
 import { riskFlows } from "@/utils/riskFlows";
-import { createRiskMapLoader, riskMapCounts, type RiskMapAsset, type RiskMapKind } from "@/utils/riskMap";
+import { createRiskMapLoader, riskMapCodes, riskMapCounts, type RiskMapAsset, type RiskMapKind } from "@/utils/riskMap";
 import {
   createRiskDetailLoader,
   hasHan,
@@ -50,8 +54,11 @@ const props = defineProps<{
   detailLoading?: boolean;
   detailFailed?: boolean;
   detailStale?: boolean;
-  /** 固定视角：不提供缩放、平移、旋转或二维/三维切换。 */
+  /** 强制二维，平移与缩放由 navigation 控制。 */
   fixedView?: boolean;
+  navigation?: boolean;
+  externalScope?: boolean;
+  mapServers?: RiskDashboardMapServer[];
   /** 只允许加载随应用发布的本地边界，不尝试外部补偿。 */
   localOnly?: boolean;
   initialKind?: RiskMapKind;
@@ -60,6 +67,7 @@ const emit = defineEmits<{
   regionSelect: [code: string, view: RiskMapKind];
   viewChange: [view: RiskMapKind];
   statusChange: [messages: string[]];
+  geometryCodes: [view: RiskMapKind, codes: Set<string>];
   detailLabels: [value: RiskDetailLabels | undefined];
   detailSelect: [code: string | null, label: string];
 }>();
@@ -447,7 +455,25 @@ function updateCamera(value: RiskCamera3D) {
   cameras[kind.value] = value;
 }
 
+const navigationSurface = ref<HTMLElement>();
+const interactiveSurface = computed(() => props.navigation ? navigationSurface.value : undefined);
+function move2DCamera(scale: number, shift: [number, number], anchor?: [number, number]) {
+  if (state.value !== "ready" || !map2dChart || map2dChart.isDisposed() || !activeGeo.value) return;
+  const current = views[kind.value];
+  const [lng, lat] = riskMapGeoCenter(activeGeo.value);
+  const finder = { geoIndex: 0 };
+  const center = map2dChart.convertToPixel(finder, [lng + current.offset[0], lat + current.offset[1]]) as [number, number] | undefined;
+  if (!center || !center.every(Number.isFinite)) return;
+  const box = map2dChart.getDom().getBoundingClientRect();
+  const zoom = zoomRiskMapView(current, scale).zoom;
+  const point = riskMapCameraPixel(center, anchor ? [anchor[0] - box.left, anchor[1] - box.top] : center, shift, zoom / current.zoom);
+  const next = map2dChart.convertFromPixel(finder, point) as [number, number] | undefined;
+  if (next?.every(Number.isFinite)) views[kind.value] = normalizeRiskMapView({ zoom, offset: [next[0] - lng, next[1] - lat] });
+}
+const mapNavigation = useRiskMapNavigation(interactiveSurface, interactiveSurface, move2DCamera, resetView);
+
 function zoom(factor: number) {
+  if (props.navigation) { move2DCamera(factor, [0, 0]); return; }
   if (props.fixedView) return;
   if (effective3D.value) {
     map3d.value?.zoom(factor);
@@ -457,7 +483,7 @@ function zoom(factor: number) {
 }
 
 function resetView() {
-  if (props.fixedView) return;
+  if (props.fixedView && !props.navigation) return;
   if (effective3D.value) {
     map3d.value?.resetView();
     return;
@@ -466,6 +492,7 @@ function resetView() {
 }
 
 function keydown(event: KeyboardEvent) {
+  if (props.navigation) { mapNavigation.keydown(event); return; }
   if (props.fixedView || effective3D.value) return;
   const next = riskMapViewKey(views[kind.value], event.key);
   if (next) {
@@ -497,6 +524,7 @@ function onFullscreenChange() {
 }
 
 function selectFeature(name: string) {
+  if (props.navigation && mapNavigation.skipClick()) return;
   const detailFeature = detailLayer.value?.geo.features.find((feature) => feature.properties.name === name);
   if (detailFeature) {
     // Boundaries without a verified administrative code stay visible but are
@@ -515,6 +543,7 @@ async function selectMap(next: RiskMapKind) {
   if (next !== kind.value) {
     emit("viewChange", next);
     kind.value = next;
+    if (props.navigation) views[next] = defaultRiskMapView();
     selectedDetailName.value = null;
     detailGeo.value = undefined;
     detailState.value = "idle";
@@ -535,6 +564,7 @@ async function selectMap(next: RiskMapKind) {
 }
 
 const counts = computed(() => loaded.value ? riskMapCounts(kind.value, props.regions, loaded.value.geo) : undefined);
+watch(loaded, asset => { if (asset) emit("geometryCodes", kind.value, riskMapCodes(asset.geo)); });
 const showLegend = computed(() => counts.value?.safe && (counts.value.exact.some((item) => BigInt(item.count) > 0n) || !!detailLayer.value?.counts.exact.length));
 const flows = computed(() => loaded.value ? riskFlows(kind.value, props.regions, props.serverTarget, loaded.value.geo) : undefined);
 
@@ -563,6 +593,10 @@ watch(messages, (value, previous) => {
   }
 }, { immediate: true });
 
+const mapMarkers = computed(() => loaded.value && props.mapServers
+  ? riskAccessTargetFlows(kind.value, loaded.value.geo, props.mapServers).markers
+  : undefined);
+
 const option = computed(() => {
   if (!loaded.value || !counts.value) return {};
   return buildRiskMapOption({
@@ -575,10 +609,12 @@ const option = computed(() => {
     backdrop: !!props.backdrop,
     reducedMotion: motionReduced.value,
     serverTarget: props.serverTarget,
+    mapMarkers: mapMarkers.value,
     geo: activeGeo.value,
     mapName: activeMapName.value,
     detail: detailLayer.value,
     cityLabels: viewportCityLabels.value,
+    zoomLabels: props.navigation,
     viewport: viewport2dSize.value,
   });
 });
@@ -588,7 +624,9 @@ const selectedDetailLabel = computed(() => {
   return feature ? riskDetailDisplayName(feature) : "";
 });
 
-const accessibleLabel = computed(() => `${kind.value === "china" ? "中国省级" : "世界国家"}请求数地图；${props.fixedView ? "固定二维视角" : effective3D.value ? "可旋转三维" : "二维俯视"}，精确数据见文字列表，无定位来源单列。`);
+watch(() => props.initialKind, (next) => { if (props.externalScope && next && next !== kind.value) void selectMap(next); });
+
+const accessibleLabel = computed(() => `${kind.value === "china" ? "中国省级" : "世界国家"}请求数地图；${props.fixedView ? "二维俯视" : effective3D.value ? "可旋转三维" : "二维俯视"}，精确数据见文字列表，无定位来源单列。`);
 
 useEventListener(document, "keydown", onEscape);
 useEventListener(document, "fullscreenchange", onFullscreenChange);
@@ -623,11 +661,11 @@ onBeforeUnmount(() => {
     class="risk-region-map"
     :class="{ 'risk-map-expanded': expanded, 'risk-map-backdrop': backdrop, 'is-2d': mode === '2d', 'is-3d': mode === '3d' }"
     role="group"
-    :aria-label="fixedView ? `${kind === 'china' ? '中国' : '世界'}地域请求地图。固定二维视角，不可拖动、缩放或旋转；点选行政区查看细分。` : `${kind === 'china' ? '中国' : '世界'}地域请求地图。${effective3D ? '三维可旋转，左键旋转，右键平移，滚轮缩放' : '二维俯视'}；加号减号缩放，0 复位，方向键${effective3D ? '旋转' : '平移'}，点选行政区查看细分。`"
+    :aria-label="fixedView ? `${kind === 'china' ? '中国' : '世界'}地域请求地图。二维俯视。方向键平移，加减键缩放，0 复位；点选行政区查看细分。` : `${kind === 'china' ? '中国' : '世界'}地域请求地图。${effective3D ? '三维可旋转，左键旋转，右键平移，滚轮缩放' : '二维俯视'}；加号减号缩放，0 复位，方向键${effective3D ? '旋转' : '平移'}，点选行政区查看细分。`"
     tabindex="0"
     @keydown="keydown"
   >
-    <div class="risk-controls map-scope" role="group" aria-label="地图范围与视角">
+    <div v-if="!externalScope" class="risk-controls map-scope" role="group" aria-label="地图范围与视角">
       <button type="button" :aria-pressed="kind === 'china'" title="中国省级地图" @click="selectMap('china')">中国</button>
       <button type="button" :aria-pressed="kind === 'world'" title="世界国家地图" @click="selectMap('world')">世界</button>
       <template v-if="!fixedView">
@@ -635,17 +673,17 @@ onBeforeUnmount(() => {
         <button type="button" :aria-pressed="mode === '3d'" title="三维可旋转地图" @click="selectMode('3d')">3D</button>
       </template>
     </div>
-    <div v-if="!fixedView" class="risk-controls map-navigation" role="group" aria-label="地图视图操作">
+    <div v-if="!fixedView || navigation" class="risk-controls map-navigation" role="group" aria-label="地图视图操作">
       <button v-if="!backdrop" type="button" :aria-label="expanded ? '退出地图全屏' : '地图全屏'" :title="expanded ? '退出地图全屏' : '地图全屏'" @click="toggleFullscreen"><FullScreen aria-hidden="true" /></button>
-      <button type="button" aria-label="放大" title="放大（键盘 +）" :disabled="state !== 'ready'" @click="zoom(1.25)"><Plus aria-hidden="true" /></button>
-      <button type="button" aria-label="缩小" title="缩小（键盘 −）" :disabled="state !== 'ready'" @click="zoom(0.8)"><Minus aria-hidden="true" /></button>
-      <button type="button" aria-label="复位视图" title="复位视图（键盘 0）" :disabled="state !== 'ready'" @click="resetView"><Refresh aria-hidden="true" /></button>
+      <button type="button" aria-label="放大" title="放大" :disabled="state !== 'ready'" @click="zoom(navigation ? RISK_MAP_ZOOM_STEP : 1.25)"><Plus aria-hidden="true" /></button>
+      <button type="button" aria-label="缩小" title="缩小" :disabled="state !== 'ready'" @click="zoom(navigation ? 1 / RISK_MAP_ZOOM_STEP : 0.8)"><Minus aria-hidden="true" /></button>
+      <button type="button" aria-label="复位视图" title="复位视图" :disabled="state !== 'ready'" @click="resetView"><Refresh aria-hidden="true" /></button>
     </div>
 
     <p v-if="state === 'loading' && !backdrop" role="status">正在加载地图边界…</p>
     <div v-if="state === 'unavailable' && !backdrop" class="risk-map-unavailable" role="status"><strong>地图暂不可用</strong><p>{{ localOnly ? '本地授权地图资源不可用' : '本地资源与固定版本补偿均未成功' }}；地域排行与其他统计仍可查看。</p></div>
     <template v-if="state === 'ready' && loaded">
-      <div class="risk-map-stage" :class="effective3D ? 'stage-3d' : 'stage-2d'">
+      <div ref="navigationSurface" class="risk-map-stage" :class="[effective3D ? 'stage-3d' : 'stage-2d', { 'stage-navigation': navigation }]">
         <span class="risk-map-floor" aria-hidden="true" />
         <RiskMap3D
           v-if="effective3D"
@@ -672,6 +710,7 @@ onBeforeUnmount(() => {
           v-else
           :key="activeMapName"
           :option="option"
+          :navigation="navigation"
           :accessible-label="accessibleLabel"
           :kind="kind"
           :height="expanded ? '70vh' : backdrop ? '100%' : '520px'"
@@ -685,7 +724,22 @@ onBeforeUnmount(() => {
       <p v-if="selectedParent && detailState === 'loading' && !backdrop" role="status">正在加载细分边界…</p>
       <div v-if="selectedParent && (detailState === 'missing' || detailState === 'failed') && !backdrop" class="risk-map-unavailable" role="status"><strong>{{ detailState === 'missing' ? '暂无细分边界' : '细分边界加载失败' }}</strong><p>保留上级地图与文字排行；不会猜测或模拟细分统计。</p></div>
       <p v-if="selectedDetailLabel && !backdrop" class="risk-muted">已选细分：{{ selectedDetailLabel }} · 仅高亮，不改变筛选。</p>
-      <div v-if="backdrop" class="access-map-caption">
+      <template v-if="backdrop && fixedView">
+        <details class="access-fallback-text">
+          <summary>文字明细</summary>
+          <ul class="risk-list">
+            <li v-for="row in counts?.exact" :key="row.name"><button class="risk-text-region" type="button" @click="emit('regionSelect', row.name, kind)">{{ riskRegion(row.name) }}</button><strong>{{ riskCount(row.count) }}</strong></li>
+            <li v-for="(row, index) in counts?.unplaced" :key="`${row.regionCode}:${index}`"><span>{{ riskRegion(row.regionCode) }} · {{ row.reason }}</span><strong>{{ riskCount(row.requestCount) }}</strong></li>
+          </ul>
+          <p v-if="!counts?.exact.length && !counts?.unplaced.length">暂无地域数据</p>
+        </details>
+        <div v-if="showLegend || mapMarkers?.length" class="access-map-caption access-fallback-legend">
+          <template v-if="showLegend"><span>地域请求量</span><span>低</span><i aria-hidden="true" /><span>高</span></template>
+          <span v-if="mapMarkers?.length" class="access-fallback-server">地图服务器</span>
+        </div>
+        <div class="access-fallback-help"><RiskInfo label="地图说明">二维地图。点选行政区查看细分，精确计数见文字明细。</RiskInfo></div>
+      </template>
+      <div v-else-if="backdrop" class="access-map-caption">
         <span class="risk-map-view-label">{{ effective3D ? '三维可旋转' : '二维俯视' }}<template v-if="detailLayer"> · 细分边界</template></span>
         <template v-if="showLegend"><span>地域请求量</span><span>低</span><i aria-hidden="true" /><span>高</span></template>
         <RiskInfo label="地图说明">三维使用 WebGL：左键旋转，右键平移，滚轮缩放；键盘方向键旋转，+ / − 缩放，0 复位。二维用方向键平移。中国 / 世界分别保存视角与相机。选中省/国家后按需加载城市或境外一级行政区边界；二维中国视图放大约 1.8 倍、三维缩放后，均只按真实视口加载少量父级并显示已核实的城市中文标签。细分统计按已核实编码匹配，未匹配项只保留文字排行。点击细分只高亮并展示现有统计，不改变筛选。WebGL 不可用或上下文丢失时回退二维。飞线为筛选期来源地域代表点到服务器的汇总，不是真实网络路径。</RiskInfo>
@@ -711,6 +765,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.stage-navigation, .stage-navigation :deep(canvas) { touch-action: pan-y; }
 .risk-region-map { position: relative; min-width: 0; }
 .risk-map-expanded { position: fixed; inset: 0; z-index: 3000; padding: 20px; overflow: auto; background: var(--risk-background, #061628); color: var(--risk-text, #edf6ff); }
 .risk-region-map:fullscreen { overflow: auto; padding: 20px; background: #061628; }
