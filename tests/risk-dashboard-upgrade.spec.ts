@@ -3,7 +3,7 @@ import { getRiskDashboard } from "@/api/risk";
 import type { RiskDashboard } from "@/types/risk";
 import type { RiskDashboardMapServer } from "@/types/riskMonitor";
 import { riskAccessTargetFlows, type RiskAccessHeatPoint } from "@/utils/riskAccessMap";
-import { riskNetworkMbps, riskSparkline } from "@/utils/riskDashboardVisual";
+import { riskMinuteRequests, riskNetworkMbps, riskSparkline } from "@/utils/riskDashboardVisual";
 import { riskMapRanking, type RiskGeo } from "@/utils/riskMap";
 
 const request = vi.hoisted(() => vi.fn());
@@ -24,6 +24,18 @@ const dashboard: RiskDashboard = {
 };
 
 describe("大屏统计契约", () => {
+  it("展示入库分钟请求数、采样时间和覆盖提示，并保留缺失分钟", () => {
+    const latest = { minuteTime: "2026-11-06T19:32:00+08:00", requestCount: "128", value: "2.133333" };
+    const earlier = { ...sample, requestCount: "64", value: latest.value };
+    expect(riskMinuteRequests({ ...latest, value: null, coverageStatus: "PARTIAL", samples: [earlier, latest] })).toEqual({
+      value: "128 次/分钟",
+      description: "19:32 · 部分覆盖",
+      path: "M1.0,21.0 h-0.01 M63.0,3.0 h-0.01",
+    });
+    expect(riskMinuteRequests({ minuteTime: null, requestCount: null, value: null, coverageStatus: "UNAVAILABLE", samples: [] }))
+      .toEqual({ value: "—", path: "" });
+  });
+
   it("接收历史日期范围与当前部分覆盖的分钟 QPS", async () => {
     request.mockResolvedValueOnce(dashboard);
     const result = await getRiskDashboard(query);

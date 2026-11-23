@@ -29,7 +29,6 @@ export function riskNetworkMbps(bytesPerSecond: string | null | undefined): stri
   return `${value > 0 && value < 0.01 ? "<0.01" : Number(value.toFixed(2)).toLocaleString("en-US")} Mbps`;
 }
 
-
 export function riskMinuteRequests(qps?: RiskDashboard["qps"]) {
   if (qps?.requestCount == null || !qps.minuteTime) return { value: "—", path: "" };
 
