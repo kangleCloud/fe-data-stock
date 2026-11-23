@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, shallowRef, onMounted, onBeforeUnmount } from "vue";
+import { computed, nextTick, ref, shallowRef, onMounted, onBeforeUnmount, type Component } from "vue";
 import { Collection, Warning, WarningFilled, Connection, Grid, List, TrendCharts, Location, DataAnalysis, Refresh, FullScreen, Close, Calendar, Timer, PieChart } from "@element-plus/icons-vue";
 import RiskClock from "@/components/risk/RiskClock.vue";
 import RiskBars from "@/components/risk/RiskBars.vue";
@@ -122,7 +122,17 @@ const requestTypeOption = computed<EChartsCoreOption>(() => ({
   }],
 }));
 const minuteRequests = computed(() => riskMinuteRequests(dashboard.value?.qps));
-const cards = computed(() => {
+interface RiskKpiCard {
+  label: string;
+  value: string;
+  icon: Component;
+  danger?: boolean;
+  description?: string;
+  line?: string;
+  path?: string;
+}
+
+const cards = computed<RiskKpiCard[]>(() => {
   const data = dashboard.value;
   const metrics = data?.metrics;
   const api = data?.requestTypes?.find(row => row.requestType === "API");
