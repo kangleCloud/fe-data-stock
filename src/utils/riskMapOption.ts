@@ -1,13 +1,14 @@
 import type { EChartsCoreOption } from "echarts/core";
 import type { RiskServerTarget } from "@/types/riskServer";
 import { riskCount } from "@/utils/risk";
-import { riskRegionDisplayName, type RiskGeo, type RiskMapAsset, type RiskMapKind } from "@/utils/riskMap";
+import { RISK_UNNAMED_REGION, riskRegionDisplayName, type RiskGeo, type RiskMapAsset, type RiskMapKind } from "@/utils/riskMap";
 import type { riskMapCounts } from "@/utils/riskMap";
 import {
   riskDetailDisplayName,
   riskDetailLabelNames,
   type RiskDetailLayer,
 } from "@/utils/riskMapDetail";
+import type { RiskAccessMapMarker } from "@/utils/riskAccessMap";
 import type { riskFlows } from "@/utils/riskFlows";
 import { riskMapGeoBounds, riskMapGeoCenter, type RiskMapBounds, type RiskMapView } from "@/utils/riskMapView";
 
@@ -29,12 +30,14 @@ export interface RiskMapOptionInput {
   backdrop: boolean;
   reducedMotion: boolean;
   serverTarget?: RiskServerTarget;
+  mapMarkers?: readonly RiskAccessMapMarker[];
   /** 已注册的活动地图（合并细分后）与地图名；缺省使用基础资产。 */
   geo?: RiskGeo;
   mapName?: string;
   detail?: RiskDetailLayer;
   /** 二维全国视野下已加载且通过真实像素视口筛选的城市/一级行政区标签。 */
   cityLabels?: readonly RiskMapCityLabel[];
+  zoomLabels?: boolean;
   /** 真实 ECharts 容器尺寸；用于按容器宽高计算地图占用，缺省回退百分比。 */
   viewport?: { width: number; height: number };
 }
@@ -196,8 +199,9 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
   });
 
   const overallSafe = input.counts.safe && (!detail || detail.counts.safe);
-  const showProvinceLabels = input.mode === "2d" && input.kind === "china"
-    && input.view.zoom < detailLabelMinimumZoom("china");
+  const showBaseLabels = input.mode === "2d" && (input.zoomLabels
+    ? input.view.zoom >= 1.22
+    : input.kind === "china" && input.view.zoom < detailLabelMinimumZoom("china"));
   const cityLabels = input.mode === "2d" && input.kind === "china"
     && input.view.zoom >= detailLabelMinimumZoom("china")
     ? input.cityLabels ?? []
@@ -211,7 +215,7 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
         count: item.count,
       }))
     : [];
-  const baseData = showProvinceLabels && overallSafe
+  const baseData = showBaseLabels && (overallSafe || input.zoomLabels)
     ? activeGeo.features.flatMap((feature) => {
         const name = feature.properties.name;
         if (detailByName.has(name)) return [];
@@ -261,11 +265,18 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
   const data = [...baseData, ...detailData];
   const hasData = data.some((item) => item.value > 0);
   const targetLabel = input.serverTarget?.alias || "服务器";
+  const markerData = input.mapMarkers?.map(marker => ({
+    name: marker.name,
+    value: [marker.lng, marker.lat],
+    isTarget: true,
+    independentTarget: true,
+  })) ?? (input.flows.target ? [{ name: targetLabel, value: input.flows.target, isTarget: true }] : []);
 
   const formatter = (params: unknown) => {
-    const item = params as { name?: string; data?: { count?: string; isTarget?: boolean; same?: boolean; detail?: boolean } };
+    const item = params as { name?: string; data?: { count?: string; isTarget?: boolean; independentTarget?: boolean; same?: boolean; detail?: boolean } };
     const name = item.name ?? "";
     const label = displayName(name);
+    if (item.data?.independentTarget) return item.name ?? "地图服务器";
     if (item.data?.isTarget) return `服务器：${targetLabel}\n已配置有效位置，筛选期来源汇聚终点`;
     if (item.data?.detail) {
       const feature = detailByName.get(name);
@@ -299,10 +310,11 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
         itemStyle: { areaColor: "#1b789b" },
       },
       label: {
-        show: showProvinceLabels,
+        show: showBaseLabels,
         formatter: (params: unknown) => {
           const name = (params as { name?: string }).name ?? "";
-          return riskRegionDisplayName(name, labels.get(name));
+          const label = riskRegionDisplayName(name, labels.get(name));
+          return input.zoomLabels && label === RISK_UNNAMED_REGION ? "" : label;
         },
         color: "#effdff",
         fontSize: 11,
@@ -399,8 +411,8 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
       symbolSize: 34,
       itemStyle: { color: "#ffd37d", borderColor: "#fff4d0", borderWidth: 1, shadowBlur: 20, shadowColor: "#ffc85c" },
       label: {
-        show: !!input.backdrop && !!input.flows.target,
-        formatter: targetLabel,
+        show: !!input.backdrop && markerData.length > 0,
+        formatter: "{b}",
         position: "right",
         distance: 8,
         color: "#fff4d0",
@@ -413,10 +425,8 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
         borderWidth: 1,
       },
       labelLayout: { hideOverlap: false },
-      emphasis: { label: { show: true, formatter: targetLabel, color: "#fff4d0", position: "right", distance: 8 } },
-      data: input.flows.target
-        ? [{ name: targetLabel, value: input.flows.target, isTarget: true }]
-        : [],
+      emphasis: { label: { show: true, formatter: "{b}", color: "#fff4d0", position: "right", distance: 8 } },
+      data: markerData,
     },
     {
       id: "risk-map-same",
@@ -438,7 +448,7 @@ export function buildRiskMapOption(input: RiskMapOptionInput): EChartsCoreOption
   const detailText = detail
     ? `已叠加${detail.regionCode}的${detail.kind === "cities" ? "城市" : "一级行政区"}边界；细分统计仅按已核实编码匹配，未匹配项只保留文字排行。`
     : "";
-  const description = `${sourceName(input.kind)}请求数地图。${precision}${detailText}${cityLabels.length ? `仅在当前真实视口内显示${cityLabels.length}个已核实城市标签。` : ""}${unplaced ? `${unplaced} 条地域记录无本图边界，见文字列表。` : ""}${input.flows.target ? `金色标记为服务器${targetLabel}，飞线表示筛选期汇总，不是真实网络路径。` : "服务器目标无有效坐标，不绘制汇聚飞线。"}`;
+  const description = `${sourceName(input.kind)}请求数地图。${precision}${detailText}${cityLabels.length ? `仅在当前真实视口内显示${cityLabels.length}个已核实城市标签。` : ""}${unplaced ? `${unplaced} 条地域记录无本图边界，见文字列表。` : ""}${input.mapMarkers?.length ? "金色标记为已定位的地图服务器。" : input.flows.target ? `金色标记为服务器${targetLabel}，飞线表示筛选期汇总，不是真实网络路径。` : ""}`;
 
   return {
     animation: false,

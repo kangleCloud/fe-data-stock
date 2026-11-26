@@ -9,6 +9,7 @@ const props = defineProps<{
   accessibleLabel: string;
   kind: "china" | "world";
   height: string;
+  navigation?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -27,7 +28,7 @@ const initOptions = {
   renderer: "canvas" as const,
   devicePixelRatio: Math.min(typeof window === "undefined" ? 1 : window.devicePixelRatio || 1, 2),
 };
-const updateOptions = { notMerge: false, replaceMerge: ["series", "geo"], lazyUpdate: true };
+const updateOptions = computed(() => ({ notMerge: false, replaceMerge: ["series", "geo"], lazyUpdate: !props.navigation }));
 
 let resizeObserver: ResizeObserver | undefined;
 

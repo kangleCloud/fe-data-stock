@@ -1,0 +1,50 @@
+.risk-admin { display: grid; gap: 18px; color: var(--color-text); }
+.risk-admin-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.risk-admin-panel { min-width: 0; padding: 18px; }
+.risk-admin-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.risk-admin-toolbar h2 { margin: 0; color: var(--color-text); font-size: 16px; line-height: 1.4; }
+.risk-admin-actions, .risk-admin-row-actions, .risk-admin-form-actions, .risk-admin-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.risk-admin-button { min-height: 36px; padding: 7px 15px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; line-height: 1.4; transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast); }
+.risk-admin-button:hover:not(:disabled) { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-soft); }
+.risk-admin-button.is-primary { color: var(--color-surface); border-color: var(--color-primary); background: var(--color-primary); }
+.risk-admin-button.is-primary:hover:not(:disabled) { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+.risk-admin-button:disabled, .risk-admin-link:disabled { cursor: not-allowed; opacity: .5; }
+.risk-admin-link { padding: 5px 0; color: var(--color-primary); border: 0; background: transparent; cursor: pointer; font-size: 14px; }
+.risk-admin-link:hover:not(:disabled) { color: var(--color-primary-hover); }
+.risk-admin-table-wrap { max-width: 100%; overflow-x: auto; }
+.risk-admin-table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 14px; text-align: left; }
+.risk-admin-table th { padding: 12px; color: var(--color-text-secondary); background: var(--color-surface-subtle); font-weight: 600; white-space: nowrap; }
+.risk-admin-table td { padding: 12px; border-bottom: 1px solid var(--color-border); color: var(--color-text); overflow-wrap: anywhere; }
+.risk-admin-table td strong { font-weight: 600; }
+.risk-admin-table td small { display: block; margin-top: 2px; color: var(--color-text-secondary); font-size: 12px; }
+.risk-admin-tag { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 4px; color: var(--color-text-secondary); background: var(--color-surface-subtle); border: 1px solid var(--color-border); font-size: 12px; white-space: nowrap; }
+.risk-admin-tag.is-enabled { color: var(--color-success); background: var(--color-success-soft); border-color: var(--color-success-soft); }
+.risk-admin-empty { margin: 0; padding: 30px 12px; color: var(--color-text-secondary); text-align: center; font-size: 14px; }
+.risk-admin-pagination { justify-content: flex-end; padding-top: 16px; color: var(--color-text-secondary); font-size: 14px; }
+.risk-admin-alert { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; }
+.risk-admin-alert.is-error { color: var(--color-danger); background: var(--color-surface-subtle); }
+.risk-admin-alert.is-success { color: var(--color-success); background: var(--color-success-soft); }
+.risk-admin .config-form { display: grid; gap: 16px; margin-top: 20px; padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-subtle); }
+.risk-admin .config-form h3 { margin: 0; font-size: 15px; }
+.risk-admin-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+.risk-admin-form-grid label:not(.risk-admin-checkbox) { display: grid; align-content: start; gap: 6px; min-width: 0; color: var(--color-text); font-size: 14px; }
+.risk-admin-form-grid .el-select { width: 100%; }
+.risk-admin-form-grid input:not([type=checkbox]), .risk-admin-form-grid select { width: 100%; min-width: 0; min-height: 38px; padding: 8px 10px; color: var(--color-text); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface); }
+.risk-admin-form-grid label span, .risk-admin-form-note { margin: 0; color: var(--color-text-secondary); font-size: 13px; }
+.risk-admin-form-note { display: flex; align-items: center; }
+.risk-admin-checkbox { display: flex; align-items: center; gap: 8px; min-height: 38px; font-size: 14px; }
+.risk-admin-checkbox input { width: 16px; height: 16px; accent-color: var(--color-primary); }
+.risk-admin-sync { margin: 0; color: var(--color-text-secondary); font-size: 14px; overflow-wrap: anywhere; }
+.risk-resource-item { margin-top: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.risk-resource-item h3 { margin: 0; font-size: 14px; }
+.risk-resource-item p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: 13px; }
+.risk-resource-item dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.risk-resource-item dt { color: var(--color-text-secondary); font-size: 12px; }
+.risk-resource-item dd { margin: 3px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+.risk-resource-item ul { margin-bottom: 0; font-size: 13px; }
+@media (max-width: 767px) {
+  .risk-admin-toolbar { align-items: flex-start; flex-direction: column; }
+  .risk-admin-panel { padding: 16px; }
+  .risk-admin-form-grid, .risk-resource-item dl { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .risk-admin-button { transition: none; } }

@@ -17,26 +17,40 @@ export interface RiskDashboardTarget {
 export interface RiskResourceSummary {
   status: "SUCCEEDED" | "PARTIAL" | "FAILED" | null;
   freshness: "FRESH" | "STALE" | "UNAVAILABLE";
-  sampledAt: string | null;
+  sampledTime: string | null;
   cpuPercent: string | null;
   memoryUsedBytes: string | null;
   memoryTotalBytes: string | null;
   diskUsedBytes: string | null;
   diskTotalBytes: string | null;
+  networkReceiveBytesPerSecond: string | null;
+  networkTransmitBytesPerSecond: string | null;
 }
-export interface RiskConnection { host: string; port: number; username: string; credentialAlias: string }
+export interface RiskConnection { host: string; port: number; username: string; password?: string }
+export interface RiskManagedConnection { host: string; port: number; username: string; passwordConfigured: boolean }
 export interface RiskTargetInput {
-  targetId: string | null; version: string | null; alias: string; type: "LOCAL" | "REMOTE";
-  enabled: boolean; intervalSeconds: number; collectorId: string; logSourceId: string | null;
-  connection: RiskConnection | null; publicIp: string | null;
-  manualLocation: { regionCode: string; longitude: string; latitude: string } | null;
+  targetId: string | null; version: null; alias: string; type: "LOCAL" | "REMOTE";
+  enabled: boolean; intervalSeconds: number; collectorId: string;
+  connection: RiskConnection | null;
 }
-export interface RiskManagedTarget extends RiskTargetInput { targetId: string; version: string }
-export interface RiskConfigSync { configVersion: string | null; redisConfigVersion: string | null; status: "SYNCED" | "PENDING" | "FAILED"; stale: boolean; retryable: boolean; failureCode: string | null; lastSuccessAt: string | null }
+export interface RiskManagedTarget extends Omit<RiskTargetInput, "connection"> { targetId: string; connection: RiskManagedConnection | null }
+export interface RiskMapServerInput {
+  id: string | null; version: null; name: string; publicIp: string;
+  longitude: string | null; latitude: string | null; coordinateSystem: "WGS84" | "GCJ02" | null;
+  locationSource: "MANUAL" | "AMAP"; enabled: boolean;
+}
+export interface RiskMapServer extends RiskMapServerInput { id: string; locationStatus: "LOCATED" | "UNRESOLVED" }
+export type RiskDashboardMapServer = Omit<RiskMapServer, "publicIp">;
+export interface RiskConfigSync {
+  status: "SYNCED" | "PENDING" | "FAILED";
+  stale: boolean;
+  failureCode: string | null;
+  lastSuccessTime: string | null;
+}
 export interface RiskResourceCurrent {
   targetId: string;
   collectorId: string;
-  sampledAt: string | null;
+  sampledTime: string | null;
   status: "SUCCEEDED" | "PARTIAL" | "FAILED" | null;
   freshness: "FRESH" | "STALE" | "UNAVAILABLE";
   cpuPercent: string | null;

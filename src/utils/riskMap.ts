@@ -1,11 +1,25 @@
 import { riskMapSha256 } from "@/utils/riskMapChecksum";
 import assets from "@/data/riskMapAssets.json";
 export type RiskMapKind = "china" | "world";
+type RiskMapAssetKind = RiskMapKind | "chinaOutline" | "worldBackdrop";
 export interface RiskGeoFeature { type: "Feature"; properties: { name: string; label: string; code: string | null }; geometry: { type: "Polygon" | "MultiPolygon"; coordinates: unknown } }
 export interface RiskGeo { type: "FeatureCollection"; features: RiskGeoFeature[] }
 export interface RiskMapAsset { geo: RiskGeo; origin: "local" | "external" }
 interface Mapping { code: string | null; sourceCode: string; label: string }
+interface AssetEntry {
+  kind: string;
+  features: number;
+  idProperty: string;
+  codeProperty: string;
+  mapping: Record<string, Mapping>;
+  sha256: string;
+  localPath: string;
+  url?: string;
+  externalFallback?: boolean;
+  fallback?: AssetEntry;
+}
 export const riskMapAssets = assets;
+const entries = assets as unknown as readonly AssetEntry[];
 const aliases: Record<string, string> = Object.fromEntries([
   ["BJ", "11"], ["TJ", "12"], ["HE", "13"], ["SX", "14"], ["NM", "15"], ["LN", "21"], ["JL", "22"], ["HL", "23"], ["SH", "31"], ["JS", "32"], ["ZJ", "33"], ["AH", "34"], ["FJ", "35"], ["JX", "36"], ["SD", "37"], ["HA", "41"], ["HB", "42"], ["HN", "43"], ["GD", "44"], ["GX", "45"], ["HI", "46"], ["CQ", "50"], ["SC", "51"], ["GZ", "52"], ["YN", "53"], ["XZ", "54"], ["SN", "61"], ["GS", "62"], ["QH", "63"], ["NX", "64"], ["XJ", "65"],
 ].map(([alpha, numeric]) => [`CN-${alpha}`, `CN-${numeric}`]));
@@ -39,9 +53,12 @@ function ring(value: unknown): boolean {
 }
 function polygon(value: unknown): boolean { return Array.isArray(value) && value.length > 0 && value.every(ring); }
 /** 固定源ID->静态协议编码；绝不根据英文地名在运行时猜测。 */
-export function validateRiskGeo(kind: RiskMapKind, input: unknown): RiskGeo {
-  const asset = assets.find((item) => item.kind === kind)!;
-  const mapping = asset.mapping as unknown as Record<string, Mapping>;
+export function validateRiskGeo(kind: RiskMapAssetKind, input: unknown): RiskGeo {
+  return validateAssetGeo(entries.find((item) => item.kind === kind)!, input);
+}
+
+function validateAssetGeo(asset: AssetEntry, input: unknown): RiskGeo {
+  const mapping = asset.mapping;
   if (!object(input) || input.type !== "FeatureCollection" || !Array.isArray(input.features) || input.features.length !== asset.features) throw new Error("MAP_STRUCTURE");
   const seen = new Set<string>();
   const features = input.features.map((feature): RiskGeoFeature => {
@@ -62,9 +79,9 @@ export function validateRiskGeo(kind: RiskMapKind, input: unknown): RiskGeo {
 /** 每个页面实例各建一个加载器，缓存成功与失败Promise；切换和统计刷新不重复下载。 */
 export function createRiskMapLoader(options: { baseUrl?: string; fetcher?: typeof fetch; externalFallback?: boolean } = {}) {
   const controller = new AbortController();
-  const cache = new Map<RiskMapKind, Promise<RiskMapAsset>>();
+  const cache = new Map<RiskMapAssetKind, Promise<RiskMapAsset>>();
   const fetcher = options.fetcher ?? ((...args) => fetch(...args));
-  async function attempt(kind: RiskMapKind, url: string): Promise<RiskGeo> {
+  async function attempt(asset: AssetEntry, url: string): Promise<RiskGeo> {
     const child = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let onAbort: () => void = () => undefined;
@@ -80,22 +97,25 @@ export function createRiskMapLoader(options: { baseUrl?: string; fetcher?: typeo
         if (!response.ok) throw new Error("MAP_HTTP");
         const text = await response.text();
         const sha = await riskMapSha256(text);
-        if (sha !== assets.find((asset) => asset.kind === kind)!.sha256) throw new Error("MAP_CHECKSUM");
-        return validateRiskGeo(kind, JSON.parse(text));
+        if (sha !== asset.sha256) throw new Error("MAP_CHECKSUM");
+        return validateAssetGeo(asset, JSON.parse(text));
       })()]);
     } finally { clearTimeout(timer); controller.signal.removeEventListener("abort", onAbort); }
   }
   return {
-    load(kind: RiskMapKind): Promise<RiskMapAsset> {
+    load(kind: RiskMapAssetKind): Promise<RiskMapAsset> {
       if (controller.signal.aborted) return Promise.reject(new Error("MAP_ABORTED"));
       const existing = cache.get(kind); if (existing) return existing;
-      const asset = assets.find((item) => item.kind === kind)!;
+      const asset = entries.find((item) => item.kind === kind);
+      if (!asset) return Promise.reject(new Error("MAP_ASSET_MISSING"));
+      const local = (entry: AssetEntry) => attempt(entry, `${(options.baseUrl ?? import.meta.env.BASE_URL).replace(/\/?$/, "/")}${entry.localPath}`);
       const promise = (async (): Promise<RiskMapAsset> => {
-        try { return { geo: await attempt(kind, `${(options.baseUrl ?? import.meta.env.BASE_URL).replace(/\/?$/, "/")}${asset.localPath}`), origin: "local" }; }
+        try { return { geo: await local(asset), origin: "local" }; }
         catch {
           if (controller.signal.aborted) throw new Error("MAP_ABORTED");
-          if (options.externalFallback === false) throw new Error("MAP_LOCAL_UNAVAILABLE");
-          return { geo: await attempt(kind, asset.url), origin: "external" };
+          if (asset.fallback) return { geo: await local(asset.fallback), origin: "local" };
+          if (options.externalFallback === false || asset.externalFallback === false || !asset.url) throw new Error("MAP_LOCAL_UNAVAILABLE");
+          return { geo: await attempt(asset, asset.url), origin: "external" };
         }
       })();
       cache.set(kind, promise); return promise;
@@ -103,8 +123,15 @@ export function createRiskMapLoader(options: { baseUrl?: string; fetcher?: typeo
     stop() { controller.abort(); cache.clear(); },
   };
 }
+export function riskMapCodes(geo: RiskGeo): Set<string> {
+  return new Set(geo.features.flatMap(feature => feature.properties.code ? [feature.properties.code] : []));
+}
+
 export function riskMapCounts(kind: RiskMapKind, rows: { regionCode: string; requestCount: string }[], geo: RiskGeo) {
-  const geometryCodes = new Set(geo.features.flatMap((feature) => feature.properties.code ? [feature.properties.code] : []));
+  return countMappedRegions(kind, rows, riskMapCodes(geo));
+}
+
+function countMappedRegions(kind: RiskMapKind, rows: { regionCode: string; requestCount: string }[], geometryCodes: ReadonlySet<string>) {
   const totals = new Map<string, bigint>();
   const unplaced: { regionCode: string; requestCount: string; reason: string }[] = [];
   for (const row of rows) {
@@ -116,4 +143,18 @@ export function riskMapCounts(kind: RiskMapKind, rows: { regionCode: string; req
   }
   const exact = Array.from(totals, ([name, count]) => ({ name, count: count.toString() }));
   return { exact, unplaced, safe: exact.every((item) => BigInt(item.count) <= BigInt(Number.MAX_SAFE_INTEGER)) };
+}
+
+export function riskMapRanking(kind: RiskMapKind, rows: { regionCode: string; requestCount: string }[], loadedCodes?: ReadonlySet<string>) {
+  const asset = entries.find((item) => item.kind === kind)!;
+  const codes = loadedCodes ?? new Set(Object.values(asset.mapping).flatMap(({ code }) => code ? [code] : []));
+  return countMappedRegions(kind, rows, codes).exact
+    .filter(row => BigInt(row.count) > 0n)
+    .sort((a, b) => compareRiskMapCounts(b.count, a.count) || a.name.localeCompare(b.name));
+}
+
+export function compareRiskMapCounts(a: string, b: string) {
+  const left = BigInt(a);
+  const right = BigInt(b);
+  return left < right ? -1 : left > right ? 1 : 0;
 }
