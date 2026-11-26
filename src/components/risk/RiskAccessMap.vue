@@ -306,11 +306,11 @@ function buildLayers() {
     .color("color")
     .style({ opacity: 0.72, thetaOffset: FLOW_THETA });
 
-  flowPulseLayer = new packages.LineLayer({ ...layerOptions, blend: "additive", visible: false, enablePicking: false })
+  flowPulseLayer = new packages.LineLayer({ ...layerOptions, blend: "normal", visible: false, enablePicking: false })
     .source(flowData(), flowSource)
     .shape("arc")
     .size(4.5)
-    .color("#e8ffff")
+    .color("#ff8e99")
     .style({ opacity: 1, thetaOffset: FLOW_THETA });
   configureFlowAnimation(true);
 
