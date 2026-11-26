@@ -7,7 +7,14 @@ export interface RiskInterface extends RiskTotals { method: string; pathTemplate
 export interface RiskSource extends RiskTotals { sourceIp: string | null; regionCode: string; countryCode: string | null; provinceCode: string | null; provinceName: string | null; cityCode: string | null; cityName: string | null }
 export interface RiskException { minuteTime: string; method: string; pathTemplate: string; sourceIp: string | null; httpStatus: number; regionCode: string; requestCount: string }
 interface RiskErrorCounts { http4xxCount: RiskCount; http5xxCount: RiskCount }
-export interface RiskQpsSample { minuteTime: string; requestCount: RiskCount; value: string }
+export interface RiskQpsSample { minuteTime: string; requestCount: RiskCount; value: RiskCount }
+export interface RiskQps {
+  minuteTime: string | null;
+  requestCount: RiskCount | null;
+  value: RiskCount | null;
+  coverageStatus: "PARTIAL" | "UNAVAILABLE";
+  samples: RiskQpsSample[];
+}
 export interface RiskDashboard {
   metrics: RiskTotals & RiskErrorCounts & { sourceCount: RiskCount; interfaceCount: RiskCount; http4xxRate: string | null; http5xxRate: string | null };
   trendBucketMinutes: 15 | 360 | 1440;
@@ -19,7 +26,6 @@ export interface RiskDashboard {
   targets?: import("@/types/riskMonitor").RiskDashboardTarget[];
   mapServers?: import("@/types/riskMonitor").RiskDashboardMapServer[];
   requestTypes?: { requestType: "API" | "PAGE" | "STATIC" | "OTHER"; requestCount: string }[];
-  qps: { value: string | null; minuteTime: string | null; requestCount: RiskCount | null; coverageStatus: "PARTIAL" | "UNAVAILABLE"; samples: RiskQpsSample[] };
   coverage?: { status: string; coverageStartTime: string | null; incomplete: boolean };
   suspiciousAccesses?: { coverageStatus: string; windowStartTime: string | null; windowEndTime: string | null; totalCount: string; items: { sourceIp: string; failureCount: string }[] };
   metadata: { generatedTime: string | null; dataUpdatedTime: string | null; collectorHeartbeatTime: string | null; lastEventTime: string | null; lagSeconds: string | null; unknownRegionRequestCount: RiskCount; internalRegionRequestCount: RiskCount; completeness: "READY" | "EMPTY" | "PARTIAL" | "UNAVAILABLE"; warnings: string[] };

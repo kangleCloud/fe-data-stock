@@ -38,6 +38,8 @@ export function createRiskPolling<T>(options: {
   }
   return {
     refresh,
+    poll() { if (!running) void refresh(); },
+    discard() { revision++; pending = false; },
     invalidate() { revision++; void refresh(); },
     visibilityChanged() { revision++; clear(); if (options.visible()) void refresh(); },
     stop() { stopped = true; revision++; pending = false; clear(); },

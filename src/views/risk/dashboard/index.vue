@@ -18,7 +18,7 @@ import { riskConfigPermission } from "@/utils/riskServer";
 import { geoObservationSections } from "@/utils/geoObservation";
 import { riskCount, riskPreset, riskRate, riskRegion } from "@/utils/risk";
 import { riskCountPercent, riskCountRatio } from "@/utils/riskBars";
-import { riskMinuteRequests, riskSparkline } from "@/utils/riskDashboardVisual";
+import { riskMinuteQps, riskSparkline } from "@/utils/riskDashboardVisual";
 import { riskTime } from "@/utils/riskTime";
 import "@/styles/risk.css";
 const screenRef = ref<HTMLElement>();
@@ -38,7 +38,7 @@ function escapeFullscreen(event: KeyboardEvent) { if (event.key === "Escape" && 
 onMounted(() => { document.addEventListener("fullscreenchange", syncFullscreen); document.addEventListener("keydown", escapeFullscreen); });
 onBeforeUnmount(() => { document.removeEventListener("fullscreenchange", syncFullscreen); document.removeEventListener("keydown", escapeFullscreen); if (document.fullscreenElement === screenRef.value) void document.exitFullscreen().catch(() => undefined); });
 const state = useRiskDashboard();
-const { drawer, filters, dashboard, allowed, validation, error, loading, refresh, drilldown, activeTab, pageNum, pageSize, details, detailError, detailLoading, refreshDetails, exceptionAllowed, geoObservation, geoError, geoUpdatedTime } = state;
+const { drawer, filters, dashboard, qps, allowed, validation, error, loading, refresh, drilldown, activeTab, pageNum, pageSize, details, detailError, detailLoading, refreshDetails, exceptionAllowed, geoObservation, geoError, geoUpdatedTime } = state;
 const configAllowed = computed(() => riskConfigPermission(useAuthStore().permissionCodes, "view"));
 const presetDay = ref(new Date());
 const datePresets = computed(() => ([
@@ -121,7 +121,7 @@ const requestTypeOption = computed<EChartsCoreOption>(() => ({
     data: requestTypes.value.map(row => ({ name: row.label, value: riskCountRatio(row.count, classifiedTotal.value) })),
   }],
 }));
-const minuteRequests = computed(() => riskMinuteRequests(dashboard.value?.qps));
+const minuteQps = computed(() => riskMinuteQps(qps.value));
 interface RiskKpiCard {
   label: string;
   value: string;
@@ -142,7 +142,7 @@ const cards = computed<RiskKpiCard[]>(() => {
   return [
     { label: "请求总量", value: riskCount(metrics?.requestCount), icon: Collection, line: history(row => Number(row.requestCount)) },
     { label: "API 请求", value: riskCount(api?.requestCount ?? (metrics ? "0" : undefined)), icon: DataAnalysis, line: history(row => Number(row.apiRequestCount)) },
-    { label: "最近入库分钟请求数", ...minuteRequests.value, icon: TrendCharts },
+    { label: "每分钟请求 QPS", ...minuteQps.value, icon: TrendCharts },
     { label: "独立来源 IP", value: riskCount(metrics?.sourceCount), icon: Connection, line: history(row => Number(row.sourceCount)) },
     { label: "4xx 请求占比", value: riskRate(metrics?.http4xxRate ?? null), icon: Warning, danger: true, line: history(row => rate(row.http4xxCount, row.requestCount)) },
     { label: "5xx 请求占比", value: riskRate(metrics?.http5xxRate ?? null), icon: WarningFilled, danger: true, line: history(row => rate(row.http5xxCount, row.requestCount)) },
@@ -282,7 +282,7 @@ const columns = computed(() => activeTab.value === "interfaces" ? [['method','�
         <dl class="access-status-summary">
           <div><dt>完整性</dt><dd :class="dashboard?.metadata.completeness === 'READY' ? 'is-ready' : 'is-warning'">{{ dashboard ? completenessLabels[dashboard.metadata.completeness] : '—' }}</dd></div>
           <div><dt>采集延迟</dt><dd>{{ delayText(dashboard?.metadata.lagSeconds) }}</dd></div>
-          <div><dt>最近入库分钟请求数</dt><dd>{{ minuteRequests.value }}<template v-if="minuteRequests.description"> · {{ minuteRequests.description }}</template></dd></div>
+          <div><dt>每分钟请求 QPS</dt><dd>{{ minuteQps.value }} · {{ minuteQps.description }}</dd></div>
           <div><dt>统计覆盖</dt><dd>{{ coverageText(dashboard?.coverage?.status) }}</dd></div>
           <div><dt>成功请求</dt><dd>{{ riskCount(dashboard?.metrics.successCount) }}</dd></div>
           <div><dt>地域未识别请求</dt><dd>{{ riskCount(dashboard?.metadata.unknownRegionRequestCount) }}</dd></div>

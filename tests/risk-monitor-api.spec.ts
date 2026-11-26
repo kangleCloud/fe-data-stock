@@ -1,11 +1,11 @@
 import { afterEach, expect, it } from "vitest";
 import { AxiosHeaders } from "axios";
 import { httpClient } from "@/utils/request";
-import { enableRiskMapServer, getRiskMapServers, saveRiskMapServer, saveRiskTarget } from "@/api/riskMonitor";
+import { enableRiskMapServer, enableRiskTarget, getRiskMapServers, saveRiskMapServer, saveRiskTarget } from "@/api/riskMonitor";
 
 const adapter = httpClient.defaults.adapter;
 afterEach(() => { httpClient.defaults.adapter = adapter; });
-it("uses separate map and monitor API contracts", async () => {
+it("uses separate map and monitor API contracts with null versions", async () => {
   const calls: { url?: string; method?: string; data: unknown }[] = [];
   httpClient.defaults.adapter = async config => {
     calls.push({ url: config.url, method: config.method, data: config.data ? JSON.parse(config.data) : undefined });
@@ -13,9 +13,16 @@ it("uses separate map and monitor API contracts", async () => {
   };
   await getRiskMapServers();
   const map = { id: null, version: null, name: "代理", publicIp: "198.51.100.1", longitude: null, latitude: null, coordinateSystem: null, locationSource: "AMAP" as const, enabled: true };
-  await saveRiskMapServer(map); await enableRiskMapServer({ id: "1", version: "2", enabled: false });
+  await saveRiskMapServer(map); await enableRiskMapServer({ id: "1", version: null, enabled: false });
   const monitor = { targetId: null, version: null, alias: "主机", type: "REMOTE" as const, enabled: true, intervalSeconds: 30, collectorId: "collector", connection: { host: "example.internal", port: 22, username: "monitor", password: "test-only" } };
   await saveRiskTarget(monitor);
-  expect(calls.map(call => [call.method, call.url])).toEqual([["get", "/risk/map-servers/list"], ["post", "/risk/map-servers/save"], ["post", "/risk/map-servers/enable"], ["post", "/risk/targets/save"]]);
-  expect(calls[1]?.data).toEqual(map); expect(calls[3]?.data).toEqual(monitor);
+  await enableRiskTarget({ targetId: "2", version: null, enabled: false });
+
+  expect(calls).toEqual([
+    { method: "get", url: "/risk/map-servers/list", data: undefined },
+    { method: "post", url: "/risk/map-servers/save", data: map },
+    { method: "post", url: "/risk/map-servers/enable", data: { id: "1", version: null, enabled: false } },
+    { method: "post", url: "/risk/targets/save", data: monitor },
+    { method: "post", url: "/risk/targets/enable", data: { targetId: "2", version: null, enabled: false } },
+  ]);
 });

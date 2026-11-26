@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { getRiskDashboard } from "@/api/risk";
-import type { RiskDashboard } from "@/types/risk";
+import { getRiskDashboard, getRiskQps } from "@/api/risk";
+import type { RiskDashboard, RiskQps } from "@/types/risk";
 import type { RiskDashboardMapServer } from "@/types/riskMonitor";
 import { riskAccessTargetFlows, type RiskAccessHeatPoint } from "@/utils/riskAccessMap";
-import { riskMinuteRequests, riskNetworkMbps, riskSparkline } from "@/utils/riskDashboardVisual";
+import { riskMinuteQps, riskNetworkMbps, riskSparkline } from "@/utils/riskDashboardVisual";
 import { riskMapRanking, type RiskGeo } from "@/utils/riskMap";
 
 const request = vi.hoisted(() => vi.fn());
@@ -11,45 +11,57 @@ vi.mock("@/utils/request", () => ({ request }));
 
 const minuteTime = "2026-11-06T19:30:00+08:00";
 const query = { startDate: "2026-11-01", endDate: "2026-11-06" };
-const sample = { minuteTime, requestCount: "600", value: "10.000000" };
+const sample = { minuteTime, requestCount: "120", value: "2" };
+const unavailableQps: RiskQps = { minuteTime: null, requestCount: null, value: null, coverageStatus: "UNAVAILABLE", samples: [] };
 const dashboard: RiskDashboard = {
   metrics: { requestCount: "10", successCount: "4", failureCount: "3", otherCount: "3", failureRate: "0.428571",
     sourceCount: "3", interfaceCount: "1", http4xxCount: "2", http5xxCount: "1", http4xxRate: "0.200000", http5xxRate: "0.100000" },
   trendBucketMinutes: 360,
   trend: [{ minuteTime, requestCount: "10", apiRequestCount: "4", sourceCount: "3", successCount: "4", failureCount: "3", otherCount: "3", http4xxCount: "2", http5xxCount: "1" }],
   statuses: [], regions: [], topInterfaces: [], topSources: [],
-  qps: { ...sample, value: null, coverageStatus: "PARTIAL", samples: [sample] },
   metadata: { generatedTime: minuteTime, dataUpdatedTime: minuteTime, collectorHeartbeatTime: minuteTime, lastEventTime: minuteTime,
     lagSeconds: "0", unknownRegionRequestCount: "1", internalRegionRequestCount: "2", completeness: "PARTIAL", warnings: [] },
 };
 
 describe("大屏统计契约", () => {
-  it("展示入库分钟请求数、采样时间和覆盖提示，并保留缺失分钟", () => {
-    const latest = { minuteTime: "2026-11-06T19:32:00+08:00", requestCount: "128", value: "2.133333" };
-    const earlier = { ...sample, requestCount: "64", value: latest.value };
-    expect(riskMinuteRequests({ ...latest, value: null, coverageStatus: "PARTIAL", samples: [earlier, latest] })).toEqual({
-      value: "128 次/分钟",
-      description: "19:32 · 部分覆盖",
+  it("展示整数 QPS、原始请求数和覆盖提示，并保留缺失分钟", () => {
+    const latest = { minuteTime: "2026-11-06T19:32:00+08:00", requestCount: "128", value: "2" };
+    const earlier = { ...sample, requestCount: "64", value: "1" };
+    expect(riskMinuteQps({ ...latest, coverageStatus: "PARTIAL", samples: [earlier, latest] })).toEqual({
+      value: "2 QPS",
+      description: "19:32 · 128 次 · 部分覆盖",
       path: "M1.0,21.0 h-0.01 M63.0,3.0 h-0.01",
     });
-    expect(riskMinuteRequests({ minuteTime: null, requestCount: null, value: null, coverageStatus: "UNAVAILABLE", samples: [] }))
-      .toEqual({ value: "—", path: "" });
+    const quiet = { ...sample, requestCount: "0", value: "0" };
+    expect(riskMinuteQps({ ...quiet, coverageStatus: "PARTIAL", samples: [quiet] }))
+      .toMatchObject({ value: "0 QPS", description: "19:30 · 0 次 · 部分覆盖" });
+    expect(riskMinuteQps({ ...unavailableQps, samples: [earlier] }))
+      .toEqual({ value: "—", description: "暂无采集样本", path: "" });
+    const previous = { ...latest, minuteTime: "2026-11-06T19:31:00+08:00" };
+    expect(riskMinuteQps({ ...unavailableQps, samples: [earlier, previous] }))
+      .toEqual({ value: "—", description: "暂无采集样本", path: "M1.0,21.0 L32.0,3.0" });
   });
 
-  it("接收历史日期范围与当前部分覆盖的分钟 QPS", async () => {
+  it("历史统计和当前 QPS 使用不同请求，QPS 不传历史筛选", async () => {
     request.mockResolvedValueOnce(dashboard);
     const result = await getRiskDashboard(query);
     expect(result.metrics.http4xxRate).toBe("0.200000");
-    expect(result.qps).toEqual({ ...sample, value: null, coverageStatus: "PARTIAL", samples: [sample] });
-    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ params: query }));
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ url: "/risk/dashboard", params: query }));
+    const live = { ...sample, coverageStatus: "PARTIAL", samples: [sample] };
+    request.mockResolvedValueOnce(live);
+    await expect(getRiskQps()).resolves.toEqual(live);
+    expect(request).toHaveBeenLastCalledWith({ url: "/risk/qps", method: "GET", silentError: true });
   });
 
-  it("保留缺失 QPS，并拒绝与采样不一致的值", async () => {
-    const empty = { minuteTime: null, requestCount: null, value: null, coverageStatus: "UNAVAILABLE", samples: [] };
-    request.mockResolvedValueOnce({ ...dashboard, qps: empty });
-    await expect(getRiskDashboard(query)).resolves.toMatchObject({ qps: empty });
-    request.mockResolvedValueOnce({ ...dashboard, qps: { ...dashboard.qps, value: "0.000000" } });
-    await expect(getRiskDashboard(query)).rejects.toThrow("RISK_QPS_INVALID");
+  it("接受上一分钟缺失但仍有较早样本，拒绝不一致或非整数 QPS", async () => {
+    const absent = { ...unavailableQps, samples: [sample] };
+    request.mockResolvedValueOnce(absent);
+    await expect(getRiskQps()).resolves.toEqual(absent);
+    request.mockResolvedValueOnce({ ...sample, coverageStatus: "PARTIAL", value: "0", samples: [sample] });
+    await expect(getRiskQps()).rejects.toThrow("RISK_QPS_INVALID");
+    const nonInteger = { ...sample, value: "2.000000" };
+    request.mockResolvedValueOnce({ ...nonInteger, coverageStatus: "PARTIAL", samples: [nonInteger] });
+    await expect(getRiskQps()).rejects.toThrow("RISK_QPS_INVALID");
   });
 });
 
@@ -69,7 +81,7 @@ describe("地域排行、飞线与资源展示", () => {
   });
 
   it("取最大的十二条正值并汇聚至唯一有效入口", () => {
-    const entrance: RiskDashboardMapServer = { id: "1", version: "1", name: "入口", enabled: true, longitude: "120", latitude: "30", coordinateSystem: "WGS84", locationSource: "MANUAL", locationStatus: "LOCATED" };
+    const entrance: RiskDashboardMapServer = { id: "1", version: null, name: "入口", enabled: true, longitude: "120", latitude: "30", coordinateSystem: "WGS84", locationSource: "MANUAL", locationStatus: "LOCATED" };
     const geo: RiskGeo = { type: "FeatureCollection", features: [] };
     const sources: RiskAccessHeatPoint[] = Array.from({ length: 15 }, (_, index) => ({ lng: index, lat: 30 + index, count: String(index), value: index / 14, code: `place${index}`, label: String(index) }));
     const result = riskAccessTargetFlows("world", geo, [entrance], sources);

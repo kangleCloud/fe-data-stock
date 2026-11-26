@@ -2,10 +2,10 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vu
 import { useGeoDrilldown } from "@/composables/useGeoDrilldown";
 import { getGeoObservation } from "@/api/geoObservation";
 import type { GeoObservation } from "@/types/geoObservation";
-import { getRiskSources, getRiskDashboard, getRiskExceptions, getRiskInterfaces } from "@/api/risk";
+import { getRiskSources, getRiskDashboard, getRiskExceptions, getRiskInterfaces, getRiskQps } from "@/api/risk";
 import { useAuthStore } from "@/stores/auth";
 import type { PageResponse } from "@/types/api";
-import type { RiskSource, RiskDashboard, RiskException, RiskInterface, RiskQuery } from "@/types/risk";
+import type { RiskSource, RiskDashboard, RiskException, RiskInterface, RiskQps, RiskQuery } from "@/types/risk";
 import { riskPermission, riskPreset, shanghaiDate, validateRiskDates } from "@/utils/risk";
 import { createRiskPolling } from "@/utils/riskPolling";
 
@@ -22,6 +22,7 @@ export function useRiskDashboard() {
   const geoError = ref(false);
   const geoUpdatedTime = ref<string>();
   const dashboard = shallowRef<RiskDashboard>();
+  const qps = shallowRef<RiskQps>();
   const acceptedFilters = ref("");
   const error = ref("");
   const loading = ref(false);
@@ -36,6 +37,12 @@ export function useRiskDashboard() {
   const visible = () => document.visibilityState !== "hidden";
   const queryLabel = () => JSON.stringify(filters.value);
   const detailPermitted = () => allowed.value && (activeTab.value !== "exceptions" || exceptionAllowed.value);
+  const qpsPoll = createRiskPolling({
+    visible: () => visible() && allowed.value,
+    load: getRiskQps,
+    accept: sample => { qps.value = sample; },
+    reject: () => { qps.value = undefined; },
+  });
   const summaryPoll = createRiskPolling({
     visible: () => visible() && allowed.value && !validation.value,
     load: async () => {
@@ -83,8 +90,24 @@ export function useRiskDashboard() {
     currentDay.value = shanghaiDate();
     filters.value = { ...filters.value, startDate, endDate };
   }
-  function refresh() { syncDay(); void summaryPoll.refresh(); void detailPoll.refresh(); }
-  function visibilityChanged() { syncDay(); summaryPoll.visibilityChanged(); detailPoll.visibilityChanged(); drilldown.visibilityChanged(); }
+  function refresh() {
+    syncDay();
+    void summaryPoll.refresh();
+    void detailPoll.refresh();
+    void qpsPoll.refresh();
+  }
+  function visibilityChanged() {
+    syncDay();
+    if (!visible()) qps.value = undefined;
+    summaryPoll.visibilityChanged();
+    detailPoll.visibilityChanged();
+    qpsPoll.visibilityChanged();
+    drilldown.visibilityChanged();
+  }
+  watch(allowed, permitted => {
+    if (!permitted) qps.value = undefined;
+    qpsPoll.visibilityChanged();
+  });
   watch([filters, allowed], () => {
     pageNum.value = 1;
     summaryPoll.invalidate();
@@ -98,6 +121,11 @@ export function useRiskDashboard() {
     detailPoll.invalidate();
   });
   onMounted(() => { document.addEventListener("visibilitychange", visibilityChanged); refresh(); });
-  onBeforeUnmount(() => { document.removeEventListener("visibilitychange", visibilityChanged); summaryPoll.stop(); detailPoll.stop(); });
-  return { drawer, drilldown, geoObservation, geoError, geoUpdatedTime, allowed, exceptionAllowed, filters, validation, dashboard, acceptedFilters, queryLabel, error, loading, activeTab, pageNum, pageSize, details, detailSnapshot, detailError, detailLoading, refresh, syncDay, preset, manualRange: () => { activePreset.value = undefined; }, refreshDetails: () => { syncDay(); void detailPoll.refresh(); } };
+  onBeforeUnmount(() => {
+    document.removeEventListener("visibilitychange", visibilityChanged);
+    summaryPoll.stop();
+    detailPoll.stop();
+    qpsPoll.stop();
+  });
+  return { drawer, drilldown, geoObservation, geoError, geoUpdatedTime, allowed, exceptionAllowed, filters, validation, dashboard, qps, acceptedFilters, queryLabel, error, loading, activeTab, pageNum, pageSize, details, detailSnapshot, detailError, detailLoading, refresh, syncDay, preset, manualRange: () => { activePreset.value = undefined; }, refreshDetails: () => { syncDay(); void detailPoll.refresh(); } };
 }

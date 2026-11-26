@@ -1,4 +1,4 @@
-import type { RiskDashboard } from "@/types/risk";
+import type { RiskQps, RiskQpsSample } from "@/types/risk";
 import { riskCount } from "@/utils/risk";
 import { riskTime } from "@/utils/riskTime";
 
@@ -29,27 +29,36 @@ export function riskNetworkMbps(bytesPerSecond: string | null | undefined): stri
   return `${value > 0 && value < 0.01 ? "<0.01" : Number(value.toFixed(2)).toLocaleString("en-US")} Mbps`;
 }
 
-export function riskMinuteRequests(qps?: RiskDashboard["qps"]) {
-  if (qps?.requestCount == null || !qps.minuteTime) return { value: "—", path: "" };
-
-  const latest = Date.parse(qps.minuteTime);
-  const points = qps.samples.map(sample => ({ time: Date.parse(sample.minuteTime), count: Number(sample.requestCount) }));
-  const counts = points.map(point => point.count);
-  const minimum = Math.min(...counts);
-  const span = Math.max(...counts) - minimum;
-  const path = points.map((point, index) => {
+function qpsSparkline(samples: RiskQpsSample[], latest: number): string {
+  const points = samples.map(sample => ({ time: Date.parse(sample.minuteTime), value: Number(sample.value) }));
+  const values = points.map(point => point.value);
+  const minimum = Math.min(...values);
+  const span = Math.max(...values) - minimum;
+  return points.map((point, index) => {
     const x = 63 - 31 * (latest - point.time) / 60_000;
-    const y = span > 0 ? 21 - 18 * (point.count - minimum) / span : 12;
+    const y = span > 0 ? 21 - 18 * (point.value - minimum) / span : 12;
     const joinsPrevious = point.time - (points[index - 1]?.time ?? -Infinity) === 60_000;
     const joinsNext = (points[index + 1]?.time ?? Infinity) - point.time === 60_000;
     // A short stroke renders isolated samples without connecting across a missing minute.
     const dot = !joinsPrevious && !joinsNext ? " h-0.01" : "";
     return `${joinsPrevious ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}${dot}`;
   }).join(" ");
+}
+
+export function riskMinuteQps(qps?: RiskQps) {
+  if (qps?.value == null || qps.requestCount == null || qps.minuteTime == null) {
+    const [earlier, later] = qps?.samples ?? [];
+    const laterTime = later ? Date.parse(later.minuteTime) : NaN;
+    // 两个连续旧样本能确定它们在三分钟窗口中的位置，右侧留给缺失的上一分钟。
+    const path = qps && earlier && laterTime - Date.parse(earlier.minuteTime) === 60_000
+      ? qpsSparkline(qps.samples, laterTime + 60_000)
+      : "";
+    return { value: "—", description: "暂无采集样本", path };
+  }
 
   return {
-    value: `${riskCount(qps.requestCount)} 次/分钟`,
-    description: `${riskTime(qps.minuteTime, "axis")} · 部分覆盖`,
-    path,
+    value: `${riskCount(qps.value)} QPS`,
+    description: `${riskTime(qps.minuteTime, "axis")} · ${riskCount(qps.requestCount)} 次 · 部分覆盖`,
+    path: qpsSparkline(qps.samples, Date.parse(qps.minuteTime)),
   };
 }
